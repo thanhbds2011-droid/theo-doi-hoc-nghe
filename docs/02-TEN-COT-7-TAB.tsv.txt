@@ -1,0 +1,31 @@
+TÊN TAB VÀ TIÊU ĐỀ TIẾNG VIỆT — DÙNG CHO GOOGLE SHEETS
+Không tự đổi thứ tự cột; khóa kỹ thuật vẫn giữ trong Apps Script.
+
+TAB: Hồ sơ học nghề
+MÃ NỘI BỘ: HO_SO_HOC_NGHE
+CỘT: Mã hồ sơ	Mã người học	Họ và tên	Ngày sinh	Giới tính	Số quyết định	Năm quyết định	Khóa kiểm tra trùng	Ngày quyết định	Mã cơ sở đào tạo	Mã nghề	Ngày bắt đầu	Ngày kết thúc dự kiến	Tình trạng tham gia	Đã bỏ học	Ngày bỏ học	Mã lý do bỏ học	Ghi chú	Mã tệp Google Drive	Trạng thái hồ sơ	Thời gian tạo	Người tạo	Thời gian cập nhật	Người cập nhật	Phiên bản hồ sơ
+
+TAB: Danh mục cơ sở đào tạo
+MÃ NỘI BỘ: DANH_MUC_TRUONG
+CỘT: Mã định danh cơ sở	Mã cơ sở	Tên cơ sở đào tạo	Tên viết tắt	Địa chỉ	Trạng thái sử dụng	Ghi chú	Thời gian tạo	Thời gian cập nhật
+
+TAB: Danh mục nghề
+MÃ NỘI BỘ: DANH_MUC_NGHE
+CỘT: Mã định danh nghề	Mã nghề	Tên nghề	Trạng thái sử dụng	Thứ tự hiển thị	Ghi chú	Thời gian tạo	Thời gian cập nhật
+
+TAB: Danh mục lý do bỏ học
+MÃ NỘI BỘ: DANH_MUC_LY_DO
+CỘT: Mã định danh lý do	Mã lý do	Nội dung lý do bỏ học	Trạng thái sử dụng	Thứ tự hiển thị	Ghi chú	Thời gian tạo	Thời gian cập nhật
+
+TAB: Tài khoản người dùng
+MÃ NỘI BỘ: TAI_KHOAN
+CỘT: Mã tài khoản	Email Google	Định danh Google	Họ và tên	Vai trò	Quyền được cấp	Trạng thái tài khoản	Thời gian tạo	Người tạo	Thời gian cập nhật	Người cập nhật	Đăng nhập gần nhất
+
+TAB: Nhật ký thay đổi
+MÃ NỘI BỘ: NHAT_KY
+CỘT: Mã nhật ký	Thời gian thao tác	Mã tài khoản	Email người thao tác	Hành động	Loại dữ liệu	Mã bản ghi	Nội dung thay đổi	Kết quả	Mã yêu cầu
+
+TAB: Cấu hình hệ thống
+MÃ NỘI BỘ: CAU_HINH
+CỘT: Khóa cấu hình	Giá trị cấu hình	Kiểu dữ liệu	Nhóm cấu hình	Mô tả	Thời gian cập nhật	Người cập nhật
+
