@@ -1,4 +1,4 @@
-# THEO DÕI HỌC NGHỀ — v1.1.0-RC
+# THEO DÕI HỌC NGHỀ — v1.1.1-RC (Giao diện YC-HN-005)
 
 Phần mềm quản lý hồ sơ học nghề độc lập. **Người dùng cuối thao tác trên website**, không cần truy cập Google Sheets, GitHub, Apps Script hoặc Vercel Dashboard.
 
@@ -6,7 +6,17 @@ Phần mềm quản lý hồ sơ học nghề độc lập. **Người dùng cu�
 
 HTML/CSS/JavaScript (giao diện) → Vercel API proxy (Google ID Token → HMAC) → Google Apps Script (nghiệp vụ/phân quyền) → Google Sheets (7 tab, 79 cột) và Google Drive (tệp đính kèm). Không có Firebase/Firestore.
 
-## Đã bổ sung trong bản v1.1.0-RC
+## Giao diện YC-HN-005 (v1.1.1-RC)
+
+- Trang Tổng quan: banner gọn, bộ lọc, sáu KPI bố trí 3 cột × 2 hàng, hai bảng theo cơ sở/nghề, **không có biểu đồ tổng hợp lặp lại**.
+- Báo cáo: bảng rộng, số liệu căn phải; sửa nguyên nhân căn giữa do lớp chờ.
+- Danh mục: tab và tìm kiếm trên cùng hàng; tìm kiếm trên danh sách hoạt động.
+- Tài khoản và Nhật ký: bảng chiếm toàn bộ vùng nội dung, không giữ lớp chờ.
+- Trường nhập, modal, font chữ, menu và nút thống nhất trên các trang.
+- Phần giao diện không hiển thị Google Sheets.
+- Chỉ đổi frontend; **Apps Script và Vercel API giữ nguyên từ v1.1.0-RC**, không cần thay dữ liệu Google Sheets.
+
+## Những tính năng đã có trong backend v1.1.0-RC
 
 - Giao diện thống nhất: thanh menu, tiêu đề, sáu thẻ KPI có điểm nhấn màu, bố cục biểu mẫu, nút, checkbox, modal và điều chỉnh responsive.
 - **Không xuất hiện chữ “Google Sheets” trên giao diện người dùng** (kể cả chân menu). Sheets chỉ là phần lưu trữ phía sau.

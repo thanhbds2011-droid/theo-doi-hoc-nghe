@@ -1,4 +1,4 @@
-/** THEO DÕI HỌC NGHỀ — v1.1.0-RC. Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.1.1-RC (YC-HN-005). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -124,16 +124,22 @@ function getFormFields(form){return Object.fromEntries(new FormData(form).entrie
 function pillStatus(record){const st=record.TRANG_THAI_THAM_GIA;return st==='DA_THAM_GIA' ? `<span class="pill ${record.DA_BO_HOC==='TRUE'?'bad':'good'}">${record.DA_BO_HOC==='TRUE'?'Bỏ học':'Đang học'}</span>` : `<span class="pill ${st==='KHONG_THAM_GIA'?'bad':'warn'}">${esc(STATUS[st]||'Chưa xác nhận')}</span>`;}
 async function renderDashboard(v){
   const f=state.reportFilters;
-  $('#main').innerHTML=heading('Tổng quan học nghề','Theo dõi các hồ sơ, quyết định và kết quả tham gia học nghề.')+`<section class="welcome-banner"><div><span class="welcome-overline">TRANG QUẢN LÝ HỌC NGHỀ</span><h3>Xin chào, ${esc(state.user?.HO_TEN||'bạn')}!</h3><p>Quản lý hồ sơ, theo dõi quá trình tham gia và tổng hợp kết quả học nghề trên cùng một hệ thống.</p></div><div class="welcome-art" aria-hidden="true">🎓</div></section>`+filterFields(f,'dashboard')+'<div id="dashboard-output" class="spinner">Đang tổng hợp số liệu…</div>';
+  // YC-HN-005: sáu KPI theo lưới 3×2; không tạo thêm biểu đồ tổng hợp trùng lặp.
+  $('#main').innerHTML=`<section class="welcome-banner" aria-label="Chào mừng">
+    <span class="welcome-art" aria-hidden="true">🎓</span>
+    <div class="welcome-copy"><span class="welcome-overline">TRANG QUẢN LÝ THEO DÕI HỌC NGHỀ</span>
+      <h1>Xin chào, ${esc(state.user?.HO_TEN||'bạn')}!</h1>
+      <p>Quản lý hồ sơ, theo dõi quá trình tham gia và thống kê kết quả học nghề trên cùng một hệ thống.</p>
+    </div></section>`+filterFields(f,'dashboard')+'<div id="dashboard-output" class="spinner">Đang tổng hợp số liệu…</div>';
   const data=await rpc('overview',f,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
-  const tiles=[['Tổng hồ sơ','▤',k.total],['Đã tham gia','✓',k.participated],['Đang học','✎',k.learning],['Bỏ học','↘',k.dropout],['Không tham gia','×',k.notParticipating],['Chưa xác nhận','◷',k.pending]];
+  const tiles=[['Tổng hồ sơ','▤',k.total],['Đã tham gia','✓',k.participated],['Đang học','✦',k.learning],['Bỏ học','↘',k.dropout],['Không tham gia','×',k.notParticipating],['Chưa xác nhận','◷',k.pending]];
   const boxStats=(title,values,type)=>{
-    const rows=Object.entries(values).sort((a,b)=>b[1]-a[1]),max=Math.max(...rows.map(r=>r[1]),1);
-    return `<section class="card"><h3>${title}</h3>${rows.length?rows.slice(0,12).map(([id,n])=>`<div class="stat-row"><div style="flex:1">${esc(lookup(type,id))}<div class="bar-track"><div class="bar-fill" style="width:${Math.min(100,Math.round(n/max*100))}%"></div></div></div><b>${num(n)}</b></div>`).join(''):'<p class="muted">Chưa có dữ liệu.</p>'}</section>`;
+    const rows=Object.entries(values || {}).sort((a,b)=>b[1]-a[1] || lookup(type,a[0]).localeCompare(lookup(type,b[0]),'vi'));
+    return `<section class="card summary-card"><h3>${esc(title)}</h3><div class="table-wrap summary-table"><table><thead><tr><th scope="col">STT</th><th scope="col">${type==='truong'?'Cơ sở đào tạo':'Nghề đào tạo'}</th><th scope="col">Số hồ sơ</th></tr></thead><tbody>${rows.length?rows.slice(0,12).map(([id,n],i)=>`<tr><td>${i+1}</td><td>${esc(lookup(type,id))}</td><td>${num(n)}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">Chưa có dữ liệu phù hợp.</td></tr>'}</tbody></table></div></section>`;
   };
-  $('#dashboard-output').className='';
-  $('#dashboard-output').innerHTML=`<div class="kpi-grid">${tiles.map(([label,glyph,n])=>`<div class="kpi"><div class="kpi-icon">${glyph}</div><div class="desc">${label}</div><div class="metric">${num(n)}</div></div>`).join('')}</div><div class="sub-grid">${boxStats('Theo cơ sở đào tạo',data.schoolCounts,'truong')}${boxStats('Theo nghề đào tạo',data.tradeCounts,'nghe')}</div><section class="card dashboard-chart"><h3>Biểu đồ tổng hợp 6 chỉ tiêu</h3><div class="mini-chart">${tiles.map(([label,glyph,value],i)=>`<div class="mini-chart-item"><div class="mini-chart-number">${num(value)}</div><div class="mini-chart-track"><div class="mini-chart-bar" style="height:${value?Math.max(7,Math.round(value/Math.max(k.total,1)*100)):2}%;--chart-index:${i}"></div></div><span>${esc(label)}</span></div>`).join('')}</div></section>`;
+  $('#dashboard-output').className='dashboard-results';
+  $('#dashboard-output').innerHTML=`<div class="kpi-grid" aria-label="Sáu chỉ tiêu tổng quan">${tiles.map(([label,glyph,n])=>`<article class="kpi"><div class="kpi-icon" aria-hidden="true">${glyph}</div><div class="kpi-body"><div class="desc">${esc(label)}</div><div class="metric">${num(n)}</div></div></article>`).join('')}</div><div class="sub-grid">${boxStats('Theo cơ sở đào tạo',data.schoolCounts,'truong')}${boxStats('Theo nghề đào tạo',data.tradeCounts,'nghe')}</div>`;
 }
 async function renderRecords(v){
   $('#main').innerHTML=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':'')+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${allowed('REPORT_VIEW')?'<button class="btn btn-light" data-export-list="1">Xuất CSV</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
@@ -152,29 +158,32 @@ async function renderReports(v){
   $('#main').innerHTML=heading('Báo cáo học nghề','Tổng hợp theo năm, cơ sở và nghề; xuất hồ sơ tối đa 5.000 bản ghi/lần.',`<button class="btn btn-primary" id="report-export">Xuất CSV</button><button class="btn" id="print-report">In báo cáo</button>`)+filterFields(state.reportFilters,'dashboard')+'<div id="report-output" class="spinner">Đang tải thống kê…</div>';
   const data=await rpc('overview',state.reportFilters,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
-  $('#report-output').innerHTML=`<div class="card"><h3>Tổng hợp kết quả</h3><div class="info-banner">Tính theo số hồ sơ/quyết định, không phải số người học duy nhất. “Đang học” = đã tham gia và chưa bỏ học.</div><div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${[['Tổng số hồ sơ',k.total],['Đã tham gia',k.participated],['Đang học',k.learning],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Chưa xác nhận',k.pending]].map(r=>`<tr><td>${r[0]}</td><td><b>${num(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+  $('#report-output').className='report-results';
+  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3><div class="info-banner">Tính theo số hồ sơ/quyết định, không phải số người học duy nhất. “Đang học” = đã tham gia và chưa bỏ học.</div><div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${[['Tổng số hồ sơ',k.total],['Đã tham gia',k.participated],['Đang học',k.learning],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Chưa xác nhận',k.pending]].map(r=>`<tr><td>${r[0]}</td><td><b>${num(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 async function renderCatalogs(v){
   const canEdit=allowed('CATALOG_MANAGE');
   $('#main').innerHTML=heading('Danh mục học nghề','Cơ sở đào tạo, nghề và lý do bỏ học.',canEdit?'<button class="btn btn-light" data-bulk-catalog="1">⇧ Nhập hàng loạt</button><button class="btn btn-primary" data-new-catalog="1">＋ Thêm danh mục</button>':'')+
-  `<div class="tabs">${Object.entries(NAMES).map(([type,name])=>`<button class="btn ${state.catalogType===type?'active':''}" data-cat-tab="${type}">${name}</button>`).join('')}</div><div class="catalog-search"><label class="field"><span>Tìm danh mục</span><input id="catalog-search" placeholder="Nhập tên hoặc mã danh mục..." autocomplete="off"></label></div><div id="cats-view"></div>`;
+  `<div class="catalog-toolbar"><div class="tabs">${Object.entries(NAMES).map(([type,name])=>`<button class="btn ${state.catalogType===type?'active':''}" data-cat-tab="${type}">${name}</button>`).join('')}</div><div class="catalog-search"><label class="field"><span>Tìm danh mục</span><input id="catalog-search" placeholder="Nhập tên hoặc mã danh mục..." autocomplete="off"></label></div></div><div id="cats-view"></div>`;
   await loadCatalogs(v);
 }
 async function loadCatalogs(v){
   const type=state.catalogType,data=await rpc('catalog_list',{type},{ttl:60000});if(v!==state.routeVersion)return;
   state.cats[type]=data.items;
   const def={truong:['MA_TRUONG','TEN_TRUONG'],nghe:['MA_NGHE','TEN_NGHE'],lydo:['MA_LY_DO','NOI_DUNG']}[type];
-  $('#cats-view').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên / Nội dung</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(r=>`<tr><td>${esc(r[def[0]])}</td><td>${esc(r[def[1]])}</td><td><span class="pill ${r.TRANG_THAI==='ACTIVE'?'good':'warn'}">${r.TRANG_THAI==='ACTIVE'?'Đang sử dụng':'Ngừng sử dụng'}</span></td><td>${allowed('CATALOG_MANAGE')?`<button class="btn" data-edit-catalog="${dataAttr(r[{truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type]])}">Sửa</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có danh mục. Quản trị viên hãy tạo trước khi nhập hồ sơ.</td></tr>'}</tbody></table></div>`;
+  $('#cats-view').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên / Nội dung</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(r=>`<tr class="catalog-data-row"><td>${esc(r[def[0]])}</td><td>${esc(r[def[1]])}</td><td><span class="pill ${r.TRANG_THAI==='ACTIVE'?'good':'warn'}">${r.TRANG_THAI==='ACTIVE'?'Đang sử dụng':'Ngừng sử dụng'}</span></td><td>${allowed('CATALOG_MANAGE')?`<button class="btn" data-edit-catalog="${dataAttr(r[{truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type]])}">Sửa</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có danh mục. Quản trị viên hãy tạo trước khi nhập hồ sơ.</td></tr>'}</tbody></table></div>`;
 }
 async function renderAccounts(v){
   $('#main').innerHTML=heading('Quản lý tài khoản','Cấp quyền riêng cho phần mềm Học nghề.','<button class="btn btn-primary" data-new-account="1">＋ Thêm tài khoản</button>')+'<div id="accounts-output" class="spinner">Đang tải…</div>';
   const data=await rpc('accounts_list',{}, {ttl:30000});if(v!==state.routeVersion)return;state.accountRows=data.items;
-  $('#accounts-output').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.map(x=>`<tr><td>${esc(x.HO_TEN)}</td><td>${esc(x.EMAIL)}</td><td>${x.VAI_TRO==='ADMIN'?'Quản trị viên':'Nhân viên'}</td><td><span class="pill ${x.TRANG_THAI==='ACTIVE'?'good':'bad'}">${x.TRANG_THAI==='ACTIVE'?'Hoạt động':'Khóa'}</span></td><td><button class="btn" data-edit-account="${esc(x.TAI_KHOAN_ID)}">Sửa</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('#accounts-output').className='';
+  $('#accounts-output').innerHTML=`<div class="table-wrap account-table"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.map(x=>`<tr><td>${esc(x.HO_TEN)}</td><td>${esc(x.EMAIL)}</td><td>${x.VAI_TRO==='ADMIN'?'Quản trị viên':'Nhân viên'}</td><td><span class="pill ${x.TRANG_THAI==='ACTIVE'?'good':'bad'}">${x.TRANG_THAI==='ACTIVE'?'Hoạt động':'Khóa'}</span></td><td><button class="btn" data-edit-account="${esc(x.TAI_KHOAN_ID)}">Sửa</button></td></tr>`).join('')}</tbody></table></div>`;
 }
 async function renderAudits(v){
   $('#main').innerHTML=heading('Nhật ký thay đổi','Tra cứu hoạt động chỉnh sửa hồ sơ, danh mục và tài khoản.')+'<div id="audit-output" class="spinner">Đang tải nhật ký…</div>';
   const d=await rpc('audit_list',{page:state.auditPage},{ttl:30000});if(v!==state.routeVersion)return;
-  $('#audit-output').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Thời gian</th><th>Người thao tác</th><th>Hành động</th><th>Loại</th><th>Mã bản ghi</th></tr></thead><tbody>${d.items.length?d.items.map(x=>`<tr><td class="nowrap">${esc(x.THOI_GIAN)}</td><td>${esc(x.EMAIL)}</td><td>${esc(x.HANH_DONG)}</td><td>${esc(x.LOAI_DOI_TUONG)}</td><td>${esc(x.BAN_GHI_ID)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Chưa có nhật ký.</td></tr>'}</tbody></table></div><div class="pagination"><button class="btn" data-audit-page="${d.page-1}" ${d.page===1?'disabled':''}>← Trước</button>Trang ${d.page}/${Math.max(1,Math.ceil(d.total/d.pageSize))}<button class="btn" data-audit-page="${d.page+1}" ${d.page*d.pageSize>=d.total?'disabled':''}>Tiếp →</button></div>`;
+  $('#audit-output').className='';
+  $('#audit-output').innerHTML=`<div class="table-wrap audit-table"><table><thead><tr><th>Thời gian</th><th>Người thao tác</th><th>Hành động</th><th>Loại</th><th>Mã bản ghi</th></tr></thead><tbody>${d.items.length?d.items.map(x=>`<tr><td class="nowrap">${esc(x.THOI_GIAN)}</td><td>${esc(x.EMAIL)}</td><td>${esc(x.HANH_DONG)}</td><td>${esc(x.LOAI_DOI_TUONG)}</td><td>${esc(x.BAN_GHI_ID)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty">Chưa có nhật ký.</td></tr>'}</tbody></table></div><div class="pagination"><button class="btn" data-audit-page="${d.page-1}" ${d.page===1?'disabled':''}>← Trước</button>Trang ${d.page}/${Math.max(1,Math.ceil(d.total/d.pageSize))}<button class="btn" data-audit-page="${d.page+1}" ${d.page*d.pageSize>=d.total?'disabled':''}>Tiếp →</button></div>`;
 }
 function showModal(title,body,footer=''){$('#modal').innerHTML=`<div class="modal-head"><h3>${esc(title)}</h3><button class="btn icon-button" data-close="1" aria-label="Đóng">×</button></div>${body}${footer}`;$('#modal-layer').classList.remove('hidden');$('#modal-layer').setAttribute('aria-hidden','false');}
 function closeModal(){$('#modal-layer').classList.add('hidden');$('#modal-layer').setAttribute('aria-hidden','true');$('#modal').innerHTML='';state.usedPerson=null;}
