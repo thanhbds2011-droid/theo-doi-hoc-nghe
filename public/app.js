@@ -81,33 +81,13 @@ async function credentialResponse(response){
   }catch(e){state.token='';$('#login-note').textContent='Không thể đăng nhập.';failure(e);}
 }
 function signOut(){state.token='';state.user=null;state.generation++;state.cache.clear();state.inFlight.clear();state.records=[];state.cats={truong:[],nghe:[],lydo:[]};$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
-// YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
-const ICON_PATHS={
-  'house':'<path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/>',
-  'file-text':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',
-  'chart-column':'<path d="M3 21h18"/><rect x="5" y="12" width="4" height="9" rx=".5"/><rect x="11" y="7" width="4" height="14" rx=".5"/><rect x="17" y="3" width="4" height="18" rx=".5"/>',
-  'layout-grid':'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
-  'user-round':'<circle cx="12" cy="8" r="4"/><path d="M4 21v-2a8 8 0 0 1 16 0v2Z"/>',
-  'clock-3':'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l4 2"/>',
-  'filter':'<path d="M3 4h18l-7 8v7l-4 2v-9Z"/>',
-  'clipboard-list':'<rect x="5" y="5" width="14" height="17" rx="2"/><path d="M9 5V3h6v2M9 11h6M9 15h6"/>',
-  'check':'<path d="m4 12 5 5L20 6"/>',
-  'graduation-cap':'<path d="m2 10 10-5 10 5-10 5-10-5ZM6 12v5c3 3 9 3 12 0v-5M22 10v8"/>',
-  'arrow-down-right':'<path d="M5 5 19 19M10 19h9v-9"/>',
-  'x':'<path d="M5 5 19 19M19 5 5 19"/>',
-  'arrow-right':'<path d="M4 12h16m-6-6 6 6-6 6"/>'
-};
-function iconSvg(name,size=22){
-  const paths=ICON_PATHS[name]||ICON_PATHS['file-text'];
-  return `<svg class="line-icon" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${paths}</svg>`;
-}
 function navItems(){return [
-  ['dashboard','house','Tổng quan','RECORD_VIEW'],['records','file-text','Hồ sơ học nghề','RECORD_VIEW'],
-  ['reports','chart-column','Báo cáo','REPORT_VIEW'],['catalogs','layout-grid','Danh mục','RECORD_VIEW'],
-  ['accounts','user-round','Quản lý tài khoản','ACCOUNT_MANAGE'],['audits','clock-3','Nhật ký thay đổi','AUDIT_VIEW']
+  ['dashboard','◫','Tổng quan','RECORD_VIEW'],['records','▤','Hồ sơ học nghề','RECORD_VIEW'],
+  ['reports','▥','Báo cáo','REPORT_VIEW'],['catalogs','☷','Danh mục','RECORD_VIEW'],
+  ['accounts','♙','Quản lý tài khoản','ACCOUNT_MANAGE'],['audits','◴','Nhật ký thay đổi','AUDIT_VIEW']
 ].filter(i=>allowed(i[3]));}
 function buildNav(){
-  $('#navigation').innerHTML=navItems().map(([id,glyph,label])=>`<button type="button" data-nav="${id}" class="${state.page===id?'active':''}" ${state.page===id?'aria-current="page"':''}><span class="nav-glyph">${iconSvg(glyph,21)}</span><span class="nav-label">${esc(label)}</span></button>`).join('');
+  $('#navigation').innerHTML=navItems().map(([id,glyph,label])=>`<button data-nav="${id}" class="${state.page===id?'active':''}"><span class="nav-glyph">${glyph}</span>${esc(label)}</button>`).join('');
 }
 function navigate(page){
   if(!navItems().some(item=>item[0]===page))page='dashboard';
@@ -139,61 +119,27 @@ function filterFields(filters,mode){return `<form class="card filter-grid ${mode
   <div class="field"><label>Cơ sở đào tạo</label>${schoolOpts(filters.truong)}</div>
   <div class="field"><label>Nghề đào tạo</label>${tradeOpts(filters.nghe)}</div>
   ${mode==='records'?`<div class="field"><label>Tình trạng</label><select name="status">${option('','Tất cả',filters.status)}${Object.entries(STATUS).map(([k,v])=>option(k,v,filters.status)).join('')}</select></div><div class="field"><label>Tìm người học / số QĐ</label><input name="query" value="${esc(filters.query||'')}" placeholder="Nhập từ khóa..."></div>`:''}
-  <button class="btn btn-primary" type="submit">${iconSvg('filter',19)} Lọc dữ liệu</button></form>`;}
+  <button class="btn btn-primary" type="submit">Lọc dữ liệu</button></form>`;}
 function getFormFields(form){return Object.fromEntries(new FormData(form).entries());}
 function pillStatus(record){const st=record.TRANG_THAI_THAM_GIA;return st==='DA_THAM_GIA' ? `<span class="pill ${record.DA_BO_HOC==='TRUE'?'bad':'good'}">${record.DA_BO_HOC==='TRUE'?'Bỏ học':'Đang học'}</span>` : `<span class="pill ${st==='KHONG_THAM_GIA'?'bad':'warn'}">${esc(STATUS[st]||'Chưa xác nhận')}</span>`;}
-// YC-HN-006 — Chỉ tái sử dụng phản hồi overview hiện hành, không tăng số request.
-function sortedStats(values,type){
-  return Object.entries(values||{}).map(([id,value])=>({id,name:lookup(type,id),value:Number(value)||0}))
-    .filter(x=>x.value>0).sort((a,b)=>b.value-a.value || a.name.localeCompare(b.name,'vi'));
-}
-function summaryDetailAction(){
-  return allowed('REPORT_VIEW')?'<button type="button" class="btn btn-light summary-detail" data-dashboard-detail="1">Xem chi tiết '+iconSvg('arrow-right',17)+'</button>':'';
-}
-function schoolChart(values){
-  const rows=sortedStats(values,'truong').slice(0,4);
-  const header=`<div class="summary-head"><div><h3>Theo cơ sở đào tạo</h3><p>Thống kê số lượng hồ sơ theo từng cơ sở đào tạo</p></div>${summaryDetailAction()}</div>`;
-  if(!rows.length)return `<section class="card visual-summary">${header}<div class="summary-empty">Chưa có hồ sơ để thống kê theo cơ sở đào tạo.</div></section>`;
-  const peak=Math.max(...rows.map(r=>r.value),1);
-  const axisMax=peak<=5?Math.max(1,Math.ceil(peak)+1):Math.ceil(peak/4)*4;
-  const tickValues=axisMax<=6?Array.from({length:axisMax+1},(_,i)=>axisMax-i):[4,3,2,1,0].map(i=>Math.round(axisMax*i/4));
-  const ticks=tickValues.map(n=>`<span>${num(n)}</span>`).join('');
-  const bars=rows.map(r=>{
-    const fraction=Math.min(100,Math.max(0,100*r.value/axisMax));
-    return `<div class="bar-group" title="${esc(r.name)}: ${num(r.value)} hồ sơ"><div class="bar-area"><strong>${num(r.value)}</strong><div class="bar-column" style="height:${fraction.toFixed(2)}%"></div></div><div class="bar-label" title="${esc(r.name)}">${esc(r.name)}</div></div>`;
-  }).join('');
-  return `<section class="card visual-summary">${header}<div class="vertical-chart" role="img" aria-label="Số hồ sơ theo cơ sở đào tạo"><div class="chart-axis">${ticks}</div><div class="chart-bars">${bars}</div></div></section>`;
-}
-function tradeChart(values){
-  const rows=sortedStats(values,'nghe');
-  const header=`<div class="summary-head"><div><h3>Theo nghề đào tạo</h3><p>Thống kê số lượng hồ sơ theo từng nghề đào tạo</p></div>${summaryDetailAction()}</div>`;
-  if(!rows.length)return `<section class="card visual-summary">${header}<div class="summary-empty">Chưa có hồ sơ để thống kê theo nghề đào tạo.</div></section>`;
-  const top=rows.slice(0,4);
-  const rest=rows.slice(4).reduce((total,x)=>total+x.value,0);
-  if(rest>0)top.push({id:'other',name:'Các nghề khác',value:rest});
-  const total=rows.reduce((sum,r)=>sum+r.value,0);
-  const palette=['#4b96f4','#50c878','#8660ed','#ffa547','#7d91ae'];
-  let progress=0;
-  const arcs=top.map((r,i)=>{
-    const from=progress;progress+=100*r.value/total;
-    return `${palette[i]} ${from.toFixed(5)}% ${progress.toFixed(5)}%`;
-  }).join(',');
-  // Phân bổ phần lẻ lớn nhất: phần trăm được hiển thị luôn cộng đủ 100%.
-  const raw=top.map(r=>r.value*100/total), percentages=raw.map(Math.floor);
-  let remainder=100-percentages.reduce((a,b)=>a+b,0);
-  raw.map((p,i)=>({i,f:p-percentages[i]})).sort((a,b)=>b.f-a.f || a.i-b.i).slice(0,remainder).forEach(x=>percentages[x.i]++);
-  const legend=top.map((r,i)=>`<li><span class="legend-swatch" style="background:${palette[i]}"></span><span class="legend-name" title="${esc(r.name)}">${esc(r.name)}</span><b>${num(r.value)}</b><span class="legend-percent">${percentages[i]}%</span></li>`).join('');
-  return `<section class="card visual-summary">${header}<div class="trade-visual"><div class="donut-chart" role="img" aria-label="Cơ cấu hồ sơ theo nghề" style="background:conic-gradient(${arcs})"><div class="donut-center"><strong>${num(total)}</strong><span>Tổng hồ sơ</span></div></div><ul class="trade-legend">${legend}</ul></div></section>`;
-}
 async function renderDashboard(v){
   const f=state.reportFilters;
-  $('#main').innerHTML=`<section class="welcome-banner" aria-label="Tổng quan học nghề"><span class="welcome-art" aria-hidden="true">🎓</span><div class="welcome-copy"><h1>Tổng quan học nghề</h1><p>Quản lý hồ sơ, theo dõi quá trình tham gia và thống kê kết quả học nghề trên cùng một hệ thống.</p></div></section>`
-    +filterFields(f,'dashboard')+'<div id="dashboard-output" class="spinner">Đang tổng hợp số liệu…</div>';
+  // YC-HN-005: sáu KPI theo lưới 3×2; không tạo thêm biểu đồ tổng hợp trùng lặp.
+  $('#main').innerHTML=`<section class="welcome-banner" aria-label="Chào mừng">
+    <span class="welcome-art" aria-hidden="true">🎓</span>
+    <div class="welcome-copy"><span class="welcome-overline">TRANG QUẢN LÝ THEO DÕI HỌC NGHỀ</span>
+      <h1>Xin chào, ${esc(state.user?.HO_TEN||'bạn')}!</h1>
+      <p>Quản lý hồ sơ, theo dõi quá trình tham gia và thống kê kết quả học nghề trên cùng một hệ thống.</p>
+    </div></section>`+filterFields(f,'dashboard')+'<div id="dashboard-output" class="spinner">Đang tổng hợp số liệu…</div>';
   const data=await rpc('overview',f,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
-  const tiles=[['Tổng hồ sơ','clipboard-list',k.total],['Đã tham gia','check',k.participated],['Đang học','graduation-cap',k.learning],['Bỏ học','arrow-down-right',k.dropout],['Không tham gia','x',k.notParticipating],['Chưa xác nhận','clock-3',k.pending]];
+  const tiles=[['Tổng hồ sơ','▤',k.total],['Đã tham gia','✓',k.participated],['Đang học','✦',k.learning],['Bỏ học','↘',k.dropout],['Không tham gia','×',k.notParticipating],['Chưa xác nhận','◷',k.pending]];
+  const boxStats=(title,values,type)=>{
+    const rows=Object.entries(values || {}).sort((a,b)=>b[1]-a[1] || lookup(type,a[0]).localeCompare(lookup(type,b[0]),'vi'));
+    return `<section class="card summary-card"><h3>${esc(title)}</h3><div class="table-wrap summary-table"><table><thead><tr><th scope="col">STT</th><th scope="col">${type==='truong'?'Cơ sở đào tạo':'Nghề đào tạo'}</th><th scope="col">Số hồ sơ</th></tr></thead><tbody>${rows.length?rows.slice(0,12).map(([id,n],i)=>`<tr><td>${i+1}</td><td>${esc(lookup(type,id))}</td><td>${num(n)}</td></tr>`).join(''):'<tr><td colspan="3" class="empty">Chưa có dữ liệu phù hợp.</td></tr>'}</tbody></table></div></section>`;
+  };
   $('#dashboard-output').className='dashboard-results';
-  $('#dashboard-output').innerHTML=`<div class="kpi-grid" aria-label="Sáu chỉ tiêu tổng quan">${tiles.map(([label,glyph,n])=>`<article class="kpi"><div class="kpi-icon">${iconSvg(glyph,26)}</div><div class="kpi-body"><div class="desc">${esc(label)}</div><div class="metric">${num(n)}</div></div></article>`).join('')}</div><div class="sub-grid">${schoolChart(data.schoolCounts)}${tradeChart(data.tradeCounts)}</div>`;
+  $('#dashboard-output').innerHTML=`<div class="kpi-grid" aria-label="Sáu chỉ tiêu tổng quan">${tiles.map(([label,glyph,n])=>`<article class="kpi"><div class="kpi-icon" aria-hidden="true">${glyph}</div><div class="kpi-body"><div class="desc">${esc(label)}</div><div class="metric">${num(n)}</div></div></article>`).join('')}</div><div class="sub-grid">${boxStats('Theo cơ sở đào tạo',data.schoolCounts,'truong')}${boxStats('Theo nghề đào tạo',data.tradeCounts,'nghe')}</div>`;
 }
 async function renderRecords(v){
   $('#main').innerHTML=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':'')+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${allowed('REPORT_VIEW')?'<button class="btn btn-light" data-export-list="1">Xuất CSV</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
@@ -329,7 +275,6 @@ document.addEventListener('click',async e=>{
   const node=e.target.closest('button');if(!node)return;
   if(node.hasAttribute('data-close')){if(!state.busy)closeModal();return;}
   if(node.hasAttribute('data-nav')){navigate(node.dataset.nav);return;}
-  if(node.hasAttribute('data-dashboard-detail')){if(allowed('REPORT_VIEW'))navigate('reports');return;}
   if(node.hasAttribute('data-retry')){navigate(state.page);return;}
   if(node.hasAttribute('data-new-record')){recordForm(null);return;}
   if(node.hasAttribute('data-edit-record')){const r=getCurrentRecord(node.dataset.editRecord);if(r)recordForm(r);return;}
