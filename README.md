@@ -1,3 +1,5 @@
+**Giao diện đã duyệt YC-HN-006 — v1.1.2-RC:** 6 KPI gọn trong một hàng trên desktop phù hợp, 6 icon SVG nhất quán, header tối giản, biểu đồ cơ sở/nghề từ phản hồi `overview` sẵn có. Backend v1.1.0-RC giữ nguyên.
+
 # THEO DÕI HỌC NGHỀ — v1.1.1-RC (Giao diện YC-HN-005)
 
 Phần mềm quản lý hồ sơ học nghề độc lập. **Người dùng cuối thao tác trên website**, không cần truy cập Google Sheets, GitHub, Apps Script hoặc Vercel Dashboard.
