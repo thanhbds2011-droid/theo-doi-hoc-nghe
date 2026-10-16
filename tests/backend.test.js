@@ -33,7 +33,7 @@ function makeEnv() {
     setRowHeight(){}
   }
   const spreadsheet={getId(){return 'TEST_SPREADSHEET';},getSheetByName(name){return tables.get(name)||null;},insertSheet(name){const sh=new Sheet(name);tables.set(name,sh);return sh;}};
-  const properties={getProperty:k=>props.get(k)||null,setProperty:(k,v)=>{props.set(k,v);}};
+  const properties={getProperty:k=>props.get(k)||null,setProperty:(k,v)=>{props.set(k,v);},deleteProperty:k=>props.delete(k)};
   const global={
     console,Date,JSON,Number,Math,String,Object,Array,Boolean,Error,RegExp,Set,Map,
     SpreadsheetApp:{openById(id){assert.equal(id,'TEST_SPREADSHEET');return spreadsheet;}},
@@ -135,4 +135,105 @@ test('Sheet mới sử dụng toàn bộ tên tiếng Việt và 79 tiêu đề 
   assert.equal(c.tables.get('Cấu hình hệ thống').rows[0][0],'Khóa cấu hình');
   assert.ok(!c.tables.has('HO_SO_HOC_NGHE'));
   assert.equal([...c.tables.values()].reduce((n,x)=>n+x.rows[0].length,0),79);
+});
+
+test('Danh mục tạo trên web tự sinh mã, bảo vệ mã cũ và chặn trùng tên',()=>{
+ const c=setupLive();
+ const created=c.send('catalog_save',{type:'nghe',title:'Nghề hàn',status:'ACTIVE'});
+ assert.equal(created.ok,true,JSON.stringify(created.error));
+ assert.match(created.data.item.MA_NGHE,/^NG\d{5}$/);
+ const id=created.data.item.NGHE_ID;
+ assert.equal(c.send('catalog_save',{type:'nghe',id,code:'TỰ_ĐỔI',title:'Nghề hàn'},'catalog_edit_code0001').error.code,'VALIDATION');
+ assert.equal(c.send('catalog_save',{type:'nghe',title:'Nghe han'},'catalog_duplicate0001').error.code,'DUPLICATE');
+});
+
+test('Nhập danh mục hàng loạt kiểm tra trước, bỏ qua trùng và có thể chạy lại an toàn',()=>{
+ const c=setupLive();
+ const names=['May công nghiệp','Cơ khí','May cong nghiep','Nghề may'];
+ const check=c.send('catalog_bulk_check',{type:'nghe',names});
+ assert.equal(check.ok,true);assert.equal(check.data.valid,2);assert.equal(check.data.duplicate,2);
+ const first=c.send('catalog_bulk_import',{type:'nghe',names},'import_catalog_0000001');
+ assert.equal(first.ok,true,JSON.stringify(first.error));assert.equal(first.data.added,2);
+ const replay=c.send('catalog_bulk_import',{type:'nghe',names},'import_catalog_0000001');
+ assert.equal(replay.data.added,2);
+ const second=c.send('catalog_bulk_import',{type:'nghe',names},'import_catalog_0000002');
+ assert.equal(second.data.added,0);
+ assert.equal(c.send('catalog_list',{type:'nghe'}).data.items.length,3);
+});
+
+function sendAs(c,identity,action,payload={},id){const env=c.signed(action,payload,id||'as_'+crypto.randomUUID().replace(/-/g,''),identity);return JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(env)}}).getContent());}
+
+test('Xóa mềm Phương án A: nhân viên xóa đúng hồ sơ mình tạo, Admin xóa mọi hồ sơ',()=>{
+ const c=setupLive();
+ c.send('account_save',{email:'staff1@example.com',name:'Staff 1',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW,RECORD_CREATE,RECORD_EDIT,RECORD_DELETE'});
+ c.send('account_save',{email:'staff2@example.com',name:'Staff 2',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW,RECORD_CREATE,RECORD_DELETE'});
+ const staff1={sub:'22345678901234567890',aud:audience,email:'staff1@example.com'};
+ const staff2={sub:'32345678901234567890',aud:audience,email:'staff2@example.com'};
+ const a=sendAs(c,staff1,'record_save',record(c,'22','2026-05-01'));
+ assert.equal(a.ok,true,JSON.stringify(a.error));
+ const id=a.data.record.HO_SO_ID;
+ const bad=sendAs(c,staff2,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'1'});
+ assert.equal(bad.error.code,'NOT_OWNER');
+ const mine=sendAs(c,staff1,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'1'});
+ assert.equal(mine.ok,true,JSON.stringify(mine.error));
+ assert.equal(c.send('records_list',{}).data.total,0);
+ assert.equal(c.send('overview',{}).data.kpi.total,0);
+ assert.equal(c.send('report_export',{}).data.items.length,0);
+ assert.equal(c.send('record_save',record(c,'0022','2026-07-01')).error.code,'DECISION_DUPLICATE');
+ const redo=sendAs(c,staff1,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'2'});
+ assert.equal(redo.error.code,'ALREADY_DELETED');
+ const b=sendAs(c,staff2,'record_save',record(c,'23','2026-05-02'));
+ assert.equal(c.send('record_delete',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:'1'}).ok,true);
+});
+
+test('Không cấp quyền Xóa thì nhân viên không thể xóa',()=>{
+ const c=setupLive();
+ c.send('account_save',{email:'viewer@example.com',name:'Viewer',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW,RECORD_CREATE'});
+ const staff={sub:'42345678901234567890',aud:audience,email:'viewer@example.com'};
+ const a=sendAs(c,staff,'record_save',record(c,'25','2026-05-03'));
+ const del=sendAs(c,staff,'record_delete',{HO_SO_ID:a.data.record.HO_SO_ID,PHIEN_BAN:'1'});
+ assert.equal(del.error.code,'NO_PERMISSION');
+});
+
+test('Kiểm tra tải tệp tối đa 10 MB; truyền nhiều phần và đọc theo Range',()=>{
+ const c=setupLive(),recordId=c.send('record_save',record(c,'30','2026-08-08')).data.record.HO_SO_ID;
+ const mime='application/pdf',size=10485760;
+ let buffer=Buffer.alloc(0), fileId='MOCK_FILE_1', trashed=false;
+ c.global.ScriptApp={getOAuthToken(){return 'TEST_OAUTH_TOKEN';}};
+ c.global.DriveApp.getFolderById=id=>({getId(){assert.equal(id,'TEST_FOLDER');return id;}});
+ const originalFileById=c.global.DriveApp.getFileById;
+ c.global.DriveApp.getFileById=id=>id==='TEST_SPREADSHEET'?originalFileById(id):({
+    getSize(){return buffer.length;},getName(){return 'quyet-dinh.pdf';},getMimeType(){return mime;},setTrashed(){trashed=true;}
+ });
+ c.global.UrlFetchApp={fetch(url,opt){
+   const reqHeaders=opt.headers||{};
+   if(opt.method==='post')return {getResponseCode(){return 200;},getHeaders(){return {Location:'https://www.googleapis.com/upload/drive/v3/files?upload_id=FAKE'};}};
+   if(opt.method==='put'){
+     buffer=Buffer.concat([buffer,Buffer.from(opt.payload)]);
+     if(buffer.length<size)return {getResponseCode(){return 308;},getHeaders(){return {Range:'bytes=0-'+(buffer.length-1)};}};
+     return {getResponseCode(){return 200;},getContentText(){return JSON.stringify({id:fileId});}};
+   }
+   if(opt.method==='get'){
+      const [,start,end]=/bytes=(\d+)-(\d+)/.exec(reqHeaders.Range);
+      const part=buffer.subarray(Number(start),Number(end)+1);
+      return {getResponseCode(){return 206;},getContent(){return Array.from(part);}};
+   }
+   throw Error('Unexpected mock request '+url);
+ }};
+ const begin=c.send('file_upload_begin',{HO_SO_ID:recordId,PHIEN_BAN:'1',name:'quyet-dinh.pdf',mime,size});
+ assert.equal(begin.ok,true,JSON.stringify(begin.error));
+ const uploadId=begin.data.uploadId;
+ const sourceData=Buffer.alloc(size);sourceData.write('%PDF-1.7');
+ for(let i=8;i<size;i++)sourceData[i]=i%251;
+ for(let offset=0;offset<size;offset+=262144){
+   const part=sourceData.subarray(offset,Math.min(size,offset+262144));
+   const answer=c.send('file_upload_chunk',{uploadId,offset,base64:part.toString('base64')});
+   assert.equal(answer.ok,true,JSON.stringify(answer.error));
+ }
+ assert.equal(Buffer.compare(buffer,sourceData),0);
+ assert.equal(c.send('file_info',{HO_SO_ID:recordId}).data.size,size);
+ const portions=[];for(let off=0;off<size;off+=262144){const reply=c.send('file_chunk',{HO_SO_ID:recordId,offset:off});assert.equal(reply.ok,true,JSON.stringify(reply.error));portions.push(Buffer.from(reply.data.base64,'base64'));}
+ assert.equal(Buffer.compare(Buffer.concat(portions),sourceData),0);
+ const overflow=c.send('file_upload_begin',{HO_SO_ID:recordId,PHIEN_BAN:'2',name:'quyet-dinh.pdf',mime,size:10485761});
+ assert.equal(overflow.error.code,'FILE_TOO_LARGE');assert.equal(trashed,false);
 });
