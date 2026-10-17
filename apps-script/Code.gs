@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.1.0-RC
+ * THEO_DOI_HOC_NGHE_API — v1.1.3-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.1.0-RC',
+  version: '1.1.3-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -259,14 +259,17 @@ function authorize_(identity,action){
     audit_list:'AUDIT_VIEW', file_upload:'FILE_UPLOAD', file_get:'FILE_VIEW', file_info:'FILE_VIEW', file_chunk:'FILE_VIEW', file_upload_begin:'FILE_UPLOAD', file_upload_chunk:'FILE_UPLOAD', file_upload_cancel:'FILE_UPLOAD', file_remove:'FILE_UPLOAD'
   };
   must_(Boolean(needs[action]),'BAD_REQUEST','Thao tác không cho phép.');
-  var perms=String(row.QUYEN||'').split(',').map(function(p){return p.trim();});
-  function has(p){return row.VAI_TRO==='ADMIN'||perms.indexOf('*')>=0||perms.indexOf(p)>=0;}
+  // YC-HN-007: các quyền nghiệp vụ được xác định theo VAI_TRO, không còn tin cột QUYEN lịch sử.
+  var staffRights=['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','FILE_UPLOAD'];
+  must_(row.VAI_TRO==='ADMIN'||row.VAI_TRO==='NHAN_VIEN','NOT_AUTHORIZED','Vai trò tài khoản chưa hợp lệ.');
+  var perms=row.VAI_TRO==='ADMIN'?['*']:staffRights;
+  function has(p){return row.VAI_TRO==='ADMIN'||(row.VAI_TRO==='NHAN_VIEN'&&staffRights.indexOf(p)>=0);}
   // record_save tự quyết định quyền tạo/sửa phía dưới, không cấp quyền sửa chỉ vì được tạo.
   if(action==='record_save')must_(has('RECORD_CREATE')||has('RECORD_EDIT'),'NO_PERMISSION','Không được tạo hoặc sửa hồ sơ.');
   else must_(has(needs[action]),'NO_PERMISSION','Không có quyền thực hiện thao tác này.');
   row._permissions=perms;row._has=has;row._googleSub=identity.sub;return row;
 }
-function safeUser_(u) {return {TAI_KHOAN_ID:u.TAI_KHOAN_ID,EMAIL:u.EMAIL,HO_TEN:u.HO_TEN,VAI_TRO:u.VAI_TRO,QUYEN:u.QUYEN,TRANG_THAI:u.TRANG_THAI};}
+function safeUser_(u) {return {TAI_KHOAN_ID:u.TAI_KHOAN_ID,EMAIL:u.EMAIL,HO_TEN:u.HO_TEN,VAI_TRO:u.VAI_TRO,QUYEN:u.VAI_TRO==='ADMIN'?'*':'RECORD_VIEW,RECORD_CREATE,RECORD_EDIT,RECORD_DELETE,RECORD_STATUS,REPORT_VIEW,FILE_VIEW,FILE_UPLOAD',TRANG_THAI:u.TRANG_THAI};}
 function bootstrap_(user){
   // Cập nhật lần đăng nhập gần nhất tối đa một lần/ngày để hạn chế lượt ghi.
   if (String(user.DANG_NHAP_CUOI || '').slice(0,10) !== now_().slice(0,10)) {
@@ -316,6 +319,7 @@ function allowedRecord_(p,original){
     must_(validDate_(o.NGAY_BO_HOC),'VALIDATION','Phải nhập ngày bỏ học.');
     must_(Boolean(o.LY_DO_BO_HOC_ID),'VALIDATION','Phải chọn lý do bỏ học.');
     must_(Boolean(lookup('lydo',o.LY_DO_BO_HOC_ID)),'VALIDATION','Lý do bỏ học không tồn tại.');
+    if(o.NGAY_BAT_DAU)must_(o.NGAY_BO_HOC>=o.NGAY_BAT_DAU,'VALIDATION','Ngày bỏ học không được trước ngày bắt đầu học.');
   } else {o.NGAY_BO_HOC='';o.LY_DO_BO_HOC_ID='';}
   return o;
 }
@@ -373,6 +377,7 @@ function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
   if(data.DA_BO_HOC==='TRUE'){
     must_(data.TRANG_THAI_THAM_GIA==='DA_THAM_GIA'&&validDate_(data.NGAY_BO_HOC),'VALIDATION','Bỏ học cần trạng thái đã tham gia và ngày bỏ học.');
     must_(catalogRows_('lydo').some(function(x){return x.LY_DO_ID===data.LY_DO_BO_HOC_ID;}),'VALIDATION','Cần chọn lý do bỏ học.');
+    if(old.NGAY_BAT_DAU)must_(data.NGAY_BO_HOC>=old.NGAY_BAT_DAU,'VALIDATION','Ngày bỏ học không được trước ngày bắt đầu học.');
   } else {data.NGAY_BO_HOC='';data.LY_DO_BO_HOC_ID='';}
   data.PHIEN_BAN=String(Number(old.PHIEN_BAN)+1);data.CAP_NHAT_LUC=now_();data.CAP_NHAT_BOI=user.EMAIL;
   writeRecord_('HO_SO_HOC_NGHE',findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id),data);bump_('DATA');
@@ -423,13 +428,11 @@ function catalogSave_(user,p,requestId){return dedupeWrite_(requestId,function()
 });}
 function accountsList_(){return {items:sheetRows_('TAI_KHOAN').map(safeUser_)};}
 function accountSave_(admin,p,requestId){return dedupeWrite_(requestId,function(){
-  var id=str_(p.id,60),email=str_(p.email,200).toLowerCase(),role=str_(p.role,20),status=str_(p.status,10),permissions=str_(p.permissions,600);
+  var id=str_(p.id,60),email=str_(p.email,200).toLowerCase(),role=str_(p.role,20),status=str_(p.status,10);
   must_(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),'VALIDATION','Email không hợp lệ.');
   must_(['ADMIN','NHAN_VIEN'].indexOf(role)>=0,'VALIDATION','Vai trò không hợp lệ.');
   must_(['ACTIVE','DISABLED'].indexOf(status)>=0,'VALIDATION','Trạng thái tài khoản không hợp lệ.');
-  var accepted=['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','CATALOG_MANAGE','ACCOUNT_MANAGE','AUDIT_VIEW','FILE_VIEW','FILE_UPLOAD'];
-  var rights=permissions.split(',').map(function(x){return x.trim();}).filter(Boolean);
-  must_(rights.every(function(x){return accepted.indexOf(x)>=0;}),'VALIDATION','Danh sách quyền không hợp lệ.');
+  var rights=['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','FILE_UPLOAD'];
   var all=sheetRows_('TAI_KHOAN'),ix=id?indexOfRow_(all,'TAI_KHOAN_ID',id):-1,old=ix>=0?all[ix]:null;
   if(id&&!old)throw err_('NOT_FOUND','Tài khoản không tồn tại.');
   must_(!all.some(function(u){return u.EMAIL.toLowerCase()===email&&u.TAI_KHOAN_ID!==id;}),'DUPLICATE','Email đã được cấp quyền.');
@@ -488,32 +491,37 @@ function nextCatalogCode_(type,list){
 /** Kiểm tra sơ bộ; khi nhập luôn kiểm tra lại trên máy chủ trong khóa ghi. */
 function catalogBulkPlan_(p){
   var type=str_(p.type,20),def=APP.catalog[type];must_(Boolean(def),'VALIDATION','Loại danh mục chưa hợp lệ.');
-  var names=p.names;must_(Array.isArray(names)&&names.length>0&&names.length<=2000,'VALIDATION','Mỗi lượt kiểm tra hỗ trợ tối đa 2.000 tên.');
+  var values=Array.isArray(p.rows)?p.rows:(Array.isArray(p.names)?p.names.map(function(v){return {title:v};}):null);
+  must_(Array.isArray(values)&&values.length>0&&values.length<=2000,'VALIDATION','Mỗi lượt kiểm tra hỗ trợ tối đa 2.000 mục.');
   var existing=sheetRows_(def.sheet),seen={};
   existing.forEach(function(r){seen[norm_(r[def.title])]='EXISTING';});
   var valid=[],duplicates=[],invalid=[];
-  names.forEach(function(value,i){
-    var title=String(value===null||value===undefined?'':value).trim(),key=norm_(title);
-    if(title.length<2||title.length>250||/^[=+@]/.test(title))invalid.push({line:i+1,title:title.slice(0,80)});
-    else if(seen[key])duplicates.push({line:i+1,title:title.slice(0,80)});
-    else{seen[key]='NEW';valid.push(title);}
+  values.forEach(function(value,i){
+    var v=value && typeof value==='object' && !Array.isArray(value)?value:{title:value};
+    var row={title:str_(v.title,251),shortName:str_(v.shortName,101),address:str_(v.address,301),note:str_(v.note,401),order:String(v.order===undefined||v.order===null?'':v.order).trim()};
+    var key=norm_(row.title),bad=row.title.length<2||row.title.length>250||/^[=+@]/.test(row.title)||
+      row.shortName.length>100||row.address.length>300||row.note.length>400||
+      (type!=='truong'&&row.order!==''&&!/^(0|[1-9][0-9]{0,4})$/.test(row.order));
+    if(bad)invalid.push({line:i+2,title:row.title.slice(0,80)});
+    else if(seen[key])duplicates.push({line:i+2,title:row.title.slice(0,80)});
+    else{seen[key]='NEW';valid.push(row);}
   });
   return {type:type,valid:valid,duplicates:duplicates,invalid:invalid};
 }
 function catalogBulkCheck_(p){var plan=catalogBulkPlan_(p);return {valid:plan.valid.length,duplicate:plan.duplicates.length,invalid:plan.invalid.length,duplicates:plan.duplicates.slice(0,25),invalidItems:plan.invalid.slice(0,25)};}
 function catalogBulkImport_(user,p,requestId){return dedupeWrite_(requestId,function(){
-  must_(Array.isArray(p.names)&&p.names.length<=100,'VALIDATION','Mỗi lần lưu tối đa 100 mục.');
-  var plan=catalogBulkPlan_(p);must_(plan.invalid.length===0,'VALIDATION','Danh sách có tên không hợp lệ. Vui lòng kiểm tra trước khi nhập.');
-  var type=plan.type,def=APP.catalog[type],list=sheetRows_(def.sheet),added=0,now=now_();
-  var used={},prefix={truong:'CS',nghe:'NG',lydo:'LD'}[type],field=def.code,num=0;
-  list.forEach(function(r){var code=String(r[field]||'').toUpperCase();used[code]=true;var m=new RegExp('^'+prefix+'([0-9]+)$').exec(code);if(m)num=Math.max(num,Number(m[1]));});
-  var existingTitles={};list.forEach(function(r){existingTitles[norm_(r[def.title])]=true;});
+  var values=Array.isArray(p.rows)?p.rows:p.names;
+  must_(Array.isArray(values)&&values.length<=100,'VALIDATION','Mỗi lần lưu tối đa 100 mục.');
+  var plan=catalogBulkPlan_(p);must_(plan.invalid.length===0,'VALIDATION','Danh sách có dữ liệu không hợp lệ. Vui lòng kiểm tra trước khi nhập.');
+  var type=plan.type,def=APP.catalog[type],list=sheetRows_(def.sheet),added=0,now=now_(),prefix={truong:'CS',nghe:'NG',lydo:'LD'}[type],used={},num=0;
+  list.forEach(function(r){var code=String(r[def.code]||'').toUpperCase();used[code]=true;var m=new RegExp('^'+prefix+'([0-9]+)$').exec(code);if(m)num=Math.max(num,Number(m[1]));});
+  var seen={};list.forEach(function(r){seen[norm_(r[def.title])]=true;});
   var rows=[];
-  plan.valid.forEach(function(title){if(existingTitles[norm_(title)])return;
-    existingTitles[norm_(title)]=true;
+  plan.valid.forEach(function(row){if(seen[norm_(row.title)])return;seen[norm_(row.title)]=true;
     var code;do{num++;code=prefix+String(num).padStart(5,'0');}while(used[code]);used[code]=true;
-    var item={TRANG_THAI:'ACTIVE',TAO_LUC:now,CAP_NHAT_LUC:now,THU_TU:String(list.length+rows.length+1)};
-    item[def.id]=randomId_(type.toUpperCase());item[def.code]=code;item[def.title]=title;
+    var item={TRANG_THAI:'ACTIVE',TAO_LUC:now,CAP_NHAT_LUC:now,THU_TU:row.order||String(list.length+rows.length+1),GHI_CHU:row.note};
+    item[def.id]=randomId_(type.toUpperCase());item[def.code]=code;item[def.title]=row.title;
+    if(type==='truong'){item.TEN_VIET_TAT=row.shortName;item.DIA_CHI=row.address;}
     rows.push(APP.lists[def.sheet].map(function(k){return safeSheetCell_(item[k]);}));
   });
   if(rows.length){var sh=getSheet_(def.sheet);sh.getRange(sh.getLastRow()+1,1,rows.length,APP.lists[def.sheet].length).setValues(rows);bump_('CAT');added=rows.length;

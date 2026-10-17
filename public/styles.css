@@ -1,4 +1,4 @@
-/* THEO DÕI HỌC NGHỀ v1.1.2-RC — Giao diện đã duyệt YC-HN-006.
+/* THEO DÕI HỌC NGHỀ v1.1.3-RC — Giao diện đã duyệt YC-HN-006.
    Một hệ font và bộ quy tắc lề / cột / modal dùng chung cho sáu phân hệ. */
 :root{
   font-family:"Segoe UI",Tahoma,Arial,sans-serif;font-synthesis:none;
@@ -249,3 +249,7 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
  .welcome-banner h1{font-size:19px}.welcome-art{height:46px;width:46px;font-size:28px}
 }
 @media print{.summary-detail{display:none!important}}
+
+/* YC-HN-007: Chỉ hiển thị các trường bỏ học theo tình trạng. */
+.dropout-only[hidden]{display:none!important}
+.dropout-only>.field{width:100%;}

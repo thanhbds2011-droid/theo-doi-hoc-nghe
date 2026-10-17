@@ -186,13 +186,16 @@ test('Xóa mềm Phương án A: nhân viên xóa đúng hồ sơ mình tạo, A
  assert.equal(c.send('record_delete',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:'1'}).ok,true);
 });
 
-test('Không cấp quyền Xóa thì nhân viên không thể xóa',()=>{
+test('YC007: nhân viên được xóa hồ sơ tự tạo bất kể quyền cũ trong Sheets',()=>{
  const c=setupLive();
- c.send('account_save',{email:'viewer@example.com',name:'Viewer',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW,RECORD_CREATE'});
+ c.send('account_save',{email:'viewer@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE',permissions:''});
  const staff={sub:'42345678901234567890',aud:audience,email:'viewer@example.com'};
  const a=sendAs(c,staff,'record_save',record(c,'25','2026-05-03'));
+ assert.equal(a.ok,true,JSON.stringify(a.error));
  const del=sendAs(c,staff,'record_delete',{HO_SO_ID:a.data.record.HO_SO_ID,PHIEN_BAN:'1'});
- assert.equal(del.error.code,'NO_PERMISSION');
+ assert.equal(del.ok,true,JSON.stringify(del.error));
+ const fresh=c.send('accounts_list').data.items.find(x=>x.EMAIL==='viewer@example.com');
+ assert.match(fresh.QUYEN,/RECORD_DELETE/);
 });
 
 test('Kiểm tra tải tệp tối đa 10 MB; truyền nhiều phần và đọc theo Range',()=>{
@@ -236,4 +239,65 @@ test('Kiểm tra tải tệp tối đa 10 MB; truyền nhiều phần và đọc
  assert.equal(Buffer.compare(Buffer.concat(portions),sourceData),0);
  const overflow=c.send('file_upload_begin',{HO_SO_ID:recordId,PHIEN_BAN:'2',name:'quyet-dinh.pdf',mime,size:10485761});
  assert.equal(overflow.error.code,'FILE_TOO_LARGE');assert.equal(trashed,false);
+});
+
+test('YC007: 3 trạng thái nghiệp vụ tách bạch Bỏ học và Không tham gia',()=>{
+ const c=setupLive();
+ let a=c.send('record_save',record(c,'70','2026-03-01',{TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA',DA_BO_HOC:false}));
+ assert.equal(a.ok,true,JSON.stringify(a.error));
+ let b=c.send('record_save',record(c,'71','2026-03-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-03-20',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
+ assert.equal(b.ok,true,JSON.stringify(b.error));
+ const k=c.send('overview').data.kpi;
+ assert.equal(k.notParticipating,1);assert.equal(k.dropout,1);assert.equal(k.participated,1);assert.equal(k.learning,0);
+});
+
+test('YC007: Bỏ học phải không trước ngày bắt đầu học',()=>{
+ const c=setupLive();
+ const r=c.send('record_save',record(c,'72','2026-04-01',{NGAY_BAT_DAU:'2026-04-10',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-04-09',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
+ assert.equal(r.error.code,'VALIDATION');
+});
+
+test('YC007: nhập CSV nhiều cột giữ địa chỉ và tên viết tắt trường',()=>{
+ const c=setupLive();
+ const rows=[{title:'Cao đẳng Hoa Sen',shortName:'HS',address:'12 Đường B',note:'Đối tác mới'}];
+ const check=c.send('catalog_bulk_check',{type:'truong',rows});assert.equal(check.data.valid,1);
+ const imported=c.send('catalog_bulk_import',{type:'truong',rows});assert.equal(imported.ok,true,JSON.stringify(imported.error));assert.equal(imported.data.added,1);
+ const row=c.send('catalog_list',{type:'truong'}).data.items.find(x=>x.TEN_TRUONG==='Cao đẳng Hoa Sen');
+ assert.equal(row.TEN_VIET_TAT,'HS');assert.equal(row.DIA_CHI,'12 Đường B');assert.equal(row.GHI_CHU,'Đối tác mới');
+});
+
+test('YC007: import nghề giữ thứ tự và kiểm tra tên trùng',()=>{
+ const c=setupLive();const rows=[{title:'Kỹ thuật in',order:'5',note:'Nghề mới'},{title:'Nghề may',order:'6'}];
+ const check=c.send('catalog_bulk_check',{type:'nghe',rows});assert.equal(check.data.valid,1);assert.equal(check.data.duplicate,1);
+ const out=c.send('catalog_bulk_import',{type:'nghe',rows});assert.equal(out.data.added,1);
+ const newRow=c.send('catalog_list',{type:'nghe'}).data.items.find(x=>x.TEN_NGHE==='Kỹ thuật in');assert.equal(newRow.THU_TU,'5');assert.equal(newRow.GHI_CHU,'Nghề mới');
+});
+
+test('YC007: không nhận thứ tự sai hoặc số cột nhiều làm ghi trùng',()=>{
+ const c=setupLive();
+ const bad=c.send('catalog_bulk_check',{type:'lydo',rows:[{title:'Không phù hợp sức khỏe',order:'abc'}]});assert.equal(bad.data.invalid,1);
+ const before=c.send('catalog_list',{type:'lydo'}).data.items.length;
+ const result=c.send('catalog_bulk_import',{type:'lydo',rows:[{title:'Không phù hợp sức khỏe',order:'abc'}]});assert.equal(result.error.code,'VALIDATION');
+ assert.equal(c.send('catalog_list',{type:'lydo'}).data.items.length,before);
+});
+
+test('YC007: nhân viên không thể tự thêm tài khoản hoặc quản lý danh mục dù cột QUYEN cũ có quyền',()=>{
+ const c=setupLive();
+ const staff=c.send('account_save',{email:'staffyc7@example.com',name:'Nhân viên Y',role:'NHAN_VIEN',status:'ACTIVE'});
+ assert.equal(staff.ok,true);
+ const sh=c.tables.get('Tài khoản người dùng');const row=sh.rows.find(r=>r[1]==='staffyc7@example.com');row[5]='*';
+ c.props.set('REV_USERS','forcednew');
+ const identity={sub:'86345678901234567890',aud:audience,email:'staffyc7@example.com'};
+ const x=sendAs(c,identity,'catalog_save',{type:'truong',title:'Trường bị cấm',status:'ACTIVE'});
+ assert.equal(x.error.code,'NO_PERMISSION');
+ const y=sendAs(c,identity,'account_save',{email:'another@example.com',name:'Mạo danh',role:'ADMIN',status:'ACTIVE'});
+ assert.equal(y.error.code,'NO_PERMISSION');
+});
+
+test('YC007: tài khoản nhân viên mới tự nhận ma trận quyền cố định',()=>{
+ const c=setupLive();
+ const out=c.send('account_save',{email:'personnew@example.com',name:'Mới',role:'NHAN_VIEN',status:'ACTIVE'});
+ assert.equal(out.ok,true,JSON.stringify(out.error));
+ const u=c.send('accounts_list').data.items.find(x=>x.EMAIL==='personnew@example.com');
+ assert.match(u.QUYEN,/RECORD_DELETE/);assert.doesNotMatch(u.QUYEN,/ACCOUNT_MANAGE|CATALOG_MANAGE/);
 });

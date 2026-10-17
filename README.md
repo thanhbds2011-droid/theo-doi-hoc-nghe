@@ -1,3 +1,9 @@
+# THEO DÕI HỌC NGHỀ — v1.1.3-RC (YC-HN-007)
+
+Bản nâng cấp từ v1.1.2-RC, giữ giao diện YC-HN-006 và kiến trúc Google Sheets/Apps Script/Vercel.
+
+Xem `docs/HUONG_DAN_CAP_NHAT_YC-HN-007_v1.1.3-RC.md` và `docs/YC-HN-007_CHANGELOG_VA_KIEM_THU_v1.1.3-RC.md` trước khi triển khai.
+
 **Giao diện đã duyệt YC-HN-006 — v1.1.2-RC:** 6 KPI gọn trong một hàng trên desktop phù hợp, 6 icon SVG nhất quán, header tối giản, biểu đồ cơ sở/nghề từ phản hồi `overview` sẵn có. Backend v1.1.0-RC giữ nguyên.
 
 # THEO DÕI HỌC NGHỀ — v1.1.1-RC (Giao diện YC-HN-005)
