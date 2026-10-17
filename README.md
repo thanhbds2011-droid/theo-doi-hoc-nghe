@@ -1,3 +1,23 @@
+# THEO DÕI HỌC NGHỀ – v1.1.4-RC (YC-HN-008)
+
+Ứng dụng độc lập: GitHub/Vercel frontend + Google Identity Services + Vercel API + Apps Script + Google Sheets + Google Drive. Không Firebase/Firestore.
+
+**Điểm mới:** dữ liệu Nhân viên theo người tạo; Xóa mềm tài khoản/danh mục; chỉ 3 menu cho Nhân viên; Danh mục không tải lại vô ích; XLSX nhiều cột; logo SVG thay HN; cookie phiên an toàn giữ đăng nhập qua F5 (tối đa 8 giờ).
+
+Tài liệu triển khai: `docs/HUONG_DAN_CAP_NHAT_YC-HN-008_v1.1.4-RC.md`.
+
+Changelog/kiểm thử: `docs/YC-HN-008_CHANGELOG_VA_KIEM_THU_v1.1.4-RC.md`.
+
+File mẫu cho website: `public/templates/MAU_DANH_MUC_TRUONG.xlsx`, `MAU_DANH_MUC_NGHE.xlsx`, `MAU_DANH_MUC_LYDO.xlsx`.
+
+Kiểm thử offline: `npm run check`, `npm test`, `python tests/browser_yc008_mock.py` (cần Chromium/Playwright được cài đặt để chạy bài test trình duyệt).
+
+**Trạng thái:** chưa tự triển khai hoặc kiểm thử trên Google Sheets/Drive/Vercel production.
+
+---
+
+## Thông tin phiên bản cũ (lưu để đối chiếu)
+
 # THEO DÕI HỌC NGHỀ — v1.1.3-RC (YC-HN-007)
 
 Bản nâng cấp từ v1.1.2-RC, giữ giao diện YC-HN-006 và kiến trúc Google Sheets/Apps Script/Vercel.

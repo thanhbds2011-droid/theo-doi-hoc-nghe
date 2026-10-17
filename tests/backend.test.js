@@ -173,7 +173,7 @@ test('Xóa mềm Phương án A: nhân viên xóa đúng hồ sơ mình tạo, A
  assert.equal(a.ok,true,JSON.stringify(a.error));
  const id=a.data.record.HO_SO_ID;
  const bad=sendAs(c,staff2,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'1'});
- assert.equal(bad.error.code,'NOT_OWNER');
+ assert.equal(bad.error.code,'NO_PERMISSION');
  const mine=sendAs(c,staff1,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'1'});
  assert.equal(mine.ok,true,JSON.stringify(mine.error));
  assert.equal(c.send('records_list',{}).data.total,0);
@@ -300,4 +300,61 @@ test('YC007: tài khoản nhân viên mới tự nhận ma trận quyền cố �
  assert.equal(out.ok,true,JSON.stringify(out.error));
  const u=c.send('accounts_list').data.items.find(x=>x.EMAIL==='personnew@example.com');
  assert.match(u.QUYEN,/RECORD_DELETE/);assert.doesNotMatch(u.QUYEN,/ACCOUNT_MANAGE|CATALOG_MANAGE/);
+});
+
+test('YC008: hồ sơ, Tổng quan, xuất CSV và tra cứu giới hạn theo người tạo ở backend',()=>{
+ const c=setupLive();
+ for(const email of ['a@example.com','b@example.com'])assert.equal(c.send('account_save',{email,name:email,role:'NHAN_VIEN',status:'ACTIVE'}).ok,true);
+ const A={sub:'22345678901234567890',aud:audience,email:'a@example.com'};
+ const B={sub:'32345678901234567890',aud:audience,email:'b@example.com'};
+ const a=sendAs(c,A,'record_save',record(c,'18','2026-03-15',{HO_TEN:'Người học của A'}));
+ const b=sendAs(c,B,'record_save',record(c,'19','2026-03-16',{HO_TEN:'Người học của B'}));
+ assert.equal(a.ok,true);assert.equal(b.ok,true);
+ assert.equal(c.send('records_list',{}).data.total,2);
+ assert.equal(sendAs(c,A,'records_list',{}).data.total,1);
+ assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
+ assert.equal(sendAs(c,A,'overview',{}).data.kpi.total,1);
+ assert.equal(sendAs(c,B,'overview',{}).data.kpi.total,1);
+ assert.equal(c.send('overview',{}).data.kpi.total,2);
+ assert.equal(sendAs(c,A,'report_export',{}).data.items.length,1);
+ assert.equal(sendAs(c,B,'report_export',{}).data.items.length,1);
+ assert.equal(sendAs(c,A,'person_lookup',{query:'Người học của B'}).data.items.length,0);
+ assert.equal(sendAs(c,A,'person_lookup',{query:'Người học của A'}).data.items.length,1);
+ let other=sendAs(c,A,'record_status',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ assert.equal(other.error.code,'NO_PERMISSION');
+ other=sendAs(c,A,'record_delete',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1});assert.equal(other.error.code,'NO_PERMISSION');
+ other=sendAs(c,A,'record_save',{...record(c,'19','2026-03-16'),HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1});assert.equal(other.error.code,'NO_PERMISSION');
+ other=sendAs(c,A,'file_info',{HO_SO_ID:b.data.record.HO_SO_ID});assert.equal(other.error.code,'NO_PERMISSION');
+ other=sendAs(c,A,'file_remove',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1});assert.equal(other.error.code,'NO_PERMISSION');
+ other=sendAs(c,A,'record_save',{...record(c,'20','2026-03-17'),NGUOI_HOC_ID:b.data.record.NGUOI_HOC_ID});assert.equal(other.error.code,'VALIDATION');
+ assert.equal(sendAs(c,A,'catalog_list',{type:'truong'}).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,A,'accounts_list',{}).error.code,'NO_PERMISSION');
+});
+
+test('YC008: xóa mềm tài khoản, không mất hồ sơ và không xóa Admin cuối cùng',()=>{
+ const c=setupLive();
+ const row=c.send('account_save',{email:'vanphong@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE'}).data.item;
+ assert.equal(c.send('account_delete',{id:row.TAI_KHOAN_ID}).ok,true);
+ assert.equal(c.send('accounts_list',{}).data.items.some(x=>x.TAI_KHOAN_ID===row.TAI_KHOAN_ID),false);
+ assert.equal(c.tables.get('Tài khoản người dùng').getLastRow(),3);
+ const identity={sub:'32345678901234567890',aud:audience,email:'vanphong@example.com'};
+ assert.equal(sendAs(c,identity,'bootstrap',{}).error.code,'NOT_AUTHORIZED');
+ const admin=c.send('accounts_list',{}).data.items.find(x=>x.VAI_TRO==='ADMIN');
+ assert.equal(c.send('account_delete',{id:admin.TAI_KHOAN_ID}).error.code,'CANNOT_DELETE_SELF');
+ const created=c.send('account_save',{email:'vanphong@example.com',name:'Nhân viên tạo lại',role:'NHAN_VIEN',status:'ACTIVE'});
+ assert.equal(created.ok,true);assert.notEqual(created.data.item.TAI_KHOAN_ID,row.TAI_KHOAN_ID);
+ assert.equal(sendAs(c,identity,'bootstrap',{}).ok,true);
+});
+
+test('YC008: xóa danh mục chưa liên kết, chặn danh mục có liên kết và giữ ID',()=>{
+ const c=setupLive();
+ const unused=c.send('catalog_save',{type:'truong',title:'Cơ sở thử nghiệm mới'}).data.item;
+ assert.equal(c.send('catalog_delete',{type:'truong',id:unused.TRUONG_ID}).ok,true);
+ assert.equal(c.send('catalog_list',{type:'truong'}).data.items.some(x=>x.TRUONG_ID===unused.TRUONG_ID),false);
+ assert.equal(c.send('record_save',record(c,'22','2026-03-10')).ok,true);
+ assert.equal(c.send('catalog_delete',{type:'truong',id:c.school.TRUONG_ID}).error.code,'CATALOG_IN_USE');
+ assert.equal(c.send('catalog_delete',{type:'nghe',id:c.trade.NGHE_ID}).error.code,'CATALOG_IN_USE');
+ assert.equal(c.send('catalog_delete',{type:'lydo',id:c.reason.LY_DO_ID}).ok,true);
+ const schoolRows=c.tables.get('Danh mục cơ sở đào tạo').rows;
+ assert.ok(schoolRows.length>=3);
 });

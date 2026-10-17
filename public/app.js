@@ -1,4 +1,4 @@
-/** THEO DÕI HỌC NGHỀ — v1.1.3-RC (YC-HN-007). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.1.4-RC (YC-HN-008). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -10,16 +10,16 @@ const STATUS_FORM = { DA_THAM_GIA:'Đã tham gia – Đang học', KHONG_THAM_GI
 const RIGHTS = { RECORD_VIEW:'Xem hồ sơ', RECORD_CREATE:'Thêm hồ sơ', RECORD_EDIT:'Sửa hồ sơ', RECORD_DELETE:'Xóa hồ sơ do mình tạo', RECORD_STATUS:'Cập nhật tình trạng', REPORT_VIEW:'Xem báo cáo', CATALOG_MANAGE:'Quản lý danh mục', ACCOUNT_MANAGE:'Quản lý tài khoản', AUDIT_VIEW:'Xem nhật ký', FILE_VIEW:'Xem tệp', FILE_UPLOAD:'Tải lên/xóa tệp' };
 const NAMES = { truong:'Cơ sở đào tạo', nghe:'Nghề đào tạo', lydo:'Lý do bỏ học' };
 const state = {
-  token:'', clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, page:'dashboard', routeVersion:0,
+  token:'', session:false, clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, page:'dashboard', routeVersion:0,
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:''},
   reportFilters:{year:'',truong:'',nghe:''},
-  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong',
+  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null,
   cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null
 };
 
 function notify(message, error=false){ const el=$('#toast');el.textContent=String(message);el.className='toast show'+(error?' error':'');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('show'),5500); }
 const ERROR_TEXT = {
-  LOGIN_EXPIRED:'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', NOT_AUTHORIZED:'Tài khoản chưa được cấp quyền hoặc đã bị khóa.', NO_PERMISSION:'Bạn chưa được cấp quyền thực hiện thao tác này.', NOT_OWNER:'Bạn chỉ được xóa hồ sơ do chính mình tạo.',
+  LOGIN_EXPIRED:'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', NOT_AUTHORIZED:'Tài khoản chưa được cấp quyền hoặc đã bị khóa.', NO_PERMISSION:'Bạn chưa được cấp quyền thực hiện thao tác này.', CATALOG_IN_USE:'Danh mục đã có hồ sơ sử dụng. Vui lòng chọn Ngừng sử dụng thay vì xóa.', CANNOT_DELETE_SELF:'Bạn không thể xóa tài khoản đang đăng nhập.', LAST_ADMIN:'Hệ thống phải có ít nhất một Quản trị viên đang hoạt động.', NOT_OWNER:'Bạn chỉ được xóa hồ sơ do chính mình tạo.',
   DECISION_DUPLICATE:'Số quyết định đã tồn tại trong năm được chọn. Vui lòng kiểm tra lại.', DUPLICATE:'Thông tin này đã tồn tại. Vui lòng kiểm tra lại.', VERSION_CONFLICT:'Hồ sơ đã được cập nhật ở nơi khác. Vui lòng tải lại trước khi lưu.', NOT_FOUND:'Không tìm thấy thông tin cần thao tác. Vui lòng tải lại danh sách.', ALREADY_DELETED:'Hồ sơ này đã được xóa trước đó.',
   FILE_TOO_LARGE:'Tệp vượt dung lượng tối đa 10 MB.', VALIDATION:'Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.', UPLOAD_EXPIRED:'Lượt tải đã hết hạn. Vui lòng chọn lại tệp.', UPLOAD_OFFSET:'Có gián đoạn trong quá trình tải tệp. Vui lòng thử lại.', UPLOAD_UNAVAILABLE:'Không tải được tệp lúc này. Vui lòng thử lại.', DOWNLOAD_UNAVAILABLE:'Không tải được tệp lúc này. Vui lòng thử lại.',
   GATEWAY_UNAVAILABLE:'Hệ thống tạm thời không phản hồi. Vui lòng thử lại sau.', SERVER_ERROR:'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.', INTERNAL_ERROR:'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.', BUSY:'Hệ thống đang xử lý yêu cầu khác. Vui lòng thử lại.', SCHEMA_MISMATCH:'Dữ liệu hệ thống cần được quản trị viên kiểm tra.', USE_CHUNK_UPLOAD:'Vui lòng tải lại trang và thử đính kèm tệp.'
@@ -36,7 +36,7 @@ function allowed(p){return state.user?.VAI_TRO==='ADMIN'||(state.user?.VAI_TRO==
 function rid(){return 'r_'+(crypto?.randomUUID?.() || (Date.now().toString(36)+Math.random().toString(36).slice(2)));}
 function cacheKey(a,p){return a+'|'+JSON.stringify(p||{});}
 async function rpc(action,payload={},options={}) {
-  if(!state.token) throw Error('Bạn cần đăng nhập Google.');
+  if(!state.token&&!state.session) throw Error('Bạn cần đăng nhập Google.');
   const read = !options.mutate;
   const key=cacheKey(action,payload),ttl=Number(options.ttl ?? 45000);
   if(read && state.cache.has(key) && Date.now()-state.cache.get(key).at<ttl)return state.cache.get(key).value;
@@ -44,7 +44,7 @@ async function rpc(action,payload={},options={}) {
   const generation=state.generation;
   const run=async()=>{
     let res;
-    try {res=await fetch('/api/rpc',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,payload,idToken:state.token,requestId:options.requestId||rid()}),cache:'no-store'});}
+    try {res=await fetch('/api/rpc',{method:'POST',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},credentials:'same-origin',body:JSON.stringify({action,payload,...(state.token?{idToken:state.token}:{}),requestId:options.requestId||rid()}),cache:'no-store'});}
     catch(e){throw Error('Không kết nối được hệ thống. Vui lòng kiểm tra mạng và thử lại.');}
     let out;
     try{out=await res.json();}catch{throw Error('Hệ thống chưa phản hồi đầy đủ. Vui lòng kiểm tra lại thao tác trước khi thử lại.');}
@@ -66,8 +66,12 @@ async function initialize(){
     while(!window.google?.accounts?.id && tries++<80)await new Promise(r=>setTimeout(r,150));
     if(!window.google?.accounts?.id)throw Error('Không tải được trang đăng nhập. Vui lòng kiểm tra kết nối và tải lại trang.');
     google.accounts.id.initialize({client_id:state.clientId,callback:credentialResponse,auto_select:false,ux_mode:'popup'});
-    google.accounts.id.renderButton($('#google-login'),{theme:'outline',size:'large',shape:'pill',text:'signin_with',width:270});
-    $('#login-note').textContent='Đăng nhập bằng tài khoản đã được cấp quyền.';
+    $('#login-note').textContent='Đang kiểm tra phiên đăng nhập…';
+    try{
+      state.session=true;const result=await rpc('bootstrap',{}, {ttl:0});activateSession(result);
+    }catch(e){state.session=false;state.token='';$('#login-note').textContent='Đăng nhập bằng tài khoản đã được cấp quyền.';}
+    if(!state.session)google.accounts.id.renderButton($('#google-login'),{theme:'outline',size:'large',shape:'pill',text:'signin_with',width:270});
+
   }catch(e){$('#login-note').textContent=e.message;failure(e);}
 }
 async function credentialResponse(response){
@@ -76,13 +80,17 @@ async function credentialResponse(response){
   $('#login-note').textContent='Đang kiểm tra tài khoản và phân quyền…';
   try{
     const data=await rpc('bootstrap',{}, {ttl:0});
-    state.user=data.user;state.cats=data.catalogs;
-    $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
-    $('#current-user').innerHTML=`<b>${esc(state.user.HO_TEN || state.user.EMAIL)}</b><span>${state.user.VAI_TRO==='ADMIN'?'Quản trị viên':'Nhân viên'}</span>`;
-    navigate('dashboard');
-  }catch(e){state.token='';$('#login-note').textContent='Không thể đăng nhập.';failure(e);}
+    activateSession(data);
+  }catch(e){state.token='';state.session=false;$('#login-note').textContent='Không thể đăng nhập.';failure(e);}
 }
-function signOut(){state.token='';state.user=null;state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
+function activateSession(data){
+  state.session=true;state.user=data.user;state.cats=data.catalogs;state.token='';
+  state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.renderedPage=null;
+  $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
+  $('#current-user').innerHTML=`<b>${esc(state.user.HO_TEN||state.user.EMAIL)}</b><span>${state.user.VAI_TRO==='ADMIN'?'Quản trị viên':'Nhân viên'}</span>`;
+  navigate('dashboard');
+}
+function signOut(){if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
 // YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
 const ICON_PATHS={
   'house':'<path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/>',
@@ -105,7 +113,7 @@ function iconSvg(name,size=22){
 }
 function navItems(){return [
   ['dashboard','house','Tổng quan','RECORD_VIEW'],['records','file-text','Hồ sơ học nghề','RECORD_VIEW'],
-  ['reports','chart-column','Báo cáo','REPORT_VIEW'],['catalogs','layout-grid','Danh mục','RECORD_VIEW'],
+  ['reports','chart-column','Báo cáo','REPORT_VIEW'],['catalogs','layout-grid','Danh mục','CATALOG_MANAGE'],
   ['accounts','user-round','Quản lý tài khoản','ACCOUNT_MANAGE'],['audits','clock-3','Nhật ký thay đổi','AUDIT_VIEW']
 ].filter(i=>allowed(i[3]));}
 function buildNav(){
@@ -232,20 +240,22 @@ async function renderReports(v){
 async function renderCatalogs(v){
   const canEdit=allowed('CATALOG_MANAGE');
   $('#main').innerHTML=heading('Danh mục học nghề','Cơ sở đào tạo, nghề và lý do bỏ học.',canEdit?'<button class="btn btn-light" data-bulk-catalog="1">⇧ Nhập hàng loạt</button><button class="btn btn-primary" data-new-catalog="1">＋ Thêm danh mục</button>':'')+
-  `<div class="catalog-toolbar"><div class="tabs">${Object.entries(NAMES).map(([type,name])=>`<button class="btn ${state.catalogType===type?'active':''}" data-cat-tab="${type}">${name}</button>`).join('')}</div><div class="catalog-search"><label class="field"><span>Tìm danh mục</span><input id="catalog-search" placeholder="Nhập tên hoặc mã danh mục..." autocomplete="off"></label></div></div><div id="cats-view"></div>`;
+  `<div class="catalog-toolbar"><div class="tabs">${Object.entries(NAMES).map(([type,name])=>`<button class="btn ${state.catalogType===type?'active':''}" data-cat-tab="${type}">${name}</button>`).join('')}</div><div class="catalog-search"><label class="field"><span>Tìm danh mục</span><input id="catalog-search" placeholder="Nhập tên hoặc mã danh mục..." autocomplete="off" value="${esc(state.catalogSearch)}"></label></div></div><div id="cats-view"></div>`;
   await loadCatalogs(v);
 }
 async function loadCatalogs(v){
-  const type=state.catalogType,data=await rpc('catalog_list',{type},{ttl:60000});if(v!==state.routeVersion)return;
+  const type=state.catalogType,data={items:state.cats[type]||[]};if(v!==state.routeVersion)return;
   state.cats[type]=data.items;
   const def={truong:['MA_TRUONG','TEN_TRUONG'],nghe:['MA_NGHE','TEN_NGHE'],lydo:['MA_LY_DO','NOI_DUNG']}[type];
-  $('#cats-view').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên / Nội dung</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(r=>`<tr class="catalog-data-row"><td>${esc(r[def[0]])}</td><td>${esc(r[def[1]])}</td><td><span class="pill ${r.TRANG_THAI==='ACTIVE'?'good':'warn'}">${r.TRANG_THAI==='ACTIVE'?'Đang sử dụng':'Ngừng sử dụng'}</span></td><td>${allowed('CATALOG_MANAGE')?`<button class="btn" data-edit-catalog="${dataAttr(r[{truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type]])}">Sửa</button>`:'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có danh mục. Quản trị viên hãy tạo trước khi nhập hồ sơ.</td></tr>'}</tbody></table></div>`;
+  $('#cats-view').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tên / Nội dung</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(r=>`<tr class="catalog-data-row"><td>${esc(r[def[0]])}</td><td>${esc(r[def[1]])}</td><td><span class="pill ${r.TRANG_THAI==='ACTIVE'?'good':'warn'}">${r.TRANG_THAI==='ACTIVE'?'Đang sử dụng':'Ngừng sử dụng'}</span></td><td>${allowed('CATALOG_MANAGE')?`<div class="table-actions"><button class="btn" data-edit-catalog="${dataAttr(r[{truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type]])}">Sửa</button><button class="btn btn-danger" data-delete-catalog="${dataAttr(r[{truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type]])}">Xóa</button></div>`:'—'}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có danh mục. Quản trị viên hãy tạo trước khi nhập hồ sơ.</td></tr>'}</tbody></table></div>`;
+  const query=state.catalogSearch.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
+  document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(query);});
 }
 async function renderAccounts(v){
   $('#main').innerHTML=heading('Quản lý tài khoản','Quản lý người dùng theo vai trò Quản trị viên hoặc Nhân viên.','<button class="btn btn-primary" data-new-account="1">＋ Thêm tài khoản</button>')+'<div id="accounts-output" class="spinner">Đang tải…</div>';
   const data=await rpc('accounts_list',{}, {ttl:30000});if(v!==state.routeVersion)return;state.accountRows=data.items;
   $('#accounts-output').className='';
-  $('#accounts-output').innerHTML=`<div class="table-wrap account-table"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.map(x=>`<tr><td>${esc(x.HO_TEN)}</td><td>${esc(x.EMAIL)}</td><td>${x.VAI_TRO==='ADMIN'?'Quản trị viên':'Nhân viên'}</td><td><span class="pill ${x.TRANG_THAI==='ACTIVE'?'good':'bad'}">${x.TRANG_THAI==='ACTIVE'?'Hoạt động':'Khóa'}</span></td><td><button class="btn" data-edit-account="${esc(x.TAI_KHOAN_ID)}">Sửa</button></td></tr>`).join('')}</tbody></table></div>`;
+  $('#accounts-output').innerHTML=`<div class="table-wrap account-table"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.map(x=>`<tr><td>${esc(x.HO_TEN)}</td><td>${esc(x.EMAIL)}</td><td>${x.VAI_TRO==='ADMIN'?'Quản trị viên':'Nhân viên'}</td><td><span class="pill ${x.TRANG_THAI==='ACTIVE'?'good':'bad'}">${x.TRANG_THAI==='ACTIVE'?'Hoạt động':'Khóa'}</span></td><td><div class="table-actions"><button class="btn" data-edit-account="${esc(x.TAI_KHOAN_ID)}">Sửa</button><button class="btn btn-danger" data-delete-account="${esc(x.TAI_KHOAN_ID)}">Xóa</button></div></td></tr>`).join('')}</tbody></table></div>`;
 }
 async function renderAudits(v){
   $('#main').innerHTML=heading('Nhật ký thay đổi','Tra cứu hoạt động chỉnh sửa hồ sơ, danh mục và tài khoản.')+'<div id="audit-output" class="spinner">Đang tải nhật ký…</div>';
@@ -299,11 +309,55 @@ const BULK_HEADERS={
 };
 function csvQuote(s){return '"'+String(s??'').replace(/"/g,'""')+'"';}
 function downloadCatalogTemplate(type){
-  const headers=BULK_HEADERS[type];if(!headers)throw Error('Vui lòng chọn loại danh mục.');
-  const content='\uFEFF'+headers.map(csvQuote).join(',')+'\r\n';
-  const url=URL.createObjectURL(new Blob([content],{type:'text/csv;charset=utf-8'}));
-  const a=document.createElement('a');a.href=url;a.download='MAU_DANH_MUC_'+type.toUpperCase()+'.csv';document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),2000);
+  if(!BULK_HEADERS[type])throw Error('Vui lòng chọn loại danh mục.');
+  const a=document.createElement('a');a.href='/templates/MAU_DANH_MUC_'+type.toUpperCase()+'.xlsx';a.download='MAU_DANH_MUC_'+type.toUpperCase()+'.xlsx';document.body.appendChild(a);a.click();a.remove();
 }
+// Đọc workbook XLSX tiêu chuẩn bằng ZIP + XML, không gửi file Excel chứa thông tin cá nhân tới dịch vụ thứ ba.
+async function readXlsxRows(bytes){
+  const view=new DataView(bytes),u8=new Uint8Array(bytes),text=new TextDecoder('utf-8',{fatal:true});
+  function u16(n){return view.getUint16(n,true);}function u32(n){return view.getUint32(n,true);}
+  let pos=-1;for(let i=bytes.byteLength-22;i>=Math.max(0,bytes.byteLength-65557);i--){if(u32(i)===0x06054b50){pos=i;break;}}
+  if(pos<0)throw Error('File Excel không hợp lệ.');
+  const count=u16(pos+10),entries=new Map();let p=u32(pos+16),total=0;
+  if(count>400)throw Error('File Excel có quá nhiều thành phần.');
+  for(let i=0;i<count;i++){
+    if(u32(p)!==0x02014b50)throw Error('Cấu trúc file Excel không hợp lệ.');
+    const method=u16(p+10),comp=u32(p+20),plain=u32(p+24),len=u16(p+28),extra=u16(p+30),comment=u16(p+32),offset=u32(p+42);
+    const name=text.decode(u8.slice(p+46,p+46+len));total+=plain;
+    if(total>10000000||plain>6000000)throw Error('File Excel có dữ liệu quá lớn.');
+    entries.set(name,{method,comp,offset});p+=46+len+extra+comment;
+  }
+  async function get(name){const entry=entries.get(name);if(!entry)return null;
+    const at=entry.offset;if(u32(at)!==0x04034b50)throw Error('File Excel bị lỗi.');
+    const dataAt=at+30+u16(at+26)+u16(at+28);const chunk=u8.slice(dataAt,dataAt+entry.comp);
+    if(entry.method===0)return text.decode(chunk);
+    if(entry.method!==8||typeof DecompressionStream==='undefined')throw Error('Trình duyệt chưa hỗ trợ đọc file Excel này.');
+    const stream=new Blob([chunk]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return text.decode(await new Response(stream).arrayBuffer());
+  }
+  const shared=[],strings=await get('xl/sharedStrings.xml');
+  if(strings){const doc=new DOMParser().parseFromString(strings,'text/xml');
+    for(const si of doc.getElementsByTagNameNS('*','si'))shared.push([...si.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join(''));
+  }
+  const sheet=await get('xl/worksheets/sheet1.xml');if(!sheet)throw Error('File Excel không có bảng dữ liệu đầu tiên.');
+  const doc=new DOMParser().parseFromString(sheet,'text/xml');
+  if(doc.getElementsByTagName('parsererror').length)throw Error('File Excel có cấu trúc không hợp lệ.');
+  const rows=[];for(const row of doc.getElementsByTagNameNS('*','row')){
+    const cells=[];
+    for(const cell of row.getElementsByTagNameNS('*','c')){
+      if(cell.getElementsByTagNameNS('*','f').length)throw Error('Không sử dụng công thức trong file danh mục.');
+      const ref=cell.getAttribute('r')||'',letters=(ref.match(/^[A-Z]+/)||[''])[0];let col=0;for(const ch of letters)col=col*26+ch.charCodeAt(0)-64;col--;
+      if(col<0||col>30)continue;
+      const kind=cell.getAttribute('t'),v=cell.getElementsByTagNameNS('*','v')[0]?.textContent||'';
+      const value=kind==='s'?(shared[Number(v)]||''):kind==='inlineStr'?[...cell.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join(''):v;
+      cells[col]=value;
+    }
+    if(cells.some(v=>String(v||'').trim()))rows.push(Array.from({length:Math.max(...Object.keys(cells).map(Number),0)+1},(_,i)=>String(cells[i]||'')));
+    if(rows.length>2001)throw Error('Mỗi lượt chỉ nhập tối đa 2.000 danh mục.');
+  }
+  return rows;
+}
+
 function parseCsv(text){
   const rows=[];let row=[],cell='',quote=false;
   const raw=String(text||'').replace(/^\uFEFF/,'');
@@ -323,6 +377,7 @@ function parseCsv(text){
 }
 function getBulkRows(form){
   const type=form.elements.type.value,headers=BULK_HEADERS[type];
+  if(state.bulkRows){return state.bulkRows;}
   if(state.bulkFileText){
     const csv=parseCsv(state.bulkFileText);if(!csv.length)throw Error('Tệp không có nội dung.');
     if(csv[0].length!==headers.length||csv[0].some((h,i)=>h.trim()!==headers[i]))throw Error('Tiêu đề cột chưa đúng. Vui lòng sử dụng file mẫu của loại danh mục đã chọn.');
@@ -337,10 +392,10 @@ function getBulkRows(form){
   return form.elements.names.value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(title=>({title}));
 }
 function bulkCatalogForm(){
-  state.bulkFileText='';
+  state.bulkFileText='';state.bulkRows=null;
   showModal('Nhập danh mục hàng loạt',`<form id="bulk-catalog-form" class="form-grid"><div class="field full"><label>Loại danh mục</label><select name="type">${Object.entries(NAMES).map(([t,n])=>option(t,n,state.catalogType)).join('')}</select></div>
     <div class="field full"><button type="button" class="btn btn-light" data-bulk-template="1">⬇ Tải file mẫu theo loại danh mục</button><p class="small muted">Điền danh sách theo đúng tên cột tiếng Việt trong file mẫu. Không cần nhập mã kỹ thuật.</p></div>
-    <div class="field full"><label for="bulk-csv">Chọn file CSV đã điền</label><input id="bulk-csv" type="file" accept=".csv,text/csv"></div>
+    <div class="field full"><label for="bulk-csv">Chọn file Excel (.xlsx) hoặc CSV đã điền</label><input id="bulk-csv" type="file" accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"></div>
     <div class="field full"><label>Dán tên nhanh (mỗi dòng một tên, khi không dùng file)</label><textarea name="names" rows="6" placeholder="Dán danh sách tên, mỗi dòng một tên."></textarea></div>
     <div class="full info-banner">Sau khi kiểm tra, phần mềm sẽ báo số mục hợp lệ, trùng và lỗi. Các mục cũ được giữ nguyên.</div>
     <div id="bulk-review" class="full muted" aria-live="polite">Vui lòng kiểm tra danh sách trước khi nhập.</div>
@@ -349,6 +404,10 @@ function bulkCatalogForm(){
 function bulkNames(form){return getBulkRows(form).map(r=>r.title);}
 function deleteRecordForm(r){showModal('Xác nhận xóa hồ sơ',`<div class="info-banner"><b>${esc(r.HO_TEN)}</b><div>Quyết định số ${esc(r.SO_QUYET_DINH)} năm ${esc(r.NAM_QUYET_DINH)}</div></div><p>Hồ sơ sẽ được chuyển vào danh sách đã xóa, không còn hiển thị trong thống kê hoạt động. Số quyết định vẫn được giữ để tránh sử dụng trùng.</p><div class="modal-foot"><button type="button" class="btn" data-close="1">Hủy</button><button type="button" class="btn btn-danger" data-confirm-delete="${esc(r.HO_SO_ID)}" data-submit-btn="1">Xác nhận xóa</button></div>`);}
 function canDeleteRecord(r){return allowed('RECORD_DELETE')&&(state.user?.VAI_TRO==='ADMIN'||(r.TAO_BOI&&r.TAO_BOI.trim().toLowerCase()===state.user?.EMAIL?.trim().toLowerCase()));}
+function deleteCatalogForm(item){const type=state.catalogType,def={truong:['TRUONG_ID','TEN_TRUONG'],nghe:['NGHE_ID','TEN_NGHE'],lydo:['LY_DO_ID','NOI_DUNG']}[type];
+  showModal('Xác nhận xóa danh mục',`<div class="info-banner"><b>${esc(item[def[1]])}</b></div><p>Chỉ được xóa danh mục chưa từng sử dụng trong hồ sơ. Nếu danh mục đã được sử dụng, hãy chọn Ngừng sử dụng để giữ dữ liệu lịch sử.</p><div class="modal-foot"><button type="button" class="btn" data-close="1">Hủy</button><button type="button" class="btn btn-danger" data-confirm-catalog-delete="${esc(item[def[0]])}" data-submit-btn="1">Xác nhận xóa</button></div>`);
+}
+function deleteAccountForm(item){showModal('Xác nhận xóa tài khoản',`<div class="info-banner"><b>${esc(item.HO_TEN||item.EMAIL)}</b><div>${esc(item.EMAIL)}</div></div><p>Tài khoản sẽ không thể đăng nhập. Mọi hồ sơ đã tạo vẫn được lưu nguyên vẹn.</p><div class="modal-foot"><button type="button" class="btn" data-close="1">Hủy</button><button type="button" class="btn btn-danger" data-confirm-account-delete="${esc(item.TAI_KHOAN_ID)}" data-submit-btn="1">Xác nhận xóa</button></div>`);}
 function accountForm(item){const x=item||{};showModal(item?'Sửa tài khoản':'Thêm tài khoản',`<form id="account-form" class="form-grid"><input type="hidden" name="id" value="${esc(x.TAI_KHOAN_ID||'')}">${field('Email Google *','email',x.EMAIL||'','email','required')}${field('Họ tên','name',x.HO_TEN||'')}${selectField('Vai trò','role',option('NHAN_VIEN','Nhân viên',x.VAI_TRO||'NHAN_VIEN')+option('ADMIN','Quản trị viên',x.VAI_TRO))}${selectField('Trạng thái','status',option('ACTIVE','Hoạt động',x.TRANG_THAI||'ACTIVE')+option('DISABLED','Khóa',x.TRANG_THAI))}${modalFoot('Lưu tài khoản')}</form>`);}
 function fileModal(r){showModal('Tệp đính kèm của hồ sơ',`<div class="info-banner">${esc(r.HO_TEN)} · QĐ ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}<div>Chỉ chấp nhận PDF, JPG, PNG; tối đa 10 MB mỗi tệp.</div></div><form id="file-form" class="form-grid"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="field full"><label>Chọn tệp</label><input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required></div><div class="full" id="upload-progress" aria-live="polite"></div>${modalFoot('Tải lên')}</form>${r.HAS_FILE?`<div class="modal-file-actions">${allowed('FILE_VIEW')?`<button class="btn" data-file-get="${esc(r.HO_SO_ID)}">Tải tệp hiện tại</button>`:''}<button class="btn btn-danger" data-file-remove="${esc(r.HO_SO_ID)}">Gỡ tệp hiện tại</button></div>`:''}`);}
 function getCurrentRecord(id){return state.records.find(x=>x.HO_SO_ID===id);}
@@ -419,6 +478,10 @@ document.addEventListener('click',async e=>{
   if(node.hasAttribute('data-bulk-check')){const f=$('#bulk-catalog-form');if(!f)return;await serialized(async()=>{const rows=getBulkRows(f);if(!rows.length||rows.length>2000)throw Error('Vui lòng nhập từ 1 đến 2.000 mục.');const plan=await rpc('catalog_bulk_check',{type:f.elements.type.value,rows},{ttl:0});$('#bulk-review').textContent=`${num(plan.valid)} mục hợp lệ · ${num(plan.duplicate)} mục trùng · ${num(plan.invalid)} mục không hợp lệ.${plan.invalidItems?.length?' Lỗi tại dòng: '+plan.invalidItems.map(x=>x.line).join(', '):''}`;f.dataset.ready=plan.invalid===0&&plan.valid>0?'yes':'no';$('#bulk-import-submit').disabled=f.dataset.ready!=='yes';f.dataset.verified=f.elements.type.value+'|'+JSON.stringify(rows);});return;}
   if(node.hasAttribute('data-new-catalog')){catalogForm(null);return;}
   if(node.hasAttribute('data-edit-catalog')){const type=state.catalogType,field={truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type];catalogForm(state.cats[type].find(x=>x[field]===node.dataset.editCatalog));return;}
+  if(node.hasAttribute('data-delete-catalog')){const type=state.catalogType,key={truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type],item=state.cats[type].find(x=>x[key]===node.dataset.deleteCatalog);if(item)deleteCatalogForm(item);return;}
+  if(node.hasAttribute('data-confirm-catalog-delete')){await serialized(async()=>{await rpc('catalog_delete',{type:state.catalogType,id:node.dataset.confirmCatalogDelete},{mutate:true});notify('Đã xóa danh mục.');await afterMutation('catalogs');});return;}
+  if(node.hasAttribute('data-delete-account')){const item=state.accountRows.find(x=>x.TAI_KHOAN_ID===node.dataset.deleteAccount);if(item)deleteAccountForm(item);return;}
+  if(node.hasAttribute('data-confirm-account-delete')){await serialized(async()=>{await rpc('account_delete',{id:node.dataset.confirmAccountDelete},{mutate:true});notify('Đã xóa tài khoản.');await afterMutation('accounts');});return;}
   if(node.hasAttribute('data-new-account')){accountForm(null);return;}
   if(node.hasAttribute('data-edit-account')){accountForm(state.accountRows.find(x=>x.TAI_KHOAN_ID===node.dataset.editAccount));return;}
   if(node.hasAttribute('data-file-remove')){if(!confirm('Gỡ tệp đính kèm của hồ sơ?'))return;const r=getCurrentRecord(node.dataset.fileRemove);if(!r)return;await serialized(async()=>{await rpc('file_remove',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN},{mutate:true});notify('Đã gỡ tệp.');await afterMutation('records');});return;}
@@ -432,15 +495,32 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('change',async e=>{if(e.target.id==='bulk-csv'){
   const file=e.target.files?.[0],form=$('#bulk-catalog-form');if(!form)return;
-  try{if(file&&file.size>300000)throw Error('Tệp danh mục vượt 300 KB. Vui lòng chia danh sách thành nhiều lượt.');
-    state.bulkFileText=file?await file.text():'';
-    if(file){form.elements.names.value='';const rows=getBulkRows(form);if(rows.length>2000)throw Error('Mỗi lượt chỉ được nhập tối đa 2.000 mục.');}
+  try{
+    state.bulkFileText='';state.bulkRows=null;
+    if(file){
+      if(file.size>1500000)throw Error('File danh mục vượt 1,5 MB. Vui lòng chia danh sách thành nhiều lượt.');
+      let raw;
+      if(/\.xlsx$/i.test(file.name))raw=await readXlsxRows(await file.arrayBuffer());
+      else if(/\.csv$/i.test(file.name))raw=parseCsv(await file.text());
+      else throw Error('Vui lòng chọn file Excel (.xlsx) hoặc CSV.');
+      const headers=BULK_HEADERS[form.elements.type.value];
+      if(!raw.length||raw[0].length!==headers.length||raw[0].some((x,i)=>String(x||'').trim()!==headers[i]))throw Error('Tiêu đề cột chưa đúng. Vui lòng tải mẫu mới từ website.');
+      state.bulkRows=raw.slice(1).map((cells,i)=>{
+        if(cells.length>headers.length||cells.length<1)throw Error('Số cột chưa đúng ở dòng '+(i+2)+'.');
+        const title=String(cells[0]||'').trim(),row={title,shortName:'',address:'',order:'',note:''};
+        if(form.elements.type.value==='truong'){row.shortName=String(cells[1]||'').trim();row.address=String(cells[2]||'').trim();row.note=String(cells[3]||'').trim();}
+        else{row.order=String(cells[1]||'').trim();row.note=String(cells[2]||'').trim();}
+        return row;
+      });
+      if(state.bulkRows.length>2000)throw Error('Mỗi lượt chỉ được nhập tối đa 2.000 danh mục.');
+      form.elements.names.value='';
+    }
     form.dataset.ready='no';form.dataset.verified='';$('#bulk-import-submit').disabled=true;
     $('#bulk-review').textContent=file?'Đã đọc file. Vui lòng bấm Kiểm tra danh sách.':'Vui lòng kiểm tra danh sách trước khi nhập.';
-  }catch(err){state.bulkFileText='';e.target.value='';failure(err);}
+  }catch(err){state.bulkRows=null;state.bulkFileText='';e.target.value='';failure(err);}
 }});
-document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
-document.addEventListener('change',e=>{if(e.target.name==='UI_TINH_TRANG'){updateDropoutFields(e.target.closest('form'));}if(e.target.name==='type'&&e.target.closest('#bulk-catalog-form')){const f=e.target.closest('form');f.dataset.ready='no';f.dataset.verified='';$('#bulk-import-submit').disabled=true;}});
+document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){state.catalogSearch=e.target.value;const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
+document.addEventListener('change',e=>{if(e.target.name==='UI_TINH_TRANG'){updateDropoutFields(e.target.closest('form'));}if(e.target.name==='type'&&e.target.closest('#bulk-catalog-form')){const f=e.target.closest('form');f.dataset.ready='no';f.dataset.verified='';state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';$('#bulk-import-submit').disabled=true;}});
 document.addEventListener('change',e=>{if(e.target.name==='NGAY_QUYET_DINH'&&$('#preview-year'))$('#preview-year').value=e.target.value?.slice(0,4)||'Tự lấy từ ngày quyết định';});
 document.addEventListener('submit',e=>{
   const form=e.target,formId=form.getAttribute('id');if(!formId)return;e.preventDefault();
