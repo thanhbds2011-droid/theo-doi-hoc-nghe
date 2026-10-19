@@ -256,3 +256,14 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 
 /* YC-HN-008: Logo chính thức từ tài nguyên SVG có sẵn */
 .login-icon,.brand-icon{background:transparent;box-shadow:none;overflow:hidden}.login-icon img,.brand-icon img{display:block;width:100%;height:100%;object-fit:contain}.account-table th:last-child,.account-table td:last-child{width:170px;min-width:170px}.catalog-toolbar .table-actions{display:flex;gap:6px}.table-actions{display:flex;gap:6px;flex-wrap:wrap}
+
+/* YC-HN-009: Nhập hồ sơ hàng loạt, giữ nguyên hệ giao diện đã duyệt. */
+.import-review{border:1px solid #d8e5f4;border-radius:11px;background:#f8fbff;padding:14px;max-height:240px;overflow-y:auto;font-size:13px}
+.import-summary{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:9px;color:#183b65}
+.import-summary span{padding:5px 9px;background:#e8f2ff;border-radius:8px}
+.import-warning{padding:9px 11px;background:#fff5e5;border-radius:8px;color:#79520b;line-height:1.5;margin:10px 0}
+.import-issues{margin:8px 0;padding-left:20px;font-size:12px;line-height:1.6}
+.import-accept{display:flex;gap:9px;align-items:flex-start;font-size:13px;color:#355479;line-height:1.55}
+.import-accept input{flex:none;width:17px;height:17px;margin:2px 0 0}
+
+.import-preview-table{max-height:215px;overflow:auto;margin:9px 0}.import-preview-table table{font-size:12px;min-width:640px}.import-preview-table th,.import-preview-table td{padding:7px 8px;white-space:normal;overflow-wrap:anywhere}

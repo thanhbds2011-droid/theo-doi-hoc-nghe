@@ -358,3 +358,53 @@ test('YC008: xóa danh mục chưa liên kết, chặn danh mục có liên kế
  const schoolRows=c.tables.get('Danh mục cơ sở đào tạo').rows;
  assert.ok(schoolRows.length>=3);
 });
+
+// YC-HN-009: Nhập hồ sơ Excel theo từng đợt, không phá vỡ 7 tab/79 cột.
+function bulkRows(ctx,count,begin=1){return Array.from({length:count},(_,i)=>({
+  line:i+2,name:'Nguyễn Văn '+String(begin+i),birthDate:'1990-01-02',sex:'Nam',
+  decision:String(begin+i).padStart(3,'0'),decisionDate:'2026-01-15',
+  school:ctx.school.TEN_TRUONG,trade:ctx.trade.TEN_NGHE,startDate:'2026-03-01',endDate:'2026-05-31'
+}));}
+test('YC009: Kiểm tra 1.000 quyết định trước nhập không ghi dữ liệu',()=>{
+ const c=setupLive(),rows=bulkRows(c,1000);const before=c.tables.get('Hồ sơ học nghề').getLastRow();
+ const out=c.send('record_bulk_check',{rows});assert.equal(out.ok,true,JSON.stringify(out.error));
+ assert.equal(out.data.valid,1000);assert.equal(out.data.invalid,0);assert.equal(out.data.duplicate,0);
+ assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),before);
+});
+test('YC009: 1.000 quyết định lưu theo 25 lượt, nhập lại không ghi trùng và giữ 79 cột',()=>{
+ const c=setupLive(),rows=bulkRows(c,1000);let added=0;
+ for(let i=0;i<rows.length;i+=40){const out=c.send('record_bulk_import',{rows:rows.slice(i,i+40),batchId:'test-batch'});assert.equal(out.ok,true,JSON.stringify(out.error));added+=out.data.added;}
+ assert.equal(added,1000);assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),1001);
+ assert.equal(c.tables.get('Hồ sơ học nghề').rows[1].length,25);
+ const again=c.send('record_bulk_import',{rows:rows.slice(0,40),batchId:'again'});
+ assert.equal(again.ok,true);assert.equal(again.data.added,0);assert.equal(again.data.duplicate,40);
+ const overview=c.send('overview',{});assert.equal(overview.data.kpi.total,1000);assert.equal(overview.data.kpi.pending,1000);
+});
+test('YC009: Không gộp người trùng họ tên; cùng số khác năm hợp lệ',()=>{
+ const c=setupLive(),rows=bulkRows(c,2);rows[0].name=rows[1].name='Nguyễn Văn A';
+ rows[1].decision=rows[0].decision;rows[1].decisionDate='2027-01-15';
+ const result=c.send('record_bulk_import',{rows});assert.equal(result.ok,true);assert.equal(result.data.added,2);
+ const data=c.global.sheetRows_('HO_SO_HOC_NGHE');assert.notEqual(data[0].HO_SO_ID,data[1].HO_SO_ID);
+ assert.notEqual(data[0].NGUOI_HOC_ID,data[1].NGUOI_HOC_ID);
+});
+test('YC009: Một file có số quyết định 2/02 cùng năm, dòng thiếu cơ sở và ngày sai được phát hiện',()=>{
+ const c=setupLive(),rows=bulkRows(c,4);rows[1].decision='001';rows[2].school='Cơ sở chưa tồn tại';rows[3].decisionDate='2026-02-30';
+ const out=c.send('record_bulk_check',{rows});assert.equal(out.ok,true);
+ assert.equal(out.data.valid,1);assert.equal(out.data.duplicate,1);assert.equal(out.data.invalid,2);
+});
+test('YC009: Nhân viên không thể kiểm tra hoặc ghi nhập hàng loạt qua API',()=>{
+ const c=setupLive();const created=c.send('account_save',{email:'staff@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE'});
+ assert.equal(created.ok,true,JSON.stringify(created.error));
+ const identity={sub:'55555555555555555555',aud:audience,email:'staff@example.com',name:'Nhân viên'};
+ const data={rows:bulkRows(c,1)};
+ for(const action of ['record_bulk_check','record_bulk_import']){
+  const signed=c.signed(action,data,'stafftest_'+action+'0123456',identity);
+  const out=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(signed)}}).getContent());
+  assert.equal(out.ok,false);assert.equal(out.error.code,'NO_PERMISSION');
+ }
+});
+test('YC009: Đợt nhập giới hạn 40 hồ sơ; kiểm tra file tối đa 1200 dòng',()=>{
+ const c=setupLive();const out=c.send('record_bulk_import',{rows:bulkRows(c,41)});
+ assert.equal(out.ok,false);assert.equal(out.error.code,'VALIDATION');
+ const many=c.send('record_bulk_check',{rows:bulkRows(c,1201)});assert.equal(many.ok,false);
+});

@@ -13,7 +13,7 @@ const state = {
   token:'', session:false, clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, page:'dashboard', routeVersion:0,
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:''},
   reportFilters:{year:'',truong:'',nghe:''},
-  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null,
+  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null,
   cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null
 };
 
@@ -218,7 +218,7 @@ async function renderDashboard(v){
   $('#dashboard-output').innerHTML=`<div class="kpi-grid" aria-label="Sáu chỉ tiêu tổng quan">${tiles.map(([label,glyph,n])=>`<article class="kpi"><div class="kpi-icon">${iconSvg(glyph,26)}</div><div class="kpi-body"><div class="desc">${esc(label)}</div><div class="metric">${num(n)}</div></div></article>`).join('')}</div><div class="sub-grid">${schoolChart(data.schoolCounts)}${tradeChart(data.tradeCounts)}</div>`;
 }
 async function renderRecords(v){
-  $('#main').innerHTML=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':'')+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${allowed('REPORT_VIEW')?'<button class="btn btn-light" data-export-list="1">Xuất CSV</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
+  $('#main').innerHTML=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',(state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-light" data-bulk-record="1">⇧ Nhập Excel</button>':'')+(allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':''))+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${allowed('REPORT_VIEW')?'<button class="btn btn-light" data-export-list="1">Xuất CSV</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
   await loadRecordList(v);
 }
 async function loadRecordList(v){
@@ -358,6 +358,93 @@ async function readXlsxRows(bytes){
   return rows;
 }
 
+/* YC-HN-009: Đọc Excel ở máy người dùng; không tải nguyên file lên máy chủ. */
+const RECORD_HEADERS=['STT','Họ và tên','Ngày sinh','Giới tính','Số quyết định HTHN','Ngày quyết định HTHN','Cơ sở đào tạo nghề','Nghề đăng ký','Ngày bắt đầu','Ngày kết thúc dự kiến'];
+const RECORD_ALIASES={
+  name:['ho va ten','ho ten','ten nguoi hoc'],birthDate:['ngay sinh','nam sinh'],sex:['gioi tinh'],
+  decision:['so quyet dinh hthn','so qd hthn','so quyet dinh hoc nghe','so qd hoc nghe','so quyet dinh'],
+  decisionDate:['ngay quyet dinh hthn','ngay ban hanh qd hthn','ngay ban hanh quyet dinh hthn','ngay ban hanh qd hoc nghe','ngay quyet dinh'],
+  school:['co so dao tao nghe','co so dao tao','truong co so dao tao'],trade:['nghe dang ky','nghe dao tao','nghe'],
+  startDate:['ngay bat dau','thoi gian dao tao tu ngay','tu ngay'],endDate:['ngay ket thuc du kien','thoi gian dao tao den ngay','den ngay']
+};
+const keyVN=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+function excelISO(x){
+  const t=String(x??'').trim();if(!t)return '';
+  if(/^\d{4}-\d{2}-\d{2}/.test(t))return t.slice(0,10);
+  const v=t.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{4})$/);
+  if(v)return v[3]+'-'+v[2].padStart(2,'0')+'-'+v[1].padStart(2,'0');
+  if(/^\d{5}(?:\.0+)?$/.test(t)){const d=new Date(Date.UTC(1899,11,30)+Math.floor(Number(t))*86400000);return d.toISOString().slice(0,10);}
+  return t;
+}
+function parseRecordExcel(data){
+  if(!Array.isArray(data)||!data.length)throw Error('File Excel không có dữ liệu.');
+  const sample=data[0].map(keyVN),sub=(data[1]||[]).map(keyVN);
+  const secondHeader=sample.some(x=>x.includes('thoi gian dao tao'))&&sub.some(x=>x==='tu ngay'||x==='den ngay');
+  const columns=sample.map((h,i)=>{
+    if(secondHeader && (sub[i]==='tu ngay'||sub[i]==='den ngay'))return 'thoi gian dao tao '+sub[i];
+    return h||sub[i]||'';
+  });
+  const mapping={};Object.entries(RECORD_ALIASES).forEach(([key,aliases])=>{const at=columns.findIndex(x=>aliases.includes(x));if(at>=0)mapping[key]=at;});
+  for(const field of ['name','decision','decisionDate','school','trade'])if(mapping[field]===undefined)throw Error('Không nhận diện được cột bắt buộc: '+{name:'Họ và tên',decision:'Số quyết định HTHN',decisionDate:'Ngày quyết định HTHN',school:'Cơ sở đào tạo nghề',trade:'Nghề đăng ký'}[field]+'.');
+  const used=new Set(Object.values(mapping));
+  const unused=columns.filter((c,i)=>c&&i!==0&&!used.has(i)).map((c)=>c).slice(0,30);
+  const offset=secondHeader?2:1;
+  const rows=data.slice(offset).filter(cells=>cells.some(c=>String(c??'').trim())).map((cells,i)=>{
+    const read=key=>String(cells[mapping[key]]??'').trim();
+    return {line:i+offset+1,name:read('name'),birthDate:excelISO(read('birthDate')),sex:read('sex'),
+      decision:read('decision'),decisionDate:excelISO(read('decisionDate')),
+      school:read('school'),trade:read('trade'),startDate:excelISO(read('startDate')),endDate:excelISO(read('endDate'))};
+  });
+  if(rows.length<1||rows.length>1200)throw Error('Mỗi file cần từ 1 đến 1.200 dòng hồ sơ. Vui lòng chia file nếu có nhiều hơn.');
+  if(rows.some(r=>[r.name,r.decision,r.decisionDate,r.school,r.trade].every(x=>!x)))throw Error('File có dòng thiếu toàn bộ thông tin bắt buộc.');
+  return {rows,unused,offset};
+}
+function downloadRecordTemplate(){const a=document.createElement('a');a.href='/templates/MAU_NHAP_HO_SO_HOC_NGHE.xlsx';a.download='MAU_NHAP_HO_SO_HOC_NGHE.xlsx';document.body.append(a);a.click();a.remove();}
+function bulkRecordForm(){
+  if(state.user?.VAI_TRO!=='ADMIN')return;
+  state.importRows=null;state.importFile=null;state.importPreview=null;
+  showModal('Nhập hồ sơ học nghề từ Excel',`<form id="bulk-record-form" class="form-grid">
+    <div class="full info-banner">Chức năng dành cho Quản trị viên. Hồ sơ được nhập sẽ do tài khoản quản trị đang đăng nhập tạo và quản lý. Hệ thống không tự phân công cho nhân viên khác.</div>
+    <div class="full"><button type="button" class="btn" data-record-template="1">⬇ Tải file Excel mẫu</button></div>
+    <div class="field full"><label>Chọn file Excel (.xlsx) có tối đa 1.200 dòng</label><input type="file" id="record-import-file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div>
+    <div id="record-import-review" class="full import-review muted" aria-live="polite">Chưa chọn file Excel.</div>
+    <div class="full"><button type="button" class="btn btn-light" id="record-error-export" data-record-errors="1" hidden>⬇ Tải danh sách lỗi/trùng</button></div>
+    <label class="import-accept full"><input name="ack" type="checkbox" required> Tôi đã kiểm tra số quyết định và đồng ý rằng những cột không được hỗ trợ sẽ không lưu vào hồ sơ. Tôi sẽ giữ file Excel gốc để đối chiếu.</label>
+    <div class="modal-foot full"><button type="button" class="btn" data-close="1">Hủy</button><button type="button" class="btn btn-light" data-record-check="1">Kiểm tra dữ liệu</button><button type="submit" class="btn btn-primary" id="record-import-submit" data-submit-btn="1" disabled>Xác nhận nhập</button></div>
+  </form>`);
+}
+async function recordBulkCheck(){
+  const form=$('#bulk-record-form'),rows=state.importRows;
+  if(!form||!rows?.length)throw Error('Vui lòng chọn file Excel trước.');
+  const plan=await rpc('record_bulk_check',{rows},{ttl:0});
+  state.importPreview=plan;
+  const unhandled=state.importFile?.unused||[];
+  const list=plan.issues.slice(0,25).map(x=>`<li>Dòng ${num(x.line)}: ${esc(x.reason)}</li>`).join('');
+  const samples=rows.slice(0,10).map(r=>`<tr><td>${num(r.line)}</td><td>${esc(r.name)}</td><td>${esc(r.decision)}</td><td>${esc(r.decisionDate)}</td><td>${esc(r.school)}</td><td>${esc(r.trade)}</td></tr>`).join('');
+  $('#record-import-review').innerHTML=`<div class="import-summary"><b>${num(plan.total)} dòng</b><span>${num(plan.valid)} hợp lệ</span><span>${num(plan.duplicate)} trùng</span><span>${num(plan.invalid)} lỗi</span></div>
+    ${unhandled.length?`<div class="import-warning"><b>Không nhập ${num(unhandled.length)} cột khác:</b> ${unhandled.map(esc).join(', ')}. File gốc phải được lưu giữ để đối chiếu.</div>`:''}
+    ${list?`<div class="small">Các dòng cần xem lại (tối đa 25):</div><ul class="import-issues">${list}</ul>`:''}
+    <div class="small"><b>Xem trước 10 hồ sơ đầu tiên (chỉ để đối chiếu, chưa ghi):</b></div><div class="table-wrap import-preview-table"><table><thead><tr><th>Dòng</th><th>Họ tên</th><th>Số QĐ</th><th>Ngày QĐ</th><th>Cơ sở</th><th>Nghề</th></tr></thead><tbody>${samples}</tbody></table></div>
+    <p class="small">Hồ sơ nhập từ Excel mặc định <b>Chưa xác nhận</b>. Chỉ những dòng hợp lệ và chưa có quyết định mới được nhập.</p>`;
+  $('#record-import-submit').disabled=!(plan.valid>0);$('#record-error-export').hidden=plan.issues.length===0;
+}
+async function importBulkRecords(){
+  const form=$('#bulk-record-form');
+  if(!state.importPreview?.valid)throw Error('Vui lòng kiểm tra dữ liệu trước khi nhập.');
+  if(!form.elements.ack.checked)throw Error('Vui lòng xác nhận đã kiểm tra và chấp thuận các cột không được lưu.');
+  const rows=state.importRows,batchId=rid(),btn=$('#record-import-submit');
+  btn.disabled=true;
+  let added=0,duplicate=0,invalid=0;
+  // Giữ requestId ổn định cho từng đợt trong lần nhập; phía server kiểm tra trùng lại dưới LockService.
+  for(let i=0;i<rows.length;i+=40){
+    const response=await rpc('record_bulk_import',{rows:rows.slice(i,i+40),batchId},{mutate:true,requestId:batchId+'_'+String(i).padStart(6,'0')});
+    added+=response.added;duplicate+=response.duplicate;invalid+=response.invalid;
+    const target=$('#record-import-review');if(target)target.innerHTML=`<b>Đã xử lý ${Math.min(i+40,rows.length)}/${rows.length} dòng.</b><p>Đã tạo: ${num(added)} · Trùng: ${num(duplicate)} · Lỗi: ${num(invalid)}.</p>`;
+  }
+  notify(`Đã tạo ${num(added)} hồ sơ; bỏ qua ${num(duplicate)} quyết định trùng, ${num(invalid)} dòng lỗi.`);
+  await afterMutation('records');
+}
+
 function parseCsv(text){
   const rows=[];let row=[],cell='',quote=false;
   const raw=String(text||'').replace(/^\uFEFF/,'');
@@ -455,7 +542,7 @@ async function getFile(id){
   const a=document.createElement('a');a.href=url;a.download=meta.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
   notify('Đã tải xuống tệp thành công.');
 }
-const serialized=async(fn)=>{if(state.busy)return;state.busy=true;document.querySelectorAll('[data-submit-btn]').forEach(x=>x.disabled=true);try{await fn();}catch(e){failure(e);}finally{state.busy=false;document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes');});}};
+const serialized=async(fn)=>{if(state.busy)return;state.busy=true;document.querySelectorAll('[data-submit-btn]').forEach(x=>x.disabled=true);try{await fn();}catch(e){failure(e);}finally{state.busy=false;document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid);});}};
 // Delegated buttons: no inline user-controlled event handlers.
 document.addEventListener('click',async e=>{
   const node=e.target.closest('button');if(!node)return;
@@ -463,6 +550,10 @@ document.addEventListener('click',async e=>{
   if(node.hasAttribute('data-nav')){navigate(node.dataset.nav);return;}
   if(node.hasAttribute('data-dashboard-detail')){if(allowed('REPORT_VIEW'))navigate('reports');return;}
   if(node.hasAttribute('data-retry')){navigate(state.page,true);return;}
+  if(node.hasAttribute('data-bulk-record')){bulkRecordForm();return;}
+  if(node.hasAttribute('data-record-template')){downloadRecordTemplate();return;}
+  if(node.hasAttribute('data-record-check')){await serialized(recordBulkCheck);return;}
+  if(node.hasAttribute('data-record-errors')){const issues=state.importPreview?.issues||[];if(!issues.length)return;downloadCsv('danh-sach-loi-nhap-ho-so.csv',[['Dòng trong file','Vấn đề'],...issues.map(x=>[x.line,x.reason])]);return;}
   if(node.hasAttribute('data-new-record')){recordForm(null);return;}
   if(node.hasAttribute('data-edit-record')){const r=getCurrentRecord(node.dataset.editRecord);if(r)recordForm(r);return;}
   if(node.hasAttribute('data-delete-record')){const r=getCurrentRecord(node.dataset.deleteRecord);if(r&&canDeleteRecord(r))deleteRecordForm(r);return;}
@@ -493,7 +584,13 @@ document.addEventListener('click',async e=>{
   }
   if(node.hasAttribute('data-select-person')){const f=$('#record-form');if(!f)return;f.elements.NGUOI_HOC_ID.value=node.dataset.selectPerson;f.elements.HO_TEN.value=node.dataset.personName;f.elements.NGAY_SINH.value=node.dataset.personBirth;f.elements.GIOI_TINH.value=node.dataset.personSex;$('#selected-person').textContent='Đã chọn người học: '+node.dataset.personName;$('#person-results').innerHTML='';return;}
 });
-document.addEventListener('change',async e=>{if(e.target.id==='bulk-csv'){
+document.addEventListener('change',async e=>{if(e.target.id==='record-import-file'){
+  try{const file=e.target.files?.[0];state.importRows=null;state.importFile=null;state.importPreview=null;$('#record-import-submit').disabled=true;
+    if(!file)return;if(!/\.xlsx$/i.test(file.name)||file.size>6*1024*1024)throw Error('Vui lòng chọn file Excel .xlsx không quá 6 MB.');
+    const parsed=parseRecordExcel(await readXlsxRows(await file.arrayBuffer()));state.importRows=parsed.rows;state.importFile={name:file.name,unused:parsed.unused};
+    $('#record-import-review').textContent=`Đã đọc ${num(parsed.rows.length)} dòng từ ${file.name}. Vui lòng bấm Kiểm tra dữ liệu.`;
+  }catch(err){state.importRows=null;state.importPreview=null;e.target.value='';failure(err);}return;
+}if(e.target.id==='bulk-csv'){
   const file=e.target.files?.[0],form=$('#bulk-catalog-form');if(!form)return;
   try{
     state.bulkFileText='';state.bulkRows=null;
@@ -526,6 +623,7 @@ document.addEventListener('submit',e=>{
   const form=e.target,formId=form.getAttribute('id');if(!formId)return;e.preventDefault();
   if(formId==='records-filters'){state.filters=getFormFields(form);state.recordPage=1;state.pageViews.delete('records');navigate('records',true);return;}
   if(formId==='dashboard-filters'){state.reportFilters=getFormFields(form);state.pageViews.delete(state.page);navigate(state.page,true);return;}
+  if(formId==='bulk-record-form'){serialized(importBulkRecords);return;}
   if(formId==='record-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_save',p,{mutate:true});notify('Đã lưu hồ sơ '+d.record.SO_QUYET_DINH+'/'+d.record.NAM_QUYET_DINH);await afterMutation('records');});return;}
   if(formId==='status-form'){serialized(async()=>{let p=recordPayload(form);await rpc('record_status',p,{mutate:true});notify('Đã cập nhật tình trạng.');await afterMutation('records');});return;}
   if(formId==='catalog-form'){serialized(async()=>{await rpc('catalog_save',getFormFields(form),{mutate:true});notify('Đã lưu danh mục.');await afterMutation('catalogs');});return;}
@@ -549,4 +647,4 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!state.busy)closeMo
 initialize();
 
 // Export for non-network unit tests only; no tokens/private data exported.
-export const tests = {esc,dateVN,STATUS,RIGHTS,csvCell,parseCsv,BULK_HEADERS,STAFF_RIGHTS};
+export const tests = {esc,dateVN,STATUS,RIGHTS,csvCell,parseCsv,BULK_HEADERS,STAFF_RIGHTS,RECORD_HEADERS,parseRecordExcel,excelISO};
