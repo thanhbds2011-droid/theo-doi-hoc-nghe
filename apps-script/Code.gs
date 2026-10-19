@@ -1,17 +1,17 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.1.5-RC
+ * THEO_DOI_HOC_NGHE_API — v1.1.6-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.1.5-RC',
+  version: '1.1.6-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
   cacheSeconds: 45,
   lists: {
-    'HO_SO_HOC_NGHE': 'HO_SO_ID NGUOI_HOC_ID HO_TEN NGAY_SINH GIOI_TINH SO_QUYET_DINH NAM_QUYET_DINH SO_QUYET_DINH_KEY NGAY_QUYET_DINH TRUONG_ID NGHE_ID NGAY_BAT_DAU NGAY_KET_THUC_DU_KIEN TRANG_THAI_THAM_GIA DA_BO_HOC NGAY_BO_HOC LY_DO_BO_HOC_ID GHI_CHU TEP_DRIVE_ID TRANG_THAI_HO_SO TAO_LUC TAO_BOI CAP_NHAT_LUC CAP_NHAT_BOI PHIEN_BAN'.split(' '),
+    'HO_SO_HOC_NGHE': 'HO_SO_ID NGUOI_HOC_ID HO_TEN NGAY_SINH GIOI_TINH SO_QUYET_DINH NAM_QUYET_DINH SO_QUYET_DINH_KEY NGAY_QUYET_DINH TRUONG_ID NGHE_ID NGAY_BAT_DAU NGAY_KET_THUC_DU_KIEN TRANG_THAI_THAM_GIA DA_BO_HOC NGAY_BO_HOC LY_DO_BO_HOC_ID GHI_CHU TEP_DRIVE_ID TRANG_THAI_HO_SO TAO_LUC TAO_BOI CAP_NHAT_LUC CAP_NHAT_BOI PHIEN_BAN SO_SO_BHXH SO_QD_TCTN NGAY_QD_TCTN SO_THANG_HO_TRO MUC_HO_TRO_THANG NGAY_KET_THUC_TCTN NGAY_KET_THUC_HO_TRO DIA_CHI_TAM_TRU DIA_CHI_THUONG_TRU SO_CMND NGAY_CAP_CMND NOI_CAP_CMND DIA_CHI_CO_SO CHI_NHANH_BHTN DIEN_THOAI'.split(' '),
     'DANH_MUC_TRUONG': 'TRUONG_ID MA_TRUONG TEN_TRUONG TEN_VIET_TAT DIA_CHI TRANG_THAI GHI_CHU TAO_LUC CAP_NHAT_LUC'.split(' '),
     'DANH_MUC_NGHE': 'NGHE_ID MA_NGHE TEN_NGHE TRANG_THAI THU_TU GHI_CHU TAO_LUC CAP_NHAT_LUC'.split(' '),
     'DANH_MUC_LY_DO': 'LY_DO_ID MA_LY_DO NOI_DUNG TRANG_THAI THU_TU GHI_CHU TAO_LUC CAP_NHAT_LUC'.split(' '),
@@ -42,7 +42,7 @@ APP.sheetNames = {
   'CAU_HINH': 'Cấu hình hệ thống',
 };
 APP.headersVi = {
-  'HO_SO_HOC_NGHE': 'Mã hồ sơ|Mã người học|Họ và tên|Ngày sinh|Giới tính|Số quyết định|Năm quyết định|Khóa kiểm tra trùng|Ngày quyết định|Mã cơ sở đào tạo|Mã nghề|Ngày bắt đầu|Ngày kết thúc dự kiến|Tình trạng tham gia|Đã bỏ học|Ngày bỏ học|Mã lý do bỏ học|Ghi chú|Mã tệp Google Drive|Trạng thái hồ sơ|Thời gian tạo|Người tạo|Thời gian cập nhật|Người cập nhật|Phiên bản hồ sơ'.split('|'),
+  'HO_SO_HOC_NGHE': 'Mã hồ sơ|Mã người học|Họ và tên|Ngày sinh|Giới tính|Số quyết định|Năm quyết định|Khóa kiểm tra trùng|Ngày quyết định|Mã cơ sở đào tạo|Mã nghề|Ngày bắt đầu|Ngày kết thúc dự kiến|Tình trạng tham gia|Đã bỏ học|Ngày bỏ học|Mã lý do bỏ học|Ghi chú|Mã tệp Google Drive|Trạng thái hồ sơ|Thời gian tạo|Người tạo|Thời gian cập nhật|Người cập nhật|Phiên bản hồ sơ|Số sổ BHXH|Số QĐ TCTN|Ngày ban hành QĐ TCTN|Số tháng hỗ trợ|Mức hỗ trợ/tháng|Ngày kết thúc hưởng TCTN|Ngày kết thúc hỗ trợ học nghề|Địa chỉ tạm trú|Địa chỉ thường trú|Số CMND|Ngày cấp CMND|Nơi cấp CMND|Địa chỉ cơ sở đào tạo|Chi nhánh BHTN|Điện thoại'.split('|'),
   'DANH_MUC_TRUONG': 'Mã định danh cơ sở|Mã cơ sở|Tên cơ sở đào tạo|Tên viết tắt|Địa chỉ|Trạng thái sử dụng|Ghi chú|Thời gian tạo|Thời gian cập nhật'.split('|'),
   'DANH_MUC_NGHE': 'Mã định danh nghề|Mã nghề|Tên nghề|Trạng thái sử dụng|Thứ tự hiển thị|Ghi chú|Thời gian tạo|Thời gian cập nhật'.split('|'),
   'DANH_MUC_LY_DO': 'Mã định danh lý do|Mã lý do|Nội dung lý do bỏ học|Trạng thái sử dụng|Thứ tự hiển thị|Ghi chú|Thời gian tạo|Thời gian cập nhật'.split('|'),
@@ -58,6 +58,28 @@ APP.headersVi = {
  * Nếu gặp tên tab bị trùng hoặc tiêu đề không đúng mẫu, dừng toàn bộ trước khi sửa.
  * Có thể chạy lại an toàn (idempotent), không tạo bản sao lưu nếu không cần chuyển.
  */
+
+/** YC-HN-011: Sao lưu trước và bổ sung duy nhất các cột ở cuối, chạy lại an toàn. */
+function nangCapDuLieuHocNgheYC011() {
+  return withLock_(function(){
+    var sh=getSheet_('HO_SO_HOC_NGHE'), expected=APP.headersVi.HO_SO_HOC_NGHE;
+    var old=expected.slice(0,25), actual=sh.getRange(1,1,1,Math.min(sh.getLastColumn(),expected.length)).getDisplayValues()[0];
+    must_(old.every(function(h,i){return actual[i]===h;}),'SCHEMA_MISMATCH','25 cột hồ sơ hiện tại chưa đúng cấu trúc. Không tự cập nhật.');
+    var present=actual.slice(25).filter(function(x){return x!=='';});
+    must_(expected.slice(25).slice(0,present.length).every(function(h,i){return present[i]===h;}),'SCHEMA_MISMATCH','Các cột bổ sung chưa đúng thứ tự; không thể nâng cấp tự động.');
+    if(present.length===15)return {updated:false,totalColumns:40};
+    var source=getSpreadsheet_();
+    var backup=DriveApp.getFileById(source.getId()).makeCopy('SAO_LUU_TRUOC_YC011_'+Utilities.formatDate(new Date(),APP.tz,'yyyyMMdd_HHmmss'));
+    console.log('Sao lưu YC011: '+backup.getUrl());
+    var missing=15-present.length;
+    if(sh.getMaxColumns()<40)sh.insertColumnsAfter(sh.getMaxColumns(),40-sh.getMaxColumns());
+    sh.getRange(1,26+present.length,1,missing).setValues([expected.slice(25+present.length)]);
+    sh.getRange(1,26+present.length,1,missing).setBackground('#12305a').setFontColor('#ffffff').setFontWeight('bold').setWrap(true);
+    sh.getRange(2,26+present.length,Math.max(1,sh.getMaxRows()-1),missing).setNumberFormat('@');
+    sh.setColumnWidths(26+present.length,missing,165);
+    return {updated:true,totalColumns:40,backup:backup.getUrl()};
+  });
+}
 function chuyenSangTiengViet() {
   return setupDatabase();
 }
@@ -220,6 +242,7 @@ function sheetRows_(name) {
 }
 function safeSheetCell_(x){var value=String(x===undefined||x===null?'':x);return /^[=+@-]/.test(value)?"'"+value:value;}
 function writeRecord_(name,rowNumber,obj) {
+  if(name==='HO_SO_HOC_NGHE')must_(getSheet_(name).getRange(1,40,1,1).getDisplayValues()[0][0]===APP.headersVi.HO_SO_HOC_NGHE[39],'SCHEMA_MISSING','Cần chạy nangCapDuLieuHocNgheYC011 trước khi ghi hồ sơ.');
   var hdr=APP.lists[name], values=hdr.map(function(k){return safeSheetCell_(obj[k]);});
   getSheet_(name).getRange(rowNumber,1,1,hdr.length).setValues([values]);
 }
@@ -304,6 +327,14 @@ function validateOptionalDate_(d,title){if(d)must_(validDate_(d),'VALIDATION',ti
 function allowedRecord_(p,original){
   var o={};
   ['HO_TEN','NGAY_SINH','GIOI_TINH','SO_QUYET_DINH','NGAY_QUYET_DINH','TRUONG_ID','NGHE_ID','NGAY_BAT_DAU','NGAY_KET_THUC_DU_KIEN','TRANG_THAI_THAM_GIA','NGAY_BO_HOC','LY_DO_BO_HOC_ID','GHI_CHU'].forEach(function(k){o[k]=str_(p[k],k==='GHI_CHU'?1500:250);});
+  // YC-HN-011: trường thông tin gốc Excel, giữ nguyên khi cập nhật từng phần.
+  APP.lists.HO_SO_HOC_NGHE.slice(25).forEach(function(k){
+    o[k]=p[k]===undefined && original ? str_(original[k],1000) : str_(p[k],1000);
+  });
+  ['NGAY_QD_TCTN','NGAY_KET_THUC_TCTN','NGAY_KET_THUC_HO_TRO','NGAY_CAP_CMND'].forEach(function(k){validateOptionalDate_(o[k],APP.headersVi.HO_SO_HOC_NGHE[APP.lists.HO_SO_HOC_NGHE.indexOf(k)]);});
+  ['SO_THANG_HO_TRO','MUC_HO_TRO_THANG'].forEach(function(k){
+    if(o[k])must_(/^\d+(?:[.,]\d+)?$/.test(o[k]),'VALIDATION','Số tháng hoặc mức hỗ trợ chưa hợp lệ.');
+  });
   o.DA_BO_HOC=bool_(p.DA_BO_HOC)?'TRUE':'FALSE';
   must_(o.HO_TEN.length>=2,'VALIDATION','Cần nhập họ và tên người học.');
   validateOptionalDate_(o.NGAY_SINH,'Ngày sinh');
@@ -402,9 +433,10 @@ function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
 function recordBulkPlan_(user,p){
   must_(user.VAI_TRO==='ADMIN','NO_PERMISSION','Chỉ Quản trị viên được nhập hồ sơ hàng loạt.');
   var rows=p.rows;
-  must_(Array.isArray(rows)&&rows.length>0&&rows.length<=1200,'VALIDATION','Mỗi file cần từ 1 đến 1.200 hồ sơ.');
-  var all=sheetRows_('HO_SO_HOC_NGHE'),taken={};
-  all.forEach(function(r){if(r.SO_QUYET_DINH_KEY)taken[r.SO_QUYET_DINH_KEY]='EXISTING';});
+  must_(Array.isArray(rows)&&rows.length>0&&rows.length<=3000,'VALIDATION','Mỗi file cần từ 1 đến 3.000 hồ sơ.');
+  var taken={};
+  // Chỉ kiểm tra danh sách khóa số quyết định; cache theo phiên bản dữ liệu để tránh đọc toàn bộ Sheet mỗi lần xem trước.
+  cached_('BULK_DECISIONS',version_('DATA'),180,function(){return sheetRows_('HO_SO_HOC_NGHE').map(function(r){return r.SO_QUYET_DINH_KEY;}).filter(Boolean);}).forEach(function(key){taken[key]='EXISTING';});
   var schools={},trades={};
   catalogRows_('truong').filter(function(c){return c.TRANG_THAI==='ACTIVE';}).forEach(function(c){
     var k=norm_(c.TEN_TRUONG);if(schools[k])schools[k]='AMBIGUOUS';else schools[k]=c.TRUONG_ID;
@@ -429,7 +461,7 @@ function recordBulkPlan_(user,p){
       var data=allowedRecord_({HO_TEN:name,NGAY_SINH:str_(raw.birthDate,10),GIOI_TINH:gender,
         SO_QUYET_DINH:number,NGAY_QUYET_DINH:date,TRUONG_ID:schoolId,NGHE_ID:tradeId,
         NGAY_BAT_DAU:str_(raw.startDate,10),NGAY_KET_THUC_DU_KIEN:str_(raw.endDate,10),
-        TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN',DA_BO_HOC:false,GHI_CHU:''},null);
+        TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN',DA_BO_HOC:false,GHI_CHU:'',SO_SO_BHXH:raw.SO_SO_BHXH,SO_QD_TCTN:raw.SO_QD_TCTN,NGAY_QD_TCTN:raw.NGAY_QD_TCTN,SO_THANG_HO_TRO:raw.SO_THANG_HO_TRO,MUC_HO_TRO_THANG:raw.MUC_HO_TRO_THANG,NGAY_KET_THUC_TCTN:raw.NGAY_KET_THUC_TCTN,NGAY_KET_THUC_HO_TRO:raw.NGAY_KET_THUC_HO_TRO,DIA_CHI_TAM_TRU:raw.DIA_CHI_TAM_TRU,DIA_CHI_THUONG_TRU:raw.DIA_CHI_THUONG_TRU,SO_CMND:raw.SO_CMND,NGAY_CAP_CMND:raw.NGAY_CAP_CMND,NOI_CAP_CMND:raw.NOI_CAP_CMND,DIA_CHI_CO_SO:raw.DIA_CHI_CO_SO,CHI_NHANH_BHTN:raw.CHI_NHANH_BHTN,DIEN_THOAI:raw.DIEN_THOAI},null);
       must_(!data.NGAY_BAT_DAU||!data.NGAY_KET_THUC_DU_KIEN||data.NGAY_KET_THUC_DU_KIEN>=data.NGAY_BAT_DAU,'VALIDATION','Ngày kết thúc dự kiến trước ngày bắt đầu.');
       if(taken[key]||within[key])result.duplicate.push({line:line,reason:'Số quyết định đã có trong '+date.slice(0,4)+' hoặc trùng trong file.'});
       else{within[key]=true;result.valid.push({line:line,record:data});}
@@ -482,7 +514,7 @@ function overview_(user,p){
 function exportRecords_(user,p){
   var all=filteredRecords_(p,user);must_(all.length<=5000,'EXPORT_TOO_LARGE','Tối đa 5.000 hồ sơ cho mỗi lần xuất. Hãy thu hẹp bộ lọc.');
   var schools={},trades={};catalogRows_('truong').forEach(function(x){schools[x.TRUONG_ID]=x.TEN_TRUONG;});catalogRows_('nghe').forEach(function(x){trades[x.NGHE_ID]=x.TEN_NGHE;});
-  return {columns:['Số QĐ','Năm','Ngày QĐ','Họ tên','Ngày sinh','Cơ sở','Nghề','Tình trạng','Bỏ học','Ngày bỏ học','Ghi chú'],items:all.map(function(x){return [x.SO_QUYET_DINH,x.NAM_QUYET_DINH,x.NGAY_QUYET_DINH,x.HO_TEN,x.NGAY_SINH,schools[x.TRUONG_ID]||x.TRUONG_ID,trades[x.NGHE_ID]||x.NGHE_ID,x.TRANG_THAI_THAM_GIA,x.DA_BO_HOC,x.NGAY_BO_HOC,x.GHI_CHU];})};
+  return {columns:['STT', 'Họ và tên', 'Năm sinh', 'Giới tính', 'Số sổ BHXH', 'Số QĐ HTHN', 'Ngày ban hành QĐHN', 'Số QĐ TCTN', 'Ngày ban hành QĐ TCTN', 'Nghề đăng ký', 'Số tháng hỗ trợ', 'Mức hỗ trợ/tháng', 'Thời gian đào tạo - Từ ngày', 'Thời gian đào tạo - Đến ngày', 'Cơ sở đào tạo nghề', 'Ngày kết thúc hưởng TCTN', 'Ngày kết thúc hỗ trợ học nghề', 'Địa chỉ tạm trú', 'Địa chỉ thường trú', 'Số CMND', 'Ngày cấp CMND', 'Nơi cấp CMND', 'Địa chỉ cơ sở đào tạo', 'Chi nhánh BHTN', 'Điện thoại'],items:all.map(function(x,i){return [i+1,x.HO_TEN,x.NGAY_SINH,x.GIOI_TINH,x.SO_SO_BHXH,x.SO_QUYET_DINH,x.NGAY_QUYET_DINH,x.SO_QD_TCTN,x.NGAY_QD_TCTN,trades[x.NGHE_ID]||x.NGHE_ID,x.SO_THANG_HO_TRO,x.MUC_HO_TRO_THANG,x.NGAY_BAT_DAU,x.NGAY_KET_THUC_DU_KIEN,schools[x.TRUONG_ID]||x.TRUONG_ID,x.NGAY_KET_THUC_TCTN,x.NGAY_KET_THUC_HO_TRO,x.DIA_CHI_TAM_TRU,x.DIA_CHI_THUONG_TRU,x.SO_CMND,x.NGAY_CAP_CMND,x.NOI_CAP_CMND,x.DIA_CHI_CO_SO,x.CHI_NHANH_BHTN,x.DIEN_THOAI];})};
 }
 function catalogSave_(user,p,requestId){return dedupeWrite_(requestId,function(){
   var type=str_(p.type,20),def=APP.catalog[type];must_(Boolean(def),'BAD_REQUEST','Không có danh mục này.');

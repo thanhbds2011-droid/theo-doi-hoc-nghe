@@ -67,7 +67,7 @@ function catalog(env,type,code,title){const res=env.send('catalog_save',{type,co
 function setupLive(){const env=makeEnv();env.init();const school=catalog(env,'truong','CS001','Trung tâm nghề số 1');const trade=catalog(env,'nghe','N001','Nghề may');const reason=catalog(env,'lydo','SK','Lý do sức khỏe');return {...env,school,trade,reason};}
 const record=(ctx,number,date,over={})=>({HO_TEN:'Nguyễn Văn A',NGAY_SINH:'1990-01-02',GIOI_TINH:'NAM',SO_QUYET_DINH:number,NGAY_QUYET_DINH:date,TRUONG_ID:ctx.school.TRUONG_ID,NGHE_ID:ctx.trade.NGHE_ID,TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN',DA_BO_HOC:false,...over});
 
-test('7 tab, 79 cột, khởi tạo idempotent và không xóa dữ liệu',()=>{const c=makeEnv();c.init();assert.equal([...c.tables.keys()].length,7);assert.equal([...c.tables.values()].reduce((a,s)=>a+s.rows[0].length,0),79);const old=c.tables.get('Tài khoản người dùng').rows[1].slice();c.global.setupDatabase();assert.deepEqual(c.tables.get('Tài khoản người dùng').rows[1],old);});
+test('7 tab, 94 cột, khởi tạo idempotent và không xóa dữ liệu',()=>{const c=makeEnv();c.init();assert.equal([...c.tables.keys()].length,7);assert.equal([...c.tables.values()].reduce((a,s)=>a+s.rows[0].length,0),94);const old=c.tables.get('Tài khoản người dùng').rows[1].slice();c.global.setupDatabase();assert.deepEqual(c.tables.get('Tài khoản người dùng').rows[1],old);});
 test('Dừng khi schema hiện có sai, không tự ghi đè',()=>{const c=makeEnv();const sh=new c.Sheet('Hồ sơ học nghề');sh.rows.push(['WRONG']);c.tables.set(sh.name,sh);assert.throws(()=>c.global.setupDatabase(),e=>e.code==='SCHEMA_MISMATCH');});
 test('Khóa quyết định: 2, 02, 002 cùng năm là một; khác năm hợp lệ',()=>{const c=makeEnv();assert.equal(c.global.decisionKey_('02','2026-01-08'),'2026|2');assert.equal(c.global.decisionKey_('002','2027-01-08'),'2027|2');assert.equal(c.global.decisionKey_('2','2026-01-01'),'2026|2');});
 test('Không nhận số 0 hoặc ngày không hợp lệ',()=>{const c=makeEnv();assert.throws(()=>c.global.decisionKey_('00','2026-01-01'));assert.throws(()=>c.global.decisionKey_('02','2026-02-30'));});
@@ -129,12 +129,12 @@ test('Vẫn truy cập được tab tiếng Anh khi deployment mới chưa kịp
   assert.equal(c.global.getSheet_('TAI_KHOAN'),sh);
 });
 
-test('Sheet mới sử dụng toàn bộ tên tiếng Việt và 79 tiêu đề đúng vị trí',()=>{
+test('Sheet mới sử dụng toàn bộ tên tiếng Việt và 94 tiêu đề đúng vị trí',()=>{
   const c=makeEnv();c.global.setupDatabase();
   assert.equal(c.tables.get('Hồ sơ học nghề').rows[0][24],'Phiên bản hồ sơ');
   assert.equal(c.tables.get('Cấu hình hệ thống').rows[0][0],'Khóa cấu hình');
   assert.ok(!c.tables.has('HO_SO_HOC_NGHE'));
-  assert.equal([...c.tables.values()].reduce((n,x)=>n+x.rows[0].length,0),79);
+  assert.equal([...c.tables.values()].reduce((n,x)=>n+x.rows[0].length,0),94);
 });
 
 test('Danh mục tạo trên web tự sinh mã, bảo vệ mã cũ và chặn trùng tên',()=>{
@@ -371,11 +371,11 @@ test('YC009: Kiểm tra 1.000 quyết định trước nhập không ghi dữ li
  assert.equal(out.data.valid,1000);assert.equal(out.data.invalid,0);assert.equal(out.data.duplicate,0);
  assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),before);
 });
-test('YC009: 1.000 quyết định lưu theo 25 lượt, nhập lại không ghi trùng và giữ 79 cột',()=>{
+test('YC009: 1.000 quyết định lưu theo 25 lượt, nhập lại không ghi trùng và giữ 94 cột',()=>{
  const c=setupLive(),rows=bulkRows(c,1000);let added=0;
  for(let i=0;i<rows.length;i+=40){const out=c.send('record_bulk_import',{rows:rows.slice(i,i+40),batchId:'test-batch'});assert.equal(out.ok,true,JSON.stringify(out.error));added+=out.data.added;}
  assert.equal(added,1000);assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),1001);
- assert.equal(c.tables.get('Hồ sơ học nghề').rows[1].length,25);
+ assert.equal(c.tables.get('Hồ sơ học nghề').rows[1].length,40);
  const again=c.send('record_bulk_import',{rows:rows.slice(0,40),batchId:'again'});
  assert.equal(again.ok,true);assert.equal(again.data.added,0);assert.equal(again.data.duplicate,40);
  const overview=c.send('overview',{});assert.equal(overview.data.kpi.total,1000);assert.equal(overview.data.kpi.pending,1000);
@@ -403,8 +403,23 @@ test('YC009: Nhân viên không thể kiểm tra hoặc ghi nhập hàng loạt 
   assert.equal(out.ok,false);assert.equal(out.error.code,'NO_PERMISSION');
  }
 });
-test('YC009: Đợt nhập giới hạn 40 hồ sơ; kiểm tra file tối đa 1200 dòng',()=>{
+test('YC009: Đợt nhập giới hạn 40 hồ sơ; kiểm tra file tối đa 3000 dòng',()=>{
  const c=setupLive();const out=c.send('record_bulk_import',{rows:bulkRows(c,41)});
  assert.equal(out.ok,false);assert.equal(out.error.code,'VALIDATION');
- const many=c.send('record_bulk_check',{rows:bulkRows(c,1201)});assert.equal(many.ok,false);
+ const many=c.send('record_bulk_check',{rows:bulkRows(c,3001)});assert.equal(many.ok,false);
+});
+
+test('YC011: 40 cột hồ sơ, dữ liệu hỗ trợ và giấy tờ được lưu, sửa không mất dữ liệu',()=>{
+  const c=setupLive();const a=c.send('record_save',record(c,'081','2026-10-02',{
+    SO_SO_BHXH:'00123456789',SO_QD_TCTN:'123',NGAY_QD_TCTN:'2026-01-01',SO_THANG_HO_TRO:'3',MUC_HO_TRO_THANG:'1500000',DIA_CHI_TAM_TRU:'TP.HCM',DIA_CHI_THUONG_TRU:'Tây Ninh',SO_CMND:'0012456112',DIEN_THOAI:'0900123456'
+  }));assert.equal(a.ok,true,JSON.stringify(a.error));assert.equal(a.data.record.SO_SO_BHXH,'00123456789');assert.equal(a.data.record.DIEN_THOAI,'0900123456');
+  const b=c.send('record_save',{...record(c,'081','2026-10-02'),HO_SO_ID:a.data.record.HO_SO_ID,PHIEN_BAN:a.data.record.PHIEN_BAN,HO_TEN:'Nguyễn Văn C chỉnh sửa',SO_SO_BHXH:undefined,DIEN_THOAI:undefined});
+  assert.equal(b.ok,true,JSON.stringify(b.error));assert.equal(b.data.record.SO_SO_BHXH,'00123456789');assert.equal(b.data.record.DIEN_THOAI,'0900123456');
+  assert.equal(c.tables.get('Hồ sơ học nghề').rows[1].length,40);
+  const exp=c.send('report_export',{});assert.equal(exp.ok,true,JSON.stringify(exp.error));assert.equal(exp.data.columns.length,25);assert.equal(exp.data.items[0][4],'00123456789');
+});
+
+test('YC011: 2.326 dòng được hỗ trợ trong bước kiểm tra và nhập theo đợt',()=>{
+  const c=setupLive(),rows=bulkRows(c,2326);const plan=c.send('record_bulk_check',{rows});
+  assert.equal(plan.ok,true,JSON.stringify(plan.error));assert.equal(plan.data.total,2326);assert.equal(plan.data.valid,2326);
 });
