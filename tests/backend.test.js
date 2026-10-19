@@ -387,10 +387,10 @@ test('YC009: Không gộp người trùng họ tên; cùng số khác năm hợp
  const data=c.global.sheetRows_('HO_SO_HOC_NGHE');assert.notEqual(data[0].HO_SO_ID,data[1].HO_SO_ID);
  assert.notEqual(data[0].NGUOI_HOC_ID,data[1].NGUOI_HOC_ID);
 });
-test('YC009: Một file có số quyết định 2/02 cùng năm, dòng thiếu cơ sở và ngày sai được phát hiện',()=>{
+test('YC009/012: quyết định trùng, danh mục mới hợp lệ và ngày sai được phân loại đúng',()=>{
  const c=setupLive(),rows=bulkRows(c,4);rows[1].decision='001';rows[2].school='Cơ sở chưa tồn tại';rows[3].decisionDate='2026-02-30';
  const out=c.send('record_bulk_check',{rows});assert.equal(out.ok,true);
- assert.equal(out.data.valid,1);assert.equal(out.data.duplicate,1);assert.equal(out.data.invalid,2);
+ assert.equal(out.data.valid,2);assert.equal(out.data.duplicate,1);assert.equal(out.data.invalid,1);assert.deepEqual(Array.from(out.data.newCatalogs.truong),['Cơ sở chưa tồn tại']);
 });
 test('YC009: Nhân viên không thể kiểm tra hoặc ghi nhập hàng loạt qua API',()=>{
  const c=setupLive();const created=c.send('account_save',{email:'staff@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE'});
@@ -422,4 +422,104 @@ test('YC011: 40 cột hồ sơ, dữ liệu hỗ trợ và giấy tờ được 
 test('YC011: 2.326 dòng được hỗ trợ trong bước kiểm tra và nhập theo đợt',()=>{
   const c=setupLive(),rows=bulkRows(c,2326);const plan=c.send('record_bulk_check',{rows});
   assert.equal(plan.ok,true,JSON.stringify(plan.error));assert.equal(plan.data.total,2326);assert.equal(plan.data.valid,2326);
+});
+
+// YC-HN-012: kiểm thử số tháng/mức hỗ trợ và tự động bổ sung danh mục (mock Sheets).
+test('YC012: tháng hỗ trợ có số lẻ, được giữ nguyên khi Thêm/Sửa và không làm tròn',()=>{
+ const c=setupLive();
+ for(const input of ['3','3,5','2.5','6']){
+  const x=c.global.normalizeSupportMonths_(input);
+  assert.equal(x,input.replace(',','.'));
+ }
+ assert.equal(c.global.normalizeSupportMonths_(''),'');
+ for(const invalid of ['3,5,5','abc','3 tháng','-3'])assert.throws(()=>c.global.normalizeSupportMonths_(invalid));
+ const a=c.send('record_save',record(c,'100','2026-01-12',{SO_THANG_HO_TRO:'3,5',MUC_HO_TRO_THANG:'1.500.000'}));
+ assert.equal(a.ok,true,JSON.stringify(a.error));
+ assert.equal(a.data.record.SO_THANG_HO_TRO,'3.5');
+ const b=c.send('record_save',{...record(c,'100','2026-01-12'),HO_SO_ID:a.data.record.HO_SO_ID,PHIEN_BAN:a.data.record.PHIEN_BAN,SO_THANG_HO_TRO:'2,5',MUC_HO_TRO_THANG:'666.666'});
+ assert.equal(b.ok,true,JSON.stringify(b.error));
+ assert.equal(b.data.record.SO_THANG_HO_TRO,'2.5');assert.equal(b.data.record.MUC_HO_TRO_THANG,'666666');
+});
+test('YC012: tiền VN đa dấu chấm và định dạng quốc tế được chuẩn hóa chính xác',()=>{
+ const c=makeEnv();
+ for(const [input,expected] of [['1.500.000','1500000'],['1,500,000','1500000'],['1500000','1500000'],['666.666','666666'],['1.300.000','1300000'],['1.500.000,50','1500000.50'],['1,500,000.75','1500000.75'],['0','0'],['','']]){
+  assert.equal(c.global.normalizeSupportAmount_(input),expected,input);
+ }
+ for(const invalid of ['1.50.000','500.00.000','1,5,0','1.500.00','1.5.0','=4+3','-5'])assert.throws(()=>c.global.normalizeSupportAmount_(invalid),invalid);
+});
+test('YC012: nghề/cơ sở mới không còn là lỗi; server tạo một danh mục mỗi tên và liên kết đúng ID',()=>{
+ const c=setupLive();const rows=bulkRows(c,4);rows.forEach((r,i)=>{
+   r.school= i===3?'Trung tâm Kỹ thuật Mới':'Trung tâm Tập huấn Cơ điện';r.trade= i===3?'Kỹ thuật sửa chữa điện':'Kỹ thuật làm bánh';
+   r.MUC_HO_TRO_THANG='1.500.000';r.SO_THANG_HO_TRO='3,5';
+ });
+ const check=c.send('record_bulk_check',{rows});assert.equal(check.ok,true,JSON.stringify(check.error));
+ assert.equal(check.data.valid,4);assert.equal(check.data.invalid,0);
+ assert.equal(check.data.newCatalogs.truong.length,2);assert.equal(check.data.newCatalogs.nghe.length,2);
+ const result=c.send('record_bulk_import',{rows,batchId:'test_bulk_001'});
+ assert.equal(result.ok,true,JSON.stringify(result.error));assert.equal(result.data.added,4);
+ assert.equal(result.data.addedCatalogs.truong,2);assert.equal(result.data.addedCatalogs.nghe,2);
+ const schools=c.global.catalogRows_('truong'),trades=c.global.catalogRows_('nghe'),records=c.global.sheetRows_('HO_SO_HOC_NGHE');
+ assert.equal(schools.filter(x=>x.TEN_TRUONG==='Trung tâm Tập huấn Cơ điện').length,1);
+ assert.equal(trades.filter(x=>x.TEN_NGHE==='Kỹ thuật làm bánh').length,1);
+ assert.equal(new Set(records.slice(0,3).map(x=>x.TRUONG_ID)).size,1);
+ assert.equal(new Set(records.slice(0,3).map(x=>x.NGHE_ID)).size,1);
+ assert.ok(schools.some(x=>x.TRUONG_ID===records[0].TRUONG_ID));
+ assert.equal(records[0].MUC_HO_TRO_THANG,'1500000');assert.equal(records[0].SO_THANG_HO_TRO,'3.5');
+ const again=c.send('record_bulk_import',{rows,batchId:'test_bulk_002'});
+ assert.equal(again.data.added,0);assert.equal(again.data.duplicate,4);
+ assert.equal(again.data.addedCatalogs.truong,0);
+ assert.equal(c.global.sheetRows_('DANH_MUC_TRUONG').length,3);
+});
+test('YC012: không tự tạo nghề từ hồ sơ lỗi hoặc quyết định trùng',()=>{
+ const c=setupLive();const rows=bulkRows(c,2);
+ rows[0].trade='Nghề mới lỗi';rows[0].decisionDate='2026-02-30';
+ rows[1].trade='Nghề mới đúng';
+ const out=c.send('record_bulk_import',{rows,batchId:'skip_invalid_001'});
+ assert.equal(out.ok,true,JSON.stringify(out.error));assert.equal(out.data.added,1);assert.equal(out.data.invalid,1);
+ assert.equal(out.data.addedCatalogs.nghe,1);
+ const names=c.global.sheetRows_('DANH_MUC_NGHE').map(x=>x.TEN_NGHE);
+ assert.ok(!names.includes('Nghề mới lỗi'));assert.ok(names.includes('Nghề mới đúng'));
+});
+test('YC012: tên khác dấu không bị tự gộp, cùng tên khác khoảng trắng/chữ hoa được dùng lại',()=>{
+ const c=setupLive();const rows=bulkRows(c,3);
+ rows[0].school='Trường Thẩm mỹ Hòa Bình';rows[1].school='  trường   thẩm mỹ hòa bình  ';rows[2].school='Trường Thẩm mỹ Hoa Bình';
+ rows[0].trade='Nghề A';rows[1].trade='nghề a';rows[2].trade='Nghề Á';
+ const res=c.send('record_bulk_import',{rows,batchId:'diacritic_distinct_01'});
+ assert.equal(res.ok,true,JSON.stringify(res.error));assert.equal(res.data.added,3);
+ assert.equal(res.data.addedCatalogs.truong,2);assert.equal(res.data.addedCatalogs.nghe,2);
+});
+test('YC012: danh mục ngừng sử dụng không được tự kích hoạt hoặc tạo bản sao',()=>{
+ const c=setupLive();const other=c.send('catalog_save',{type:'nghe',title:'Nghề không dùng',status:'INACTIVE'});
+ assert.equal(other.ok,true,JSON.stringify(other.error));const rows=bulkRows(c,1);rows[0].trade='Nghề không dùng';
+ const check=c.send('record_bulk_check',{rows});assert.equal(check.data.valid,0);assert.equal(check.data.invalid,1);
+ const out=c.send('record_bulk_import',{rows,batchId:'inactive_check_001'});
+ assert.equal(out.data.added,0);assert.equal(out.data.addedCatalogs.nghe,0);
+ assert.equal(c.global.sheetRows_('DANH_MUC_NGHE').filter(x=>x.TEN_NGHE==='Nghề không dùng').length,1);
+});
+test('YC012: nhập từng đợt dùng cùng danh mục mới, không tạo trùng ở đợt tiếp theo',()=>{
+ const c=setupLive();const a=bulkRows(c,3),b=bulkRows(c,3);
+ a.forEach(x=>{x.school='Cơ sở đặc biệt';x.trade='Nghề phục hồi';});
+ b.forEach((x,i)=>{x.decision=String(i+100);x.school='Cơ sở đặc biệt';x.trade='Nghề phục hồi';});
+ const out1=c.send('record_bulk_import',{rows:a,batchId:'manyparts_1'}),out2=c.send('record_bulk_import',{rows:b,batchId:'manyparts_2'});
+ assert.equal(out1.data.added,3);assert.equal(out2.data.added,3);
+ assert.equal(out1.data.addedCatalogs.nghe,1);assert.equal(out2.data.addedCatalogs.nghe,0);
+ assert.equal(out2.data.addedCatalogs.truong,0);
+});
+test('YC012: khi file cung cấp rõ Bỏ học + ngày/lý do, lý do mới được thêm một lần và gắn đúng hồ sơ',()=>{
+ const c=setupLive(),rows=bulkRows(c,2);
+ rows.forEach((r,i)=>{r.importStatus='Bỏ học';r.dropoutDate='2026-08-15';r.dropoutReason=i?'  Hoàn cảnh gia đình ':'Hoàn cảnh gia đình';});
+ const check=c.send('record_bulk_check',{rows});assert.equal(check.ok,true,JSON.stringify(check.error));
+ assert.equal(check.data.valid,2);assert.deepEqual(Array.from(check.data.newCatalogs.lydo),['Hoàn cảnh gia đình']);
+ const result=c.send('record_bulk_import',{rows,batchId:'dropoutreason_001'});
+ assert.equal(result.ok,true,JSON.stringify(result.error));assert.equal(result.data.addedCatalogs.lydo,1);
+ const records=c.global.sheetRows_('HO_SO_HOC_NGHE'),reasons=c.global.sheetRows_('DANH_MUC_LY_DO');
+ assert.equal(records.length,2);assert.equal(records[0].DA_BO_HOC,'TRUE');
+ assert.equal(records[0].LY_DO_BO_HOC_ID,records[1].LY_DO_BO_HOC_ID);
+ assert.ok(reasons.some(x=>x.LY_DO_ID===records[0].LY_DO_BO_HOC_ID));
+});
+test('YC012: có lý do nhưng thiếu trạng thái/ngày bỏ học không được tạo danh mục vô cớ',()=>{
+ const c=setupLive(),rows=bulkRows(c,1);rows[0].dropoutReason='Không đủ điều kiện';
+ const plan=c.send('record_bulk_check',{rows});assert.equal(plan.data.valid,0);assert.equal(plan.data.invalid,1);
+ const out=c.send('record_bulk_import',{rows,batchId:'dropoutreason_bad_001'});
+ assert.equal(out.data.added,0);assert.equal(out.data.addedCatalogs.lydo,0);
 });

@@ -1,8 +1,16 @@
-/** THEO DÕI HỌC NGHỀ — v1.1.4-RC (YC-HN-008). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.1.7-RC (YC-HN-012). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
 const num = value => Number(value || 0).toLocaleString('vi-VN');
+// YC-HN-012: cùng cách hiển thị tại Thêm, Sửa, Chi tiết và kết quả xuất dữ liệu.
+const supportMonthsVN = value => String(value??'').trim().replace('.',',');
+const supportMoneyVN = value => {
+  const raw=String(value??'').trim();
+  if(!/^\d+(?:\.\d{1,2})?$/.test(raw))return raw;
+  const [int,fraction]=raw.split('.');
+  return int.replace(/\B(?=(\d{3})+(?!\d))/g,'.')+(fraction?','+fraction:'');
+};
 const option = (value, label, selected = '') => `<option value="${esc(value)}" ${String(value) === String(selected) ? 'selected' : ''}>${esc(label)}</option>`;
 const dateVN = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : (d || '—');
 const STATUS = { CHO_XAC_NHAN:'Chưa xác nhận', DA_THAM_GIA:'Đang học', KHONG_THAM_GIA:'Không tham gia' };
@@ -297,8 +305,8 @@ function recordForm(r){
   ${field('Số sổ BHXH','SO_SO_BHXH',x.SO_SO_BHXH||'','text')}
   ${field('Số QĐ TCTN','SO_QD_TCTN',x.SO_QD_TCTN||'','text')}
   ${field('Ngày ban hành QĐ TCTN','NGAY_QD_TCTN',x.NGAY_QD_TCTN||'','date')}
-  ${field('Số tháng hỗ trợ','SO_THANG_HO_TRO',x.SO_THANG_HO_TRO||'','text')}
-  ${field('Mức hỗ trợ/tháng','MUC_HO_TRO_THANG',x.MUC_HO_TRO_THANG||'','text')}
+  ${field('Số tháng hỗ trợ','SO_THANG_HO_TRO',supportMonthsVN(x.SO_THANG_HO_TRO),'text','inputmode="decimal" placeholder="VD: 3,5"')}
+  ${field('Mức hỗ trợ/tháng','MUC_HO_TRO_THANG',supportMoneyVN(x.MUC_HO_TRO_THANG),'text','inputmode="decimal" placeholder="VD: 1.500.000"')}
   ${field('Ngày kết thúc hưởng TCTN','NGAY_KET_THUC_TCTN',x.NGAY_KET_THUC_TCTN||'','date')}
   ${field('Ngày kết thúc hỗ trợ học nghề','NGAY_KET_THUC_HO_TRO',x.NGAY_KET_THUC_HO_TRO||'','date')}
   ${field('Địa chỉ tạm trú','DIA_CHI_TAM_TRU',x.DIA_CHI_TAM_TRU||'','text')}
@@ -315,7 +323,7 @@ function recordForm(r){
   showModal(edit?'Chỉnh sửa hồ sơ học nghề':'Thêm hồ sơ học nghề',form);updateDropoutFields($('#record-form'));
 }
 const RECORD_DETAIL_LABELS=[['HO_TEN','Họ và tên'],['NGAY_SINH','Năm sinh'],['GIOI_TINH','Giới tính'],['SO_SO_BHXH','Số sổ BHXH'],['SO_QUYET_DINH','Số QĐ HTHN'],['NGAY_QUYET_DINH','Ngày ban hành QĐHN'],['SO_QD_TCTN','Số QĐ TCTN'],['NGAY_QD_TCTN','Ngày ban hành QĐ TCTN'],['NGHE_ID','Nghề đăng ký'],['SO_THANG_HO_TRO','Số tháng hỗ trợ'],['MUC_HO_TRO_THANG','Mức hỗ trợ/tháng'],['NGAY_BAT_DAU','Thời gian đào tạo – Từ ngày'],['NGAY_KET_THUC_DU_KIEN','Thời gian đào tạo – Đến ngày'],['TRUONG_ID','Cơ sở đào tạo nghề'],['NGAY_KET_THUC_TCTN','Ngày kết thúc hưởng TCTN'],['NGAY_KET_THUC_HO_TRO','Ngày kết thúc hỗ trợ học nghề'],['DIA_CHI_TAM_TRU','Địa chỉ tạm trú'],['DIA_CHI_THUONG_TRU','Địa chỉ thường trú'],['SO_CMND','Số CMND'],['NGAY_CAP_CMND','Ngày cấp CMND'],['NOI_CAP_CMND','Nơi cấp CMND'],['DIA_CHI_CO_SO','Địa chỉ cơ sở đào tạo'],['CHI_NHANH_BHTN','Chi nhánh BHTN'],['DIEN_THOAI','Điện thoại']];
-function recordDetail(r){const rows=RECORD_DETAIL_LABELS.map(([k,label])=>{let val=r[k]||'';if(k==='NGHE_ID')val=lookup('nghe',val);if(k==='TRUONG_ID')val=lookup('truong',val);return `<tr><th>${esc(label)}</th><td>${esc(val||'—')}</td></tr>`;}).join('');showModal('Chi tiết hồ sơ học nghề',`<div class="table-wrap detail-table"><table><tbody>${rows}</tbody></table></div><div class="modal-foot"><button class="btn" data-close="1">Đóng</button></div>`);}
+function recordDetail(r){const rows=RECORD_DETAIL_LABELS.map(([k,label])=>{let val=r[k]||'';if(k==='NGHE_ID')val=lookup('nghe',val);if(k==='TRUONG_ID')val=lookup('truong',val);if(k==='SO_THANG_HO_TRO')val=supportMonthsVN(val);if(k==='MUC_HO_TRO_THANG')val=supportMoneyVN(val);return `<tr><th>${esc(label)}</th><td>${esc(val||'—')}</td></tr>`;}).join('');showModal('Chi tiết hồ sơ học nghề',`<div class="table-wrap detail-table"><table><tbody>${rows}</tbody></table></div><div class="modal-foot"><button class="btn" data-close="1">Đóng</button></div>`);}
 function statusForm(r){showModal('Cập nhật tình trạng học nghề',`<form id="status-form" class="form-grid"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="full info-banner">${esc(r.HO_TEN)} · Quyết định ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}</div>${statusSelect(r)}${dropoutFields(r)}${modalFoot('Cập nhật tình trạng')}</form>`);updateDropoutFields($('#status-form'));}
 function catalogForm(item){const type=state.catalogType,def={truong:['TRUONG_ID','MA_TRUONG','TEN_TRUONG'],nghe:['NGHE_ID','MA_NGHE','TEN_NGHE'],lydo:['LY_DO_ID','MA_LY_DO','NOI_DUNG']}[type],x=item||{};
   showModal((item?'Sửa':'Thêm')+' '+NAMES[type].toLowerCase(),`<form id="catalog-form" class="form-grid"><input type="hidden" name="id" value="${esc(x[def[0]])}"><input type="hidden" name="type" value="${type}">${item?field('Mã danh mục (không thể thay đổi)','code',x[def[1]]||'','text','readonly'):''}${field('Tên / Nội dung *','title',x[def[2]]||'','text','required maxlength="250"')}${type==='truong'?`${field('Tên viết tắt','shortName',x.TEN_VIET_TAT||'')}${field('Địa chỉ','address',x.DIA_CHI||'')}`:''}${type==='truong'?'':field('Thứ tự','order',x.THU_TU||0,'number')}${selectField('Trạng thái','status',option('ACTIVE','Đang sử dụng',x.TRANG_THAI||'ACTIVE')+option('INACTIVE','Ngừng sử dụng',x.TRANG_THAI))}<div class="field full"><label>Ghi chú</label><textarea name="note">${esc(x.GHI_CHU||'')}</textarea></div><div class="full form-hint">${item?'Mã danh mục đã cấp được giữ nguyên để bảo vệ hồ sơ liên kết.':'Hệ thống sẽ tự tạo mã sau khi lưu.'}</div>${modalFoot('Lưu danh mục')}</form>`);
@@ -398,7 +406,10 @@ const RECORD_ALIASES={
   NOI_CAP_CMND:['noi cap cmnd'],
   DIA_CHI_CO_SO:['dia chi co so dao tao'],
   CHI_NHANH_BHTN:['chi nhanh bhtn'],
-  DIEN_THOAI:['dien thoai']
+  DIEN_THOAI:['dien thoai'],
+  importStatus:['tinh trang hoc nghe','tinh trang tham gia'],
+  dropoutDate:['ngay bo hoc'],
+  dropoutReason:['ly do bo hoc']
 };
 const keyVN=x=>String(x??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[đĐ]/g,'d').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 function excelISO(x){
@@ -424,7 +435,7 @@ function parseRecordExcel(data){
   const offset=secondHeader?2:1;
   const rows=data.slice(offset).map((cells,i)=>({cells,line:i+offset+1})).filter(({cells})=>String(cells[mapping.name]??'').trim()&&String(cells[mapping.decision]??'').trim()).map(({cells,line})=>{
     const read=key=>String(cells[mapping[key]]??'').trim();
-    return {line,name:read('name'),birthDate:excelISO(read('birthDate')),sex:read('sex'),
+    return {line,name:read('name'),birthDate:excelISO(read('birthDate')),sex:read('sex'),importStatus:read('importStatus'),dropoutDate:excelISO(read('dropoutDate')),dropoutReason:read('dropoutReason'),
       decision:read('decision'),decisionDate:excelISO(read('decisionDate')),
       school:read('school'),trade:read('trade'),startDate:excelISO(read('startDate')),endDate:excelISO(read('endDate')),SO_SO_BHXH:read('SO_SO_BHXH'),SO_QD_TCTN:read('SO_QD_TCTN'),NGAY_QD_TCTN:excelISO(read('NGAY_QD_TCTN')),SO_THANG_HO_TRO:read('SO_THANG_HO_TRO'),MUC_HO_TRO_THANG:read('MUC_HO_TRO_THANG'),NGAY_KET_THUC_TCTN:excelISO(read('NGAY_KET_THUC_TCTN')),NGAY_KET_THUC_HO_TRO:excelISO(read('NGAY_KET_THUC_HO_TRO')),DIA_CHI_TAM_TRU:read('DIA_CHI_TAM_TRU'),DIA_CHI_THUONG_TRU:read('DIA_CHI_THUONG_TRU'),SO_CMND:read('SO_CMND'),NGAY_CAP_CMND:excelISO(read('NGAY_CAP_CMND')),NOI_CAP_CMND:read('NOI_CAP_CMND'),DIA_CHI_CO_SO:read('DIA_CHI_CO_SO'),CHI_NHANH_BHTN:read('CHI_NHANH_BHTN'),DIEN_THOAI:read('DIEN_THOAI')};
   });
@@ -450,7 +461,14 @@ async function recordBulkCheck(){
   const form=$('#bulk-record-form'),rows=state.importRows;
   if(!form||!rows?.length)throw Error('Vui lòng chọn file Excel trước.');
   const parts=[];for(let i=0;i<rows.length;i+=120)parts.push(await rpc('record_bulk_check',{rows:rows.slice(i,i+120)},{ttl:0}));
-  const plan={total:rows.length,valid:parts.reduce((a,v)=>a+v.valid,0),duplicate:parts.reduce((a,v)=>a+v.duplicate,0),invalid:parts.reduce((a,v)=>a+v.invalid,0),issues:parts.flatMap(v=>v.issues||[])};
+  const newCatalogs={truong:[],nghe:[],lydo:[]};
+  const nameKey=x=>String(x||'').normalize('NFC').toLocaleLowerCase().replace(/\s+/g,' ').trim();
+  for(const type of ['truong','nghe','lydo']){
+    const seen=new Set();for(const part of parts)for(const title of (part.newCatalogs?.[type]||[])){
+      if(!seen.has(nameKey(title))){newCatalogs[type].push(title);seen.add(nameKey(title));}
+    }
+  }
+  const plan={total:rows.length,valid:parts.reduce((a,v)=>a+v.valid,0),duplicate:parts.reduce((a,v)=>a+v.duplicate,0),invalid:parts.reduce((a,v)=>a+v.invalid,0),issues:parts.flatMap(v=>v.issues||[]),newCatalogs};
   // Kiểm tra trùng quyết định trên TOÀN BỘ file, không chỉ từng đợt API.
   const duplicateLines=new Set(),seen=new Map();rows.forEach(r=>{if(!r.decision||!r.decisionDate)return;const key=String(Number(r.decision))+'|'+r.decisionDate.slice(0,4);if(seen.has(key))duplicateLines.add(r.line);else seen.set(key,r.line);});
   state.importDuplicateLines=duplicateLines;for(const line of duplicateLines){plan.duplicate++;plan.valid=Math.max(0,plan.valid-1);plan.issues.push({line,reason:'Số quyết định trùng trong file Excel.'});}
@@ -458,7 +476,12 @@ async function recordBulkCheck(){
   const unhandled=state.importFile?.unused||[];
   const list=plan.issues.slice(0,25).map(x=>`<li>Dòng ${num(x.line)}: ${esc(x.reason)}</li>`).join('');
   const samples=rows.slice(0,10).map(r=>`<tr><td>${num(r.line)}</td><td>${esc(r.name)}</td><td>${esc(r.decision)}</td><td>${esc(r.decisionDate)}</td><td>${esc(r.school)}</td><td>${esc(r.trade)}</td></tr>`).join('');
+  const catalogPreview=['truong','nghe','lydo'].map(type=>{
+    const names=newCatalogs[type],label={truong:'Cơ sở đào tạo',nghe:'Nghề đào tạo',lydo:'Lý do bỏ học'}[type];
+    return `<div class="import-catalog-preview"><b>${esc(label)} mới: ${num(names.length)}</b>${names.length?`<div class="small">${names.slice(0,35).map(esc).join(' · ')}${names.length>35?' · …':''}</div>`:''}</div>`;
+  }).join('');
   $('#record-import-review').innerHTML=`<div class="import-summary"><b>${num(plan.total)} dòng</b><span>${num(plan.valid)} hợp lệ</span><span>${num(plan.duplicate)} trùng</span><span>${num(plan.invalid)} lỗi</span></div>
+    <div class="import-new-catalogs"><b>Danh mục sẽ tự bổ sung khi xác nhận nhập:</b>${catalogPreview}<p class="small">Danh mục đã có sẽ được sử dụng lại. Danh mục ngừng sử dụng, trùng tên hoặc chưa rõ phải xử lý riêng.</p></div>
     ${unhandled.length?`<div class="import-warning"><b>Các cột chưa được ánh xạ (${num(unhandled.length)}):</b> ${unhandled.map(esc).join(', ')}. File gốc phải được lưu giữ để đối chiếu.</div>`:''}
     ${list?`<div class="small">Các dòng cần xem lại (tối đa 25):</div><ul class="import-issues">${list}</ul>`:''}
     <div class="small"><b>Xem trước 10 hồ sơ đầu tiên (chỉ để đối chiếu, chưa ghi):</b></div><div class="table-wrap import-preview-table"><table><thead><tr><th>Dòng</th><th>Họ tên</th><th>Số QĐ</th><th>Ngày QĐ</th><th>Cơ sở</th><th>Nghề</th></tr></thead><tbody>${samples}</tbody></table></div>
@@ -472,14 +495,17 @@ async function importBulkRecords(){
   if(!form.elements.ack.checked)throw Error('Vui lòng xác nhận đã kiểm tra dữ liệu.');
   const rows=state.importRows.filter(r=>!state.importDuplicateLines?.has(r.line)),batchId=rid(),btn=$('#record-import-submit');
   btn.disabled=true;
-  let added=0,duplicate=0,invalid=0;
+  let added=0,duplicate=0,invalid=0;const catalogsAdded={truong:0,nghe:0,lydo:0};
   // Giữ requestId ổn định cho từng đợt trong lần nhập; phía server kiểm tra trùng lại dưới LockService.
   for(let i=0;i<rows.length;i+=40){
     const response=await rpc('record_bulk_import',{rows:rows.slice(i,i+40),batchId},{mutate:true,requestId:batchId+'_'+String(i).padStart(6,'0')});
     added+=response.added;duplicate+=response.duplicate;invalid+=response.invalid;
-    const target=$('#record-import-review');if(target)target.innerHTML=`<b>Đã xử lý ${Math.min(i+40,rows.length)}/${rows.length} dòng.</b><p>Đã tạo: ${num(added)} · Trùng: ${num(duplicate)} · Lỗi: ${num(invalid)}.</p>`;
+    for(const type of ['truong','nghe','lydo'])catalogsAdded[type]+=Number(response.addedCatalogs?.[type]||0);
+    const target=$('#record-import-review');if(target)target.innerHTML=`<b>Đã xử lý ${Math.min(i+40,rows.length)}/${rows.length} dòng.</b><p>Đã tạo: ${num(added)} hồ sơ · Trùng: ${num(duplicate)} · Lỗi: ${num(invalid)}. Danh mục mới: ${num(catalogsAdded.truong)} cơ sở, ${num(catalogsAdded.nghe)} nghề, ${num(catalogsAdded.lydo)} lý do bỏ học.</p>`;
   }
-  notify(`Đã tạo ${num(added)} hồ sơ; bỏ qua ${num(duplicate)} quyết định trùng, ${num(invalid)} dòng lỗi.`);
+  try{const boot=await rpc('bootstrap',{}, {ttl:0});if(boot.catalogs)state.cats=boot.catalogs;}
+  catch(e){notify('Hồ sơ đã ghi, nhưng danh mục chưa làm mới. Bạn có thể mở lại trang sau.',true);}
+  notify(`Đã tạo ${num(added)} hồ sơ và ${num(catalogsAdded.truong)} cơ sở, ${num(catalogsAdded.nghe)} nghề, ${num(catalogsAdded.lydo)} lý do mới; bỏ qua ${num(duplicate)} quyết định trùng, ${num(invalid)} dòng lỗi.`);
   await afterMutation('records');
 }
 

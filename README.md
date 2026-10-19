@@ -1,3 +1,11 @@
+# THEO DÕI HỌC NGHỀ — v1.1.7-RC (YC-HN-012)
+
+Cập nhật kiểm tra số tháng/mức hỗ trợ và bổ sung danh mục khi nhập Excel; giữ nguyên 7 tab/94 cột và mẫu 25 cột.
+
+Xem `docs/HUONG_DAN_YC-HN-012_v1.1.7-RC.md` và `docs/CHANGELOG_YC-HN-012_v1.1.7-RC.md`. Không tự triển khai production.
+
+---
+
 # THEO DÕI HỌC NGHỀ – v1.1.4-RC (YC-HN-008)
 
 Ứng dụng độc lập: GitHub/Vercel frontend + Google Identity Services + Vercel API + Apps Script + Google Sheets + Google Drive. Không Firebase/Firestore.
