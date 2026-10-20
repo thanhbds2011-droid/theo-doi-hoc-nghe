@@ -9,7 +9,7 @@ test('YC-HN-005: Không còn biểu đồ tổng hợp trùng KPI',()=>{
 });
 test('YC-HN-006 thay thế bố cục cũ: 6 KPI một hàng, hai biểu đồ cơ sở/nghề',()=>{
   const source=js.slice(js.indexOf('async function renderDashboard('),js.indexOf('async function renderRecords('));
-  for(const name of ['Tổng số Quyết định','Đã tham gia','Đang học','Bỏ học','Không tham gia','Chưa xác nhận'])assert.ok(source.includes(name),name);
+  for(const name of ['Tổng số Quyết định','Đã tham gia','Không nhận Quyết định','Bỏ học','Không tham gia','Chưa xác nhận'])assert.ok(source.includes(name),name);
   assert.match(js,/function schoolChart\(values\)/);
   assert.match(js,/function tradeChart\(values\)/);
   assert.match(source,/schoolChart\(data\.schoolCounts\)/);

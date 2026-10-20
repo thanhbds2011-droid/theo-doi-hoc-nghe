@@ -1,4 +1,4 @@
-# THEO DÕI HỌC NGHỀ — v1.2.0-RC (YC-HN-013 V8.1)
+# THEO DÕI HỌC NGHỀ — v1.2.1-RC (YC-HN-014 V4)
 
 Bản mã nguồn đã điều chỉnh theo YC-HN-013 V8.1; **chưa triển khai production**. Đọc `docs/YC-HN-013_V8_1_CHANGELOG_VA_HUONG_DAN.md` trước khi thay thế. 7 tab/94 cột dữ liệu và 25 cột danh sách Excel được giữ nguyên.
 
@@ -88,3 +88,8 @@ npm test
 ```
 
 Không đưa secret hoặc token vào GitHub. Biến `API_SHARED_SECRET` chỉ ở Vercel Environment Variables và Apps Script Script Properties.
+
+
+## YC-HN-014 V4
+
+Xem `docs/YC-HN-014_V4_CHANGELOG_KIEM_THU_TRIEN_KHAI.md` để biết các hạng mục nâng cấp, kiểm thử và triển khai/rollback.

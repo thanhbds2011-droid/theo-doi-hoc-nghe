@@ -603,3 +603,65 @@ test('YC013: Không nhận quyết định, trạng thái Khác và báo cáo ma
   const trades=c.send('report_matrix',{groupBy:'nghe'});assert.equal(trades.data.items[0].total,2);
   assert.equal(c.send('report_matrix',{groupBy:'bogus'}).error.code,'VALIDATION');
 });
+
+test('YC014: lọc báo cáo Đã tham gia bao gồm cả bỏ học, Đang học không bao gồm bỏ học',()=>{
+ const c=setupLive();
+ const r=[record(c,'67','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}),record(c,'68','2026-01-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,SO_THANG_HO_TRO:'3',NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}),record(c,'69','2026-01-03',{TRANG_THAI_THAM_GIA:'KHONG_NHAN_QUYET_DINH'}),record(c,'70','2026-01-04',{TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN'})];
+ for(const p of r) assert.equal(c.send('record_save',p).ok,true);
+ const full=c.send('overview',{}).data;
+ assert.equal(full.kpi.total,4);assert.equal(full.kpi.participated,2);assert.equal(full.statusCounts.notReceived,1);
+ const part=c.send('overview',{status:'REPORT_PARTICIPATED_ALL'}).data.kpi;
+ assert.deepEqual(JSON.parse(JSON.stringify([part.total,part.participated,part.learning,part.dropout])),[2,2,1,1]);
+ assert.equal(c.send('overview',{status:'DA_THAM_GIA'}).data.kpi.total,1);
+ assert.equal(c.send('overview',{status:'BO_HOC'}).data.kpi.total,1);
+ assert.equal(c.send('overview',{status:'KHONG_NHAN_QUYET_DINH'}).data.kpi.total,1);
+ assert.equal(c.send('overview',{status:'CHO_XAC_NHAN'}).data.kpi.total,1);
+ assert.equal(c.send('report_matrix',{groupBy:'truong',status:'REPORT_PARTICIPATED_ALL'}).data.total,2);
+ assert.equal(c.send('report_matrix',{groupBy:'nghe',status:'BO_HOC'}).data.items[0].dropout,1);
+ assert.equal(c.send('report_export',{status:'BO_HOC'}).data.items.length,1);
+ assert.equal(c.send('overview',{status:'WRONG_CODE'}).error.code,'VALIDATION');
+});
+
+test('YC014: tìm số quyết định trực tiếp theo cột, năm và quyền, không khớp chữ số con',()=>{
+ const c=setupLive();
+ for(const [n,d] of [['67','2025-01-01'],['067','2026-01-01'],['167','2026-01-02'],['670','2026-01-03']]) assert.equal(c.send('record_save',record(c,n,d)).ok,true);
+ for(const q of ['67','067','0067'])assert.equal(c.send('records_list',{query:q}).data.total,2);
+ assert.equal(c.send('records_list',{query:'67',year:'2025'}).data.total,1);
+ assert.equal(c.send('records_list',{query:'67',year:'2026'}).data.total,1);
+ assert.equal(c.send('records_list',{query:'67',year:'2024'}).data.total,0);
+});
+
+test('YC014: cache overview có phân quyền trường và bản sửa quyền; chuyển ABC sang XYZ không rò số liệu',()=>{
+ const c=setupLive(),xyz=catalog(c,'truong','XYZ','Trường XYZ');
+ c.send('record_save',record(c,'67','2026-01-01'));
+ c.send('record_save',record(c,'68','2026-01-02',{TRUONG_ID:xyz.TRUONG_ID}));
+ const a=c.send('account_save',{email:'school014@example.com',name:'School',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});assert.equal(a.ok,true);
+ const u={sub:'63345678901234567890',aud:audience,email:'school014@example.com'};
+ assert.equal(sendAs(c,u,'overview',{}).data.kpi.total,1);
+ const initialRevision=sendAs(c,u,'bootstrap').data.permissionRevision;
+ const move=c.send('account_save',{id:a.data.item.TAI_KHOAN_ID,email:'school014@example.com',name:'School',role:'CO_SO_DAO_TAO',schoolId:xyz.TRUONG_ID,status:'ACTIVE'});
+ assert.equal(move.ok,true,JSON.stringify(move.error));
+ assert.notEqual(sendAs(c,u,'bootstrap').data.permissionRevision,initialRevision);
+ assert.equal(sendAs(c,u,'overview',{}).data.kpi.total,1);
+ assert.equal(sendAs(c,u,'overview',{truong:c.school.TRUONG_ID}).data.kpi.total,0);
+ assert.equal(sendAs(c,u,'overview',{truong:xyz.TRUONG_ID}).data.kpi.total,1);
+});
+
+test('YC014: tra cứu QĐ 3.000 dòng không đọc toàn bảng 40 cột trên cache miss',()=>{
+ const c=setupLive(),sh=c.tables.get('Hồ sơ học nghề'),hdr=c.global.APP.lists.HO_SO_HOC_NGHE;
+ const field=k=>hdr.indexOf(k);
+ for(let i=0;i<3000;i++){
+   const r=Array(hdr.length).fill('');
+   r[field('HO_SO_ID')]='H_'+i;r[field('SO_QUYET_DINH')]=i===1234?'67':String(i+10000);
+   r[field('NAM_QUYET_DINH')]='2026';r[field('NGAY_QUYET_DINH')]='2026-01-01';
+   r[field('TRUONG_ID')]=c.school.TRUONG_ID;r[field('NGHE_ID')]=c.trade.NGHE_ID;
+   r[field('TRANG_THAI_HO_SO')]='ACTIVE';r[field('TRANG_THAI_THAM_GIA')]='CHO_XAC_NHAN';r[field('TAO_BOI')]='admin@example.com';
+   sh.rows.push(r);
+ }
+ const reads=[];const old=sh.getRange.bind(sh);
+ sh.getRange=(row,col,height=1,width=1)=>{reads.push({row,col,height,width});return old(row,col,height,width);};
+ const found=c.send('records_list',{query:'67'});
+ assert.equal(found.ok,true,JSON.stringify(found.error));assert.equal(found.data.total,1);
+ assert.ok(reads.some(x=>x.col===6&&x.width===1&&x.height===3000),'Quyết định phải được đọc một cột');
+ assert.ok(!reads.some(x=>x.width===40&&x.height>40),'Không đọc 120.000 ô khi chỉ tìm một số quyết định');
+});
