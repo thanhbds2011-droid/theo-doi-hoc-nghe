@@ -75,10 +75,10 @@ test('Tạo hồ sơ theo quyết định; từ chối quyết định trùng c�
 test('Cùng số quyết định được dùng ở năm tiếp theo, không tái sử dụng cùng năm',()=>{const c=setupLive();assert.equal(c.send('record_save',record(c,'02','2026-02-15')).ok,true);const other=c.send('record_save',record(c,'02','2027-02-15',{HO_TEN:'Trần Văn C'}));assert.equal(other.ok,true);assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),3);});
 test('Một người có nhiều hồ sơ nếu dùng cùng NGUOI_HOC_ID',()=>{const c=setupLive();const a=c.send('record_save',record(c,'01','2026-03-01'));const id=a.data.record.NGUOI_HOC_ID;const b=c.send('record_save',record(c,'03','2026-04-01',{NGUOI_HOC_ID:id}));assert.equal(b.ok,true);assert.equal(a.data.record.NGUOI_HOC_ID,b.data.record.NGUOI_HOC_ID);assert.notEqual(a.data.record.HO_SO_ID,b.data.record.HO_SO_ID);});
 test('Không được liên kết NGUOI_HOC_ID với họ tên không trùng',()=>{const c=setupLive();const a=c.send('record_save',record(c,'01','2026-03-01'));const b=c.send('record_save',record(c,'02','2026-03-02',{NGUOI_HOC_ID:a.data.record.NGUOI_HOC_ID,HO_TEN:'Tên hoàn toàn khác'}));assert.equal(b.ok,false);assert.equal(b.error.code,'VALIDATION');});
-test('Bỏ học cần đã tham gia, ngày và lý do',()=>{const c=setupLive();const r=c.send('record_save',record(c,'01','2026-01-01',{DA_BO_HOC:true}));assert.equal(r.ok,false);const yes=c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-02-10',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));assert.equal(yes.ok,true);});
+test('Bỏ học cần đã tham gia, kỳ học và lý do',()=>{const c=setupLive();const r=c.send('record_save',record(c,'01','2026-01-01',{DA_BO_HOC:true}));assert.equal(r.ok,false);const yes=c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));assert.equal(yes.ok,true);});
 test('VERSION_CONFLICT ngăn ghi đè sửa từ phiên cũ',()=>{const c=setupLive();const a=c.send('record_save',record(c,'01','2026-01-01')).data.record;const b=c.send('record_save',{...record(c,'01','2026-01-01'),HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:'1',GHI_CHU:'Thay đổi'});assert.equal(b.ok,true);const stale=c.send('record_save',{...record(c,'01','2026-01-01'),HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:'1',GHI_CHU:'Ghi đè'});assert.equal(stale.ok,false);assert.equal(stale.error.code,'VERSION_CONFLICT');});
 test('Dedupe theo requestId giúp chống ghi trùng cùng giao dịch',()=>{const c=setupLive();const payload=record(c,'01','2026-01-01');const first=c.send('record_save',payload,'same_transaction_00001');const second=c.send('record_save',payload,'same_transaction_00001');assert.equal(first.ok,true);assert.equal(second.ok,true);assert.equal(first.data.record.HO_SO_ID,second.data.record.HO_SO_ID);assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),2);});
-test('Dashboard sáu KPI nhất quán với bỏ học và không tham gia',()=>{const c=setupLive();c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));c.send('record_save',record(c,'02','2026-01-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-01-05',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));c.send('record_save',record(c,'03','2026-01-03',{TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'}));c.send('record_save',record(c,'04','2027-01-03',{TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN'}));const all=c.send('overview',{}).data.kpi;assert.deepEqual(JSON.parse(JSON.stringify(all)),{total:4,participated:2,learning:1,dropout:1,notParticipating:1,pending:1});const y=c.send('overview',{year:'2026'}).data.kpi;assert.equal(y.total,3);});
+test('Dashboard sáu KPI nhất quán với bỏ học và không tham gia',()=>{const c=setupLive();c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));c.send('record_save',record(c,'02','2026-01-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));c.send('record_save',record(c,'03','2026-01-03',{TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'}));c.send('record_save',record(c,'04','2027-01-03',{TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN'}));const all=c.send('overview',{}).data.kpi;assert.deepEqual(JSON.parse(JSON.stringify(all)),{total:4,participated:2,learning:1,dropout:1,notParticipating:1,pending:1});const y=c.send('overview',{year:'2026'}).data.kpi;assert.equal(y.total,3);});
 test('Chặn chữ ký sai và audience sai ngay tại doPost',()=>{const c=setupLive();const x=c.signed('bootstrap');x.signature='fake_signature';let v=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(x)}}).getContent());assert.equal(v.error.code,'NOT_AUTHORIZED');const bad=c.signed('bootstrap',{},'aud_bad_00000001',{sub:'12345678901234567890',aud:'other-id',email:'admin@example.com'});v=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(bad)}}).getContent());assert.equal(v.error.code,'NOT_AUTHORIZED');});
 test('Từ chối người chưa cấp quyền',()=>{const c=setupLive();let input=c.signed('bootstrap',{},'unlisted_user_0001',{sub:'12345678901234567890',aud:audience,email:'unlisted@example.com'});const x=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(input)}}).getContent());assert.equal(x.error.code,'NOT_AUTHORIZED');});
 test('Nhân viên không được quản lý danh mục hoặc tài khoản khi không cấp quyền',()=>{const c=setupLive();const acc=c.send('account_save',{email:'staff@example.com',name:'Staff',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW'});assert.equal(acc.ok,true);const identity={sub:'82345678901234567890',aud:audience,email:'staff@example.com'};const raw=c.signed('catalog_save',{type:'nghe',code:'N003',title:'Điện'},'staff_denied_00001',identity);const d=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(raw)}}).getContent());assert.equal(d.error.code,'NO_PERMISSION');});
@@ -245,13 +245,13 @@ test('YC007: 3 trạng thái nghiệp vụ tách bạch Bỏ học và Không th
  const c=setupLive();
  let a=c.send('record_save',record(c,'70','2026-03-01',{TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA',DA_BO_HOC:false}));
  assert.equal(a.ok,true,JSON.stringify(a.error));
- let b=c.send('record_save',record(c,'71','2026-03-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-03-20',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
+ let b=c.send('record_save',record(c,'71','2026-03-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
  assert.equal(b.ok,true,JSON.stringify(b.error));
  const k=c.send('overview').data.kpi;
  assert.equal(k.notParticipating,1);assert.equal(k.dropout,1);assert.equal(k.participated,1);assert.equal(k.learning,0);
 });
 
-test('YC007: Bỏ học phải không trước ngày bắt đầu học',()=>{
+test('YC013: không được khai báo kỳ bỏ học bằng ngày lịch sử trên hồ sơ mới',()=>{
  const c=setupLive();
  const r=c.send('record_save',record(c,'72','2026-04-01',{NGAY_BAT_DAU:'2026-04-10',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-04-09',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
  assert.equal(r.error.code,'VALIDATION');
@@ -522,4 +522,84 @@ test('YC012: có lý do nhưng thiếu trạng thái/ngày bỏ học không đ�
  const plan=c.send('record_bulk_check',{rows});assert.equal(plan.data.valid,0);assert.equal(plan.data.invalid,1);
  const out=c.send('record_bulk_import',{rows,batchId:'dropoutreason_bad_001'});
  assert.equal(out.data.added,0);assert.equal(out.data.addedCatalogs.lydo,0);
+});
+
+// YC-HN-013: quy tắc mới được xác thực bằng môi trường Apps Script giả lập.
+test('YC013: một Gmail thuộc đúng một cơ sở, nhiều Gmail cùng một cơ sở và không vượt quyền',()=>{
+  const c=setupLive();
+  const xyz=catalog(c,'truong','CS002','Trường XYZ');
+  const a=c.send('record_save',record(c,'67','2026-10-13')).data.record;
+  const b=c.send('record_save',record(c,'68','2026-10-13',{TRUONG_ID:xyz.TRUONG_ID})).data.record;
+  for(const email of ['abc1@example.com','abc2@example.com']){
+    const out=c.send('account_save',{email,name:email,role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+    assert.equal(out.ok,true,JSON.stringify(out.error));
+  }
+  const A={sub:'42345678901234567890',aud:audience,email:'abc1@example.com'};
+  const B={sub:'52345678901234567890',aud:audience,email:'abc2@example.com'};
+  for(const user of [A,B]){
+    const boot=sendAs(c,user,'bootstrap');assert.equal(boot.ok,true,JSON.stringify(boot.error));
+    assert.equal(boot.data.user.TRUONG_ID,c.school.TRUONG_ID);
+    assert.equal(boot.data.catalogs.truong.length,1);
+    assert.equal(sendAs(c,user,'records_list',{}).data.total,1);
+    assert.equal(sendAs(c,user,'records_list',{truong:xyz.TRUONG_ID}).data.total,0);
+    assert.equal(sendAs(c,user,'overview',{}).data.kpi.total,1);
+    const deny=sendAs(c,user,'report_export',{});assert.equal(deny.error.code,'NO_PERMISSION');
+    assert.equal(sendAs(c,user,'record_bulk_import',{rows:[{}]}).error.code,'NO_PERMISSION');
+    assert.equal(sendAs(c,user,'record_delete',{HO_SO_ID:b.HO_SO_ID,PHIEN_BAN:b.PHIEN_BAN}).error.code,'NO_PERMISSION');
+    assert.equal(sendAs(c,user,'record_status',{HO_SO_ID:b.HO_SO_ID,PHIEN_BAN:b.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'}).error.code,'NO_PERMISSION');
+  }
+  const valid=sendAs(c,A,'record_status',{HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:a.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'});
+  assert.equal(valid.ok,true,JSON.stringify(valid.error));
+  const list=c.send('accounts_list').data.items.filter(x=>x.VAI_TRO==='CO_SO_DAO_TAO');
+  assert.equal(list.length,2);assert.ok(list.every(x=>x.TRUONG_ID===c.school.TRUONG_ID));
+  const change=c.send('account_save',{id:list[0].TAI_KHOAN_ID,email:'abc1@example.com',name:'A',role:'CO_SO_DAO_TAO',schoolId:xyz.TRUONG_ID,status:'ACTIVE'});
+  assert.equal(change.ok,true,JSON.stringify(change.error));
+  assert.equal(sendAs(c,A,'records_list',{}).data.total,1);
+  assert.equal(sendAs(c,A,'records_list',{truong:c.school.TRUONG_ID}).data.total,0);
+  assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
+});
+
+test('YC013: số quyết định tìm chính xác, không khớp chuỗi chứa số',()=>{
+  const c=setupLive();
+  for(const [decision,date] of [['67','2026-01-01'],['167','2026-01-02'],['670','2026-01-03'],['6267','2026-01-04'],['067','2027-01-01']]){
+    assert.equal(c.send('record_save',record(c,decision,date)).ok,true);
+  }
+  const d=c.send('records_list',{query:'67'});
+  assert.equal(d.ok,true);assert.equal(d.data.total,2);
+  assert.deepEqual(d.data.items.map(x=>x.SO_QUYET_DINH).sort(),['067','67']);
+  assert.equal(c.send('records_list',{query:'0067',year:'2026'}).data.total,1);
+});
+
+test('YC013: tháng bỏ học là kỳ N, lưu KY:2, không sửa lịch sử ngày cũ',()=>{
+  const c=setupLive();
+  const a=c.send('record_save',record(c,'41','2026-07-01',{SO_THANG_HO_TRO:'3',NGAY_BAT_DAU:'2026-07-01',NGAY_KET_THUC_DU_KIEN:'2026-10-01',TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));
+  assert.equal(a.ok,true);
+  const res=c.send('record_status',{HO_SO_ID:a.data.record.HO_SO_ID,PHIEN_BAN:a.data.record.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(res.ok,true,JSON.stringify(res.error));assert.equal(res.data.record.NGAY_BO_HOC,'KY:2');
+  assert.equal(c.send('overview',{}).data.kpi.dropout,1);
+  const legacyInput=c.send('record_save',record(c,'42','2026-07-01',{SO_THANG_HO_TRO:'3',NGAY_BAT_DAU:'2026-07-01',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-07-17',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
+  assert.equal(legacyInput.ok,false); // Dữ liệu mới bắt buộc theo kỳ; dữ liệu cũ vẫn bảo tồn.
+  const legacy=c.send('record_save',record(c,'42','2026-07-01',{SO_THANG_HO_TRO:'3',NGAY_BAT_DAU:'2026-07-01',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
+  assert.equal(legacy.ok,true);
+  const hs=c.tables.get('Hồ sơ học nghề'),cols=c.global.APP.lists.HO_SO_HOC_NGHE,last=hs.rows.at(-1);
+  last[cols.indexOf('NGAY_BO_HOC')]='2026-07-17'; // giả lập dòng lịch sử tồn tại từ trước.
+  assert.equal(c.global.sheetRows_('HO_SO_HOC_NGHE').at(-1).NGAY_BO_HOC,'2026-07-17');
+  const bad=c.send('record_status',{HO_SO_ID:res.data.record.HO_SO_ID,PHIEN_BAN:res.data.record.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:4',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(bad.error.code,'VALIDATION');
+});
+
+test('YC013: Không nhận quyết định, trạng thái Khác và báo cáo ma trận phân nhóm đúng',()=>{
+  const c=setupLive();
+  c.send('record_save',record(c,'51','2026-01-02',{TRANG_THAI_THAM_GIA:'KHONG_NHAN_QUYET_DINH'}));
+  const another=c.send('record_save',record(c,'52','2026-01-03',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));
+  const custom=c.send('record_status',{HO_SO_ID:another.data.record.HO_SO_ID,PHIEN_BAN:another.data.record.PHIEN_BAN,customStatusName:'  thôi   việc ',DA_BO_HOC:false});
+  assert.equal(custom.ok,true,JSON.stringify(custom.error));
+  const boot=c.send('bootstrap');assert.equal(boot.ok,true);assert.ok(boot.data.statuses.some(x=>x.label==='Thôi việc'));
+  const overview=c.send('overview').data;
+  assert.equal(overview.kpi.pending,0);assert.equal(overview.statusCounts.notReceived,1);assert.equal(overview.statusCounts.other,1);
+  const matrix=c.send('report_matrix',{groupBy:'truong',year:'2026'});
+  assert.equal(matrix.ok,true,JSON.stringify(matrix.error));assert.equal(matrix.data.items.length,1);
+  const row=matrix.data.items[0];assert.equal(row.total,2);assert.equal(row.notReceived,1);assert.equal(row.other,1);
+  const trades=c.send('report_matrix',{groupBy:'nghe'});assert.equal(trades.data.items[0].total,2);
+  assert.equal(c.send('report_matrix',{groupBy:'bogus'}).error.code,'VALIDATION');
 });

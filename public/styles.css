@@ -267,3 +267,18 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 .import-accept input{flex:none;width:17px;height:17px;margin:2px 0 0}
 
 .import-preview-table{max-height:215px;overflow:auto;margin:9px 0}.import-preview-table table{font-size:12px;min-width:640px}.import-preview-table th,.import-preview-table td{padding:7px 8px;white-space:normal;overflow-wrap:anywhere}
+
+/* YC-HN-013: Nội dung in chỉ còn tên báo cáo và bảng số liệu. */
+[hidden]{display:none!important}
+@media print{
+  @page{size:A4 portrait;margin:15mm}
+  body:has(#report-output){background:#fff!important}
+  body:has(#report-output) .page-header p,
+  body:has(#report-output) .report-card > h3,
+  body:has(#report-output) .report-card > .info-banner{display:none!important}
+  body:has(#report-output) .content{padding:0!important;margin:0!important}
+  body:has(#report-output) .report-card{padding:0!important;border:0!important;box-shadow:none!important}
+  body:has(#report-output) .page-header{margin:0 0 10px!important}
+  body:has(#report-output) .page-header h2{text-align:center;font-size:17pt!important;color:#000!important}
+  body:has(#report-output) th,body:has(#report-output) td{font-size:11pt!important;padding:8px!important;border:1px solid #555!important;color:#000!important}
+}

@@ -1,3 +1,9 @@
+# THEO DÕI HỌC NGHỀ — v1.2.0-RC (YC-HN-013 V8.1)
+
+Bản mã nguồn đã điều chỉnh theo YC-HN-013 V8.1; **chưa triển khai production**. Đọc `docs/YC-HN-013_V8_1_CHANGELOG_VA_HUONG_DAN.md` trước khi thay thế. 7 tab/94 cột dữ liệu và 25 cột danh sách Excel được giữ nguyên.
+
+---
+
 # THEO DÕI HỌC NGHỀ — v1.1.7-RC (YC-HN-012)
 
 Cập nhật kiểm tra số tháng/mức hỗ trợ và bổ sung danh mục khi nhập Excel; giữ nguyên 7 tab/94 cột và mẫu 25 cột.

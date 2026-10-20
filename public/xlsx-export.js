@@ -22,3 +22,33 @@ export function buildXlsx(rows){
   return zipStored(files);
 }
 export function downloadXlsx(filename,rows){const blob=buildXlsx(rows),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),6000);}
+
+/** YC-HN-013: bảng tham mưu nhóm theo cơ sở/nghề, ô số là số Excel thực. */
+export function buildReportXlsx(columns, rows, title='Báo cáo học nghề'){
+  if(!Array.isArray(columns)||columns.length<2||columns.length>12||!Array.isArray(rows))throw Error('Mẫu báo cáo không hợp lệ.');
+  const n=columns.length;
+  const cell=(value, r, c, style)=>{
+    const a=address(c),at=`${a}${r}`;
+    if(typeof value==='number' && Number.isFinite(value))return `<c r="${at}" s="${style||0}"><v>${value}</v></c>`;
+    const valueText=String(value??'');
+    return `<c r="${at}" t="inlineStr" s="${style||0}"><is><t xml:space="preserve">${xml(valueText)}</t></is></c>`;
+  };
+  const lines=[`<row r="1" ht="35" customHeight="1">${cell(title.toUpperCase(),1,0,3)}</row>`,
+    `<row r="2" ht="38" customHeight="1">${columns.map((x,c)=>cell(x,2,c,1)).join('')}</row>`];
+  rows.forEach((r,i)=>{if(!Array.isArray(r)||r.length!==n)throw Error('Số cột báo cáo không khớp mẫu.');lines.push(`<row r="${i+3}" ht="31" customHeight="1">${r.map((x,c)=>cell(x,i+3,c,typeof x==='number'?2:4)).join('')}</row>`);});
+  const last=address(n-1);
+  const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${rows.length+2}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${Array.from({length:n},(_,i)=>`<col min="${i+1}" max="${i+1}" width="${i===1?52:i===0?8:22}" customWidth="1"/>`).join('')}</cols><sheetData>${lines.join('')}</sheetData><mergeCells count="1"><mergeCell ref="A1:${last}1"/></mergeCells><pageMargins left="0.4" right="0.4" top="0.55" bottom="0.55" header="0.2" footer="0.2"/></worksheet>`;
+  const files=[
+    ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+    ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+    ['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Báo cáo học nghề" sheetId="1" r:id="rId1"/></sheets></workbook>'],
+    ['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+    ['xl/styles.xml','<?xml version="1.0" encoding="UTF-8"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="3"><font><sz val="11"/><name val="Arial"/></font><font><b/><sz val="11"/><name val="Arial"/></font><font><b/><sz val="15"/><name val="Arial"/></font></fonts><fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDCEAF9"/><bgColor indexed="64"/></patternFill></fill><fill><patternFill patternType="solid"><fgColor rgb="FFFFFFFF"/><bgColor indexed="64"/></patternFill></fill></fills><borders count="2"><border/><border><left style="thin"><color rgb="FF777777"/></left><right style="thin"><color rgb="FF777777"/></right><top style="thin"><color rgb="FF777777"/></top><bottom style="thin"><color rgb="FF777777"/></bottom></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="5"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="1" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf><xf numFmtId="3" fontId="0" fillId="0" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="2" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf><xf numFmtId="0" fontId="0" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf></cellXfs></styleSheet>'],
+    ['xl/worksheets/sheet1.xml',ws]
+  ];
+  return zipStored(files);
+}
+export function downloadReportXlsx(filename,columns,rows,title){
+  const blob=buildReportXlsx(columns,rows,title),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=filename;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
+}
