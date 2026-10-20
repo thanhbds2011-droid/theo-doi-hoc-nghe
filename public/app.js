@@ -1,5 +1,5 @@
 import {downloadReportXlsx} from './xlsx-export.js';
-/** THEO DÕI HỌC NGHỀ — v1.2.1-RC (YC-HN-014). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.2-RC (YC-HN-015). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -23,7 +23,7 @@ const state = {
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:''},
   records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null,
-  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, scope:"", lastRecordSearchMs:0
+  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:""
 };
 
 function notify(message, error=false){ const el=$('#toast');el.textContent=String(message);el.className='toast show'+(error?' error':'');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('show'),5500); }
@@ -159,7 +159,7 @@ const PAGE_AGE={dashboard:90000,records:65000,reports:90000,catalogs:90000,accou
 function navigate(page,force=false){
   if(!navItems().some(item=>item[0]===page))page='dashboard';
   const main=$('#main'),previous=state.page,scope=permissionScope();
-  if(state.renderedPage===previous && main && !main.querySelector('.spinner')){
+  if(state.renderedPage===previous && main && !main.querySelector('.spinner') && !(previous==='records' && state.recordLoading)){
     state.pageViews.set(previous,{html:main.innerHTML,at:Date.now(),scope});
   }
   state.page=page;state.routeVersion++;
@@ -184,7 +184,7 @@ function navigate(page,force=false){
         case 'catalogs':await renderCatalogs(v);break;
         case 'accounts':await renderAccounts(v);break;
         case 'audits':await renderAudits(v);break;}
-      if(v===state.routeVersion){state.renderedPage=page;state.pageViews.set(page,{html:main.innerHTML,at:Date.now(),scope:permissionScope()});}
+      if(v===state.routeVersion){state.renderedPage=page;if(!(page==='records'&&state.recordLoading))state.pageViews.set(page,{html:main.innerHTML,at:Date.now(),scope:permissionScope()});}
     }catch(e){if(v===state.routeVersion){main.innerHTML=`<div class="card"><h3>Không tải được dữ liệu</h3><p class="muted">${esc(e.message)}</p><button class="btn" data-retry="1">Tải lại</button></div>`;state.renderedPage=null;}failure(e);}
   })();
 }
@@ -204,6 +204,48 @@ function filterFields(filters,mode){return `<form class="card filter-grid ${mode
   ${mode==='reports'?`<div class="field"><label>Tình trạng</label><select name="status">${[['','Tất cả tình trạng'],['REPORT_PARTICIPATED_ALL','Đã tham gia'],['DA_THAM_GIA','Đang học'],['BO_HOC','Bỏ học'],['KHONG_THAM_GIA','Không tham gia'],['KHONG_NHAN_QUYET_DINH','Không nhận Quyết định'],['CHO_XAC_NHAN','Chưa xác nhận'],...state.statuses.map(x=>[x.id,x.label])].map(([k,v])=>option(k,v,filters.status||'')).join('')}</select></div>`:''}
   <button class="btn btn-primary" type="submit">${iconSvg('filter',19)} Lọc dữ liệu</button></form>`;}
 function getFormFields(form){return Object.fromEntries(new FormData(form).entries());}
+// YC-HN-015: Chữ ký cố định cho bộ lọc, để quay về 'Tất cả' trúng cache cũ.
+function normalizeRecordFilters(input){
+  const previous=state.filters;
+  return Object.fromEntries(['year','truong','nghe','status','dropout','from','to','query'].map(key=>[key,String(input[key]??(key==='dropout'||key==='from'||key==='to'?previous[key]||'':''))]));
+}
+// Không dựng lại form khi nhấn Lọc: draft ở DOM luôn thuộc quyền người đang nhập.
+async function applyRecordFilters(form, page=1){
+  const filters=normalizeRecordFilters(getFormFields(form));
+  const key=JSON.stringify({filters,page});
+  if(state.recordLoading && state.activeRecordRequestKey===key)return;
+  state.filters=filters;state.recordPage=page;state.pageViews.delete('records');
+  await refreshRecordResults(filters.query?'Đang tìm hồ sơ…':'Đang tải danh sách hồ sơ…',key);
+}
+async function refreshRecordResults(message,key=''){
+  const v=state.routeVersion,version=++state.recordLoadVersion;
+  state.recordLoading=true;state.activeRecordRequestKey=key;
+  const count=$('#record-count'),table=$('#list-output'),pages=$('#list-pages');
+  if(count){count.textContent=message;count.setAttribute('role','status');count.setAttribute('aria-live','polite');}
+  if(table){table.setAttribute('aria-busy','true');table.classList.add('records-refreshing');}
+  if(pages){pages.setAttribute('aria-busy','true');pages.classList.add('records-refreshing');}
+  try{
+    await loadRecordList(v,false,'',version);
+    if(v===state.routeVersion && version===state.recordLoadVersion){
+      state.renderedPage='records';
+    }
+  }catch(error){
+    if(v===state.routeVersion&&version===state.recordLoadVersion){
+      if(count)count.textContent='Chưa tải được kết quả bộ lọc mới. Bạn có thể bấm Lọc dữ liệu để thử lại.';
+      if(table)table.classList.add('records-failed');
+      failure(error);
+    }
+  }finally{
+    if(version===state.recordLoadVersion){
+      state.recordLoading=false;state.activeRecordRequestKey='';
+      if(table){table.removeAttribute('aria-busy');table.classList.remove('records-refreshing');}
+      if(pages){pages.removeAttribute('aria-busy');pages.classList.remove('records-refreshing');}
+      if(v===state.routeVersion&&!table?.classList.contains('records-failed')){
+        state.pageViews.set('records',{html:$('#main').innerHTML,at:Date.now(),scope:permissionScope()});
+      }
+    }
+  }
+}
 function pillStatus(record){const st=record.TRANG_THAI_THAM_GIA;const other=state.statuses.find(x=>x.id===st)?.label;return st==='DA_THAM_GIA' ? `<span class="pill ${record.DA_BO_HOC==='TRUE'?'bad':'good'}">${record.DA_BO_HOC==='TRUE'?'Bỏ học':'Đã tham gia học'}</span>` : `<span class="pill ${st==='KHONG_THAM_GIA'?'bad':'warn'}">${esc(STATUS[st]||other||'Tình trạng chưa nhận diện')}</span>`;}
 // YC-HN-006 — Chỉ tái sử dụng phản hồi overview hiện hành, không tăng số request.
 function sortedStats(values,type){
@@ -265,11 +307,14 @@ async function renderRecords(v,keepOld=false){
   if(!keepOld)$('#main').innerHTML=markup;
   await loadRecordList(v,keepOld,markup);
 }
-async function loadRecordList(v,keepOld=false,markup=""){
-  const data=await rpc('records_list',{...state.filters,page:state.recordPage,pageSize:20},{ttl:45000});
-  if(v!==state.routeVersion)return;
+async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.recordLoadVersion){
+  // Snapshot tại thời điểm bấm Lọc. Request cũ không được ghi đè request mới.
+  const filters={...state.filters},page=state.recordPage;
+  const data=await rpc('records_list',{...filters,page,pageSize:20},{ttl:45000});
+  if(v!==state.routeVersion||loadVersion!==state.recordLoadVersion)return;
   if(keepOld&&markup)$('#main').innerHTML=markup;
   state.records=data.items;state.recordTotal=data.total;
+  $('#list-output').classList.remove('records-failed');
   $('#record-count').textContent=`Hiển thị ${num(data.items.length)} / ${num(data.total)} hồ sơ · Trang ${data.page}`;
   $('#list-output').innerHTML=`<table><thead><tr><th>Ngày QĐ</th><th>Số QĐ</th><th>Người học</th><th>Cơ sở đào tạo</th><th>Nghề</th><th>Tình trạng</th><th>Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(r=>`<tr><td class="nowrap">${esc(dateVN(r.NGAY_QUYET_DINH))}</td><td><b>${esc(r.SO_QUYET_DINH)}</b><div class="muted small">Năm ${esc(r.NAM_QUYET_DINH)}</div></td><td>${esc(r.HO_TEN)}</td><td>${esc(lookup('truong',r.TRUONG_ID))}</td><td>${esc(lookup('nghe',r.NGHE_ID))}</td><td>${pillStatus(r)}</td><td><div class="table-actions"><button class="btn" data-detail-record="${dataAttr(r.HO_SO_ID)}">Chi tiết</button>${allowed('RECORD_EDIT')?`<button class="btn" data-edit-record="${dataAttr(r.HO_SO_ID)}">Sửa</button>`:''}${canDeleteRecord(r)?`<button class="btn btn-danger" data-delete-record="${dataAttr(r.HO_SO_ID)}">Xóa</button>`:''}${allowed('RECORD_STATUS')?`<button class="btn" data-status-record="${dataAttr(r.HO_SO_ID)}">Tình trạng</button>`:''}${r.HAS_FILE&&allowed('FILE_VIEW')?`<button class="btn" data-file-get="${dataAttr(r.HO_SO_ID)}">Tệp</button>`:''}${allowed('FILE_UPLOAD')?`<button class="btn" data-file-modal="${dataAttr(r.HO_SO_ID)}">Đính kèm</button>`:''}</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Không có hồ sơ phù hợp.</td></tr>'}</tbody></table>`;
   const totalPages=Math.max(1,Math.ceil(data.total/20));
@@ -680,7 +725,20 @@ async function getFile(id){
   const a=document.createElement('a');a.href=url;a.download=meta.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
   notify('Đã tải xuống tệp thành công.');
 }
-const serialized=async(fn)=>{if(state.busy)return;state.busy=true;document.querySelectorAll('[data-submit-btn]').forEach(x=>x.disabled=true);try{await fn();}catch(e){failure(e);}finally{state.busy=false;document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid);});}};
+const serialized=async(fn,progress={})=>{
+  if(state.busy)return;
+  state.busy=true;
+  const button=progress.button&&progress.button.isConnected?progress.button:null;
+  const prior=button?.innerHTML;
+  if(button){button.textContent=progress.label||'Đang xử lý…';button.setAttribute('aria-busy','true');}
+  document.querySelectorAll('[data-submit-btn]').forEach(x=>x.disabled=true);
+  try{await fn();}catch(e){failure(e);}
+  finally{
+    state.busy=false;
+    if(button?.isConnected){button.innerHTML=prior;button.removeAttribute('aria-busy');}
+    document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid);});
+  }
+};
 // Delegated buttons: no inline user-controlled event handlers.
 document.addEventListener('click',async e=>{
   const node=e.target.closest('button');if(!node)return;
@@ -775,19 +833,25 @@ document.addEventListener('change',e=>{if(e.target.name==='NGAY_QUYET_DINH'&&$('
 document.addEventListener('submit',e=>{
   const form=e.target,formId=form.getAttribute('id');if(!formId)return;e.preventDefault();
   if(formId==='report-export-form'){serialized(async()=>{const mode=form.elements.mode.value;if(mode==='list')await exportReport(state.reportFilters);else await exportSummaryOrMatrix(mode);closeModal();});return;}
-  if(formId==='records-filters'){state.filters=getFormFields(form);state.recordPage=1;state.pageViews.delete('records');navigate('records',true);return;}
+  if(formId==='records-filters'){void applyRecordFilters(form,1);return;}
   if(formId==='dashboard-filters'){state.dashboardFilters=getFormFields(form);state.pageViews.delete('dashboard');navigate('dashboard',true);return;}
   if(formId==='reports-filters'){state.reportFilters=getFormFields(form);state.pageViews.delete('reports');navigate('reports',true);return;}
   if(formId==='bulk-record-form'){serialized(importBulkRecords);return;}
   if(formId==='record-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_save',p,{mutate:true});notify('Đã lưu hồ sơ '+d.record.SO_QUYET_DINH+'/'+d.record.NAM_QUYET_DINH);await afterMutation('records');});return;}
-  if(formId==='status-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_status',p,{mutate:true,preserveRecordList:true});if(p.customStatusName)await refreshBootstrap();const next=d.record;state.records=state.records.map(r=>r.HO_SO_ID===next.HO_SO_ID?next:r);for(const [key,item] of state.cache){if(cacheAction(key)!=='records_list')continue;const rows=item.value?.items||[];if(rows.some(r=>r.HO_SO_ID===next.HO_SO_ID)){const cachedFilters=JSON.parse(key.slice(key.indexOf('records_list|')+'records_list|'.length));const st=cachedFilters.status;if(st && (st==='BO_HOC'?next.DA_BO_HOC!=='TRUE':st==='DA_THAM_GIA'?(next.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||next.DA_BO_HOC==='TRUE'):st!==next.TRANG_THAI_THAM_GIA)){state.cache.delete(key);continue;}item.value.items=rows.map(r=>r.HO_SO_ID===next.HO_SO_ID?next:r);item.at=Date.now();}}notify('Đã cập nhật tình trạng.');closeModal();
+  if(formId==='status-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_status',p,{mutate:true,preserveRecordList:true});if(p.customStatusName)await refreshBootstrap();const next=d.record;state.records=state.records.map(r=>r.HO_SO_ID===next.HO_SO_ID?next:r);for(const [key,item] of state.cache){
+      if(cacheAction(key)!=='records_list')continue;
+      const cachedFilters=JSON.parse(key.slice(key.indexOf('records_list|')+'records_list|'.length));
+      if(cachedFilters.status){state.cache.delete(key);continue;}
+      const rows=item.value?.items||[];
+      if(rows.some(r=>r.HO_SO_ID===next.HO_SO_ID))item.value.items=rows.map(r=>r.HO_SO_ID===next.HO_SO_ID?next:r);
+    }notify('Đã cập nhật tình trạng.');closeModal();
     state.pageViews.delete('records');
     const status=state.filters.status;
     const noMatch=status&&(status==='BO_HOC'?next.DA_BO_HOC!=='TRUE':status==='DA_THAM_GIA'?(next.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||next.DA_BO_HOC==='TRUE'):status!==next.TRANG_THAI_THAM_GIA);
     if(noMatch){navigate('records',true);}else{
       const button=[...document.querySelectorAll('[data-status-record]')].find(n=>n.dataset.statusRecord===next.HO_SO_ID);
       const badge=button?.closest('tr')?.querySelector('td:nth-child(6)');if(badge)badge.innerHTML=pillStatus(next);
-    }});return;}
+    }},{button:form.querySelector('[data-submit-btn]'),label:'Đang cập nhật…'});return;}
   if(formId==='catalog-form'){serialized(async()=>{await rpc('catalog_save',getFormFields(form),{mutate:true});notify('Đã lưu danh mục.');await afterMutation('catalogs');});return;}
   if(formId==='account-form'){serialized(async()=>{const p=getFormFields(form);await rpc('account_save',p,{mutate:true});notify('Đã lưu tài khoản.');await afterMutation('accounts');});return;}
   if(formId==='bulk-catalog-form'){serialized(async()=>{

@@ -665,3 +665,23 @@ test('YC014: tra cứu QĐ 3.000 dòng không đọc toàn bảng 40 cột trên
  assert.ok(reads.some(x=>x.col===6&&x.width===1&&x.height===3000),'Quyết định phải được đọc một cột');
  assert.ok(!reads.some(x=>x.width===40&&x.height>40),'Không đọc 120.000 ô khi chỉ tìm một số quyết định');
 });
+
+test('YC015 cập nhật tình trạng chỉ đọc toàn hàng đích, không nạp toàn bộ bảng 40 cột',()=>{
+  const c=setupLive();
+  const a=c.send('record_save',record(c,'6273','2026-10-13'));
+  assert.equal(a.ok,true);
+  // Tạo thêm hồ sơ để phát hiện code cũ quét cả bảng khi cập nhật.
+  for(let i=0;i<6;i++)assert.equal(c.send('record_save',record(c,String(7000+i),'2026-10-12')).ok,true);
+  const sheet=c.tables.get('Hồ sơ học nghề'),orig=sheet.getRange.bind(sheet),reads=[];
+  sheet.getRange=function(row,col,height=1,width=1){const range=orig(row,col,height,width),read=range.getDisplayValues.bind(range);
+    range.getDisplayValues=function(){reads.push({row,col,height,width});return read();};return range;};
+  const old=a.data.record;
+  const saved=c.send('record_status',{HO_SO_ID:old.HO_SO_ID,PHIEN_BAN:old.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+  assert.equal(saved.ok,true,JSON.stringify(saved.error));
+  assert.equal(saved.data.record.TRANG_THAI_THAM_GIA,'DA_THAM_GIA');
+  assert.ok(reads.some(x=>x.height>=7&&x.width===1),'chỉ quét cột mã hồ sơ');
+  assert.ok(reads.some(x=>x.height===1&&x.width===40),'chỉ đọc đầy đủ một hàng');
+  assert.ok(!reads.some(x=>x.height>=7&&x.width===40),'không quét toàn bộ dữ liệu 40 cột');
+  const stale=c.send('record_status',{HO_SO_ID:old.HO_SO_ID,PHIEN_BAN:old.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'});
+  assert.equal(stale.error.code,'VERSION_CONFLICT');
+});

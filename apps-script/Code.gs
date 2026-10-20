@@ -574,8 +574,17 @@ function saveRecord_(user,p,requestId){return dedupeWrite_(requestId,function(){
   return {record:safeRecord_(data)};
 });}
 function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(){
-  var id=str_(p.HO_SO_ID,60),rows=sheetRows_('HO_SO_HOC_NGHE'),ix=indexOfRow_(rows,'HO_SO_ID',id);
-  must_(ix>=0,'NOT_FOUND','Không tìm thấy hồ sơ.');var old=requireRecordOwner_(user,rows[ix]);must_(old.TRANG_THAI_HO_SO!=='DELETED','NOT_FOUND','Hồ sơ đã được xóa.');must_(Number(p.PHIEN_BAN)===Number(old.PHIEN_BAN),'VERSION_CONFLICT','Hồ sơ vừa được người khác thay đổi.');
+  // Chỉ đọc cột ID để xác định hàng, rồi lấy 40 ô của một hồ sơ dưới lock.
+  // Không quét 40 cột × hàng nghìn hồ sơ cho thao tác cập nhật một trạng thái.
+  var id=str_(p.HO_SO_ID,60),rowNumber=findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id);
+  must_(rowNumber>=2,'NOT_FOUND','Không tìm thấy hồ sơ.');
+  var sh=getSheet_('HO_SO_HOC_NGHE'),hdr=APP.lists.HO_SO_HOC_NGHE;
+  var cells=sh.getRange(rowNumber,1,1,hdr.length).getDisplayValues()[0],old={};
+  hdr.forEach(function(key,i){old[key]=cells[i];});
+  must_(old.HO_SO_ID===id,'NOT_FOUND','Hồ sơ đã thay đổi vị trí. Vui lòng tải lại.');
+  old=requireRecordOwner_(user,old);
+  must_(old.TRANG_THAI_HO_SO!=='DELETED','NOT_FOUND','Hồ sơ đã được xóa.');
+  must_(Number(p.PHIEN_BAN)===Number(old.PHIEN_BAN),'VERSION_CONFLICT','Hồ sơ vừa được người khác thay đổi.');
   var status=p.customStatusName?registerCustomStatus_(p.customStatusName,user):str_(p.TRANG_THAI_THAM_GIA,40);
   var data=Object.assign({},old,{TRANG_THAI_THAM_GIA:status,DA_BO_HOC:bool_(p.DA_BO_HOC)?'TRUE':'FALSE',NGAY_BO_HOC:str_(p.NGAY_BO_HOC,24),LY_DO_BO_HOC_ID:str_(p.LY_DO_BO_HOC_ID,80)});
   must_(isValidStatus_(data.TRANG_THAI_THAM_GIA),'VALIDATION','Tình trạng không hợp lệ.');
@@ -586,7 +595,8 @@ function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
     if(validDate_(data.NGAY_BO_HOC) && old.NGAY_BAT_DAU)must_(data.NGAY_BO_HOC>=old.NGAY_BAT_DAU,'VALIDATION','Ngày bỏ học không được trước ngày bắt đầu học.');
   } else {data.NGAY_BO_HOC='';data.LY_DO_BO_HOC_ID='';}
   data.PHIEN_BAN=String(Number(old.PHIEN_BAN)+1);data.CAP_NHAT_LUC=now_();data.CAP_NHAT_BOI=user.EMAIL;
-  writeRecord_('HO_SO_HOC_NGHE',findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id),data);bump_('DATA');
+  // Giữ nguyên ghi 40 cột trong một lần (ít lệnh ghi Sheets, bảo toàn schema).
+  writeRecord_('HO_SO_HOC_NGHE',rowNumber,data);bump_('DATA');
   try{audit_(user,'CAP_NHAT_TRANG_THAI','HO_SO',id,{trangThai:data.TRANG_THAI_THAM_GIA,boHoc:data.DA_BO_HOC},requestId);}catch(e){console.error('Audit failed',e);}
   return {record:safeRecord_(data)};
 });}

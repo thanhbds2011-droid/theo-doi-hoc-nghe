@@ -289,3 +289,9 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 @media(max-width:1250px){.filter-grid#reports-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:850px){.filter-grid#reports-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:600px){.filter-grid#reports-filters{grid-template-columns:1fr}}
+
+/* YC-HN-015: làm mới phần kết quả, giữ nguyên ô nhập và bộ lọc. */
+#list-output.records-refreshing,#list-pages.records-refreshing{opacity:.45;pointer-events:none;transition:opacity .12s ease}
+#list-output.records-failed{opacity:.55;pointer-events:none}
+#record-count[role="status"]{min-height:1.2em}
+#status-form [data-submit-btn][aria-busy="true"]{cursor:progress}
