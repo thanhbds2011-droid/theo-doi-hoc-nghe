@@ -97,3 +97,7 @@ Xem `docs/YC-HN-014_V4_CHANGELOG_KIEM_THU_TRIEN_KHAI.md` để biết các hạn
 ### YC-HN-015 V1 (v1.2.2-RC)
 
 Đã sửa việc ô tìm kiếm tạm biến mất khi lọc, áp dụng cache tương đương khi xóa từ khóa và lọc toàn bộ, thêm trạng thái cập nhật ngay cho nút tình trạng, tối ưu đọc duy nhất hàng hồ sơ khi cập nhật. Xem `docs/YC-HN-015_V1_v1.2.2-RC_CHANGELOG_VA_HUONG_DAN.md` trước khi triển khai. Chưa tự động migration hoặc cập nhật dữ liệu production.
+
+### YC-HN-016 — Cập nhật tình trạng học nghề từ Excel (v1.2.3-RC)
+
+Chỉ Quản trị viên sử dụng nút **Cập nhật tình trạng từ Excel** trong **Hồ sơ học nghề**. Chỉ các hồ sơ `CHO_XAC_NHAN` mới có thể thay đổi; trạng thái khác được bảo toàn. Dùng file Excel mẫu trong `public/templates/MAU_CAP_NHAT_TINH_TRANG.xlsx`, hoặc file 26 cột có X tại cột Tham gia học khi muốn chuyển sang Đã tham gia học. Chức năng này không tạo thêm hồ sơ mới. Xem `docs/YC-HN-016_V2_v1.2.3-RC_CHANGELOG_VA_HUONG_DAN.md` trước khi triển khai.

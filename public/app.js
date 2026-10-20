@@ -1,5 +1,5 @@
 import {downloadReportXlsx} from './xlsx-export.js';
-/** THEO DÕI HỌC NGHỀ — v1.2.2-RC (YC-HN-015). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.3-RC (YC-HN-016). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -22,7 +22,7 @@ const state = {
   token:'', session:false, clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, statuses:[], page:'dashboard', routeVersion:0,
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:''},
-  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null,
+  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
   cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:""
 };
 
@@ -303,7 +303,7 @@ async function renderDashboard(v,keepOld=false){
   $('#dashboard-output').innerHTML=`<div class="kpi-grid" aria-label="Sáu chỉ tiêu tổng quan">${tiles.map(([label,glyph,n])=>`<article class="kpi"><div class="kpi-icon">${iconSvg(glyph,26)}</div><div class="kpi-body"><div class="desc">${esc(label)}</div><div class="metric">${num(n)}</div></div></article>`).join('')}</div><div class="sub-grid">${schoolChart(data.schoolCounts)}${tradeChart(data.tradeCounts)}</div>`;
 }
 async function renderRecords(v,keepOld=false){
-  const markup=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',(state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-light" data-bulk-record="1">⇧ Nhập Excel</button>':'')+(allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':''))+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${state.user?.VAI_TRO==='ADMIN'||state.user?.VAI_TRO==='NHAN_VIEN'?'<button class="btn btn-light" data-export-list="1">Xuất Excel</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
+  const markup=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',(state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-light" data-bulk-record="1">⇧ Nhập Excel</button><button class="btn btn-light" data-status-bulk="1">⇧ Cập nhật tình trạng từ Excel</button>':'')+(allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':''))+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${state.user?.VAI_TRO==='ADMIN'||state.user?.VAI_TRO==='NHAN_VIEN'?'<button class="btn btn-light" data-export-list="1">Xuất Excel</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
   if(!keepOld)$('#main').innerHTML=markup;
   await loadRecordList(v,keepOld,markup);
 }
@@ -357,7 +357,7 @@ async function renderAudits(v){
   $('#audit-output').innerHTML=`<div class="table-wrap audit-table"><table><thead><tr><th>Thời gian</th><th>Người thao tác</th><th>Hành động</th><th>Loại</th></tr></thead><tbody>${d.items.length?d.items.map(x=>`<tr><td class="nowrap">${esc(x.THOI_GIAN)}</td><td>${esc(x.EMAIL)}</td><td>${esc(x.HANH_DONG)}</td><td>${esc(x.LOAI_DOI_TUONG)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có nhật ký.</td></tr>'}</tbody></table></div><div class="pagination"><button class="btn" data-audit-page="${d.page-1}" ${d.page===1?'disabled':''}>← Trước</button>Trang ${d.page}/${Math.max(1,Math.ceil(d.total/d.pageSize))}<button class="btn" data-audit-page="${d.page+1}" ${d.page*d.pageSize>=d.total?'disabled':''}>Tiếp →</button></div>`;
 }
 function showModal(title,body,footer=''){$('#modal').innerHTML=`<div class="modal-head"><h3>${esc(title)}</h3><button class="btn icon-button" data-close="1" aria-label="Đóng">×</button></div>${body}${footer}`;$('#modal-layer').classList.remove('hidden');$('#modal-layer').setAttribute('aria-hidden','false');}
-function closeModal(){$('#modal-layer').classList.add('hidden');$('#modal-layer').setAttribute('aria-hidden','true');$('#modal').innerHTML='';state.usedPerson=null;}
+function closeModal(){state.statusImport=null;$('#modal-layer').classList.add('hidden');$('#modal-layer').setAttribute('aria-hidden','true');$('#modal').innerHTML='';state.usedPerson=null;}
 const modalFoot=(label='Lưu hồ sơ')=>`<div class="modal-foot"><button type="button" class="btn" data-close="1">Hủy</button><button type="submit" class="btn btn-primary" data-submit-btn="1">${label}</button></div>`;
 const field=(label,name,value='',type='text',extra='')=>`<div class="field"><label for="f-${esc(name)}">${esc(label)}</label><input id="f-${esc(name)}" name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></div>`;
 const selectField=(label,name,inner)=>`<div class="field"><label for="f-${esc(name)}">${esc(label)}</label><select id="f-${esc(name)}" name="${esc(name)}">${inner}</select></div>`;
@@ -424,7 +424,7 @@ function downloadCatalogTemplate(type){
   const a=document.createElement('a');a.href='/templates/MAU_DANH_MUC_'+type.toUpperCase()+'.xlsx';a.download='MAU_DANH_MUC_'+type.toUpperCase()+'.xlsx';document.body.appendChild(a);a.click();a.remove();
 }
 // Đọc workbook XLSX tiêu chuẩn bằng ZIP + XML, không gửi file Excel chứa thông tin cá nhân tới dịch vụ thứ ba.
-async function readXlsxRows(bytes,{allowCachedFormula=false}={}){
+async function readXlsxRows(bytes,{allowCachedFormula=false,sheetName=null}={}){
   const view=new DataView(bytes),u8=new Uint8Array(bytes),text=new TextDecoder('utf-8',{fatal:true});
   function u16(n){return view.getUint16(n,true);}function u32(n){return view.getUint32(n,true);}
   let pos=-1;for(let i=bytes.byteLength-22;i>=Math.max(0,bytes.byteLength-65557);i--){if(u32(i)===0x06054b50){pos=i;break;}}
@@ -450,7 +450,24 @@ async function readXlsxRows(bytes,{allowCachedFormula=false}={}){
   if(strings){const doc=new DOMParser().parseFromString(strings,'text/xml');
     for(const si of doc.getElementsByTagNameNS('*','si'))shared.push([...si.getElementsByTagNameNS('*','t')].map(x=>x.textContent).join(''));
   }
-  const sheet=await get('xl/worksheets/sheet1.xml');if(!sheet)throw Error('File Excel không có bảng dữ liệu đầu tiên.');
+  let sheetPath='xl/worksheets/sheet1.xml';
+  if(sheetName){
+    const bookText=await get('xl/workbook.xml'),relText=await get('xl/_rels/workbook.xml.rels');
+    if(!bookText||!relText)throw Error('File Excel thiếu cấu trúc danh sách trang tính.');
+    const book=new DOMParser().parseFromString(bookText,'text/xml');
+    const list=[...book.getElementsByTagNameNS('*','sheet')];
+    const selected=list.find(x=>keyVN(x.getAttribute('name'))===keyVN(sheetName));
+    if(!selected&&list.length!==1)throw Error('File Excel phải có trang tính Danh sách chứa học viên.');
+    const picked=selected||list[0];if(!picked)throw Error('Không tìm thấy trang tính học viên.');
+    const rel=new DOMParser().parseFromString(relText,'text/xml');
+    const rid=picked.getAttribute('r:id')||picked.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
+    const entry=[...rel.getElementsByTagNameNS('*','Relationship')].find(x=>x.getAttribute('Id')===rid);
+    if(!entry)throw Error('Liên kết trang tính Excel không hợp lệ.');
+    const target=entry.getAttribute('Target')||'';
+    sheetPath=target.startsWith('/')?target.replace(/^\/+/, ''):'xl/'+target.replace(/^\.\//,'');
+    if(!/^xl\/worksheets\/sheet\d+\.xml$/.test(sheetPath))throw Error('Trang tính Excel không hợp lệ.');
+  }
+  const sheet=await get(sheetPath);if(!sheet)throw Error('Không tìm thấy trang tính học viên trong Excel.');
   const doc=new DOMParser().parseFromString(sheet,'text/xml');
   if(doc.getElementsByTagName('parsererror').length)throw Error('File Excel có cấu trúc không hợp lệ.');
   const rows=[];for(const row of doc.getElementsByTagNameNS('*','row')){
@@ -528,6 +545,107 @@ function parseRecordExcel(data){
   return {rows,unused,offset};
 }
 function downloadRecordTemplate(){const a=document.createElement('a');a.href='/templates/MAU_NHAP_HO_SO_HOC_NGHE.xlsx';a.download='MAU_NHAP_HO_SO_HOC_NGHE.xlsx';document.body.append(a);a.click();a.remove();}
+/** YC-HN-016: Trạng thái hàng loạt, chỉ cập nhật hồ sơ CHO_XAC_NHAN. */
+const STATUS_BULK_HEADERS=['Họ và tên','Số QĐ HTHN','Ngày ban hành QĐHN','Cơ sở đào tạo nghề','Số sổ BHXH','Áp dụng (X)','Tháng bỏ học','Lý do bỏ học'];
+const statusBulkTarget=()=>$('#status-bulk-form')?.elements?.status?.value||'';
+function parseStatusBulkExcel(raw,status){
+  if(!Array.isArray(raw)||!raw.length)throw Error('File Excel không có dữ liệu.');
+  const h1=raw[0].map(keyVN),h2=(raw[1]||[]).map(keyVN);
+  const second=h2.some(x=>x.includes('tham gia hoc')||x.includes('tu ngay')||x.includes('den ngay'));
+  const labels=h1.map((x,i)=>[x,h2[i]||''].join(' ').trim());
+  const find=(keys)=>labels.findIndex(s=>keys.some(x=>s===x||s.includes(x)));
+  const col={name:find(['ho va ten']),decision:find(['so qd hthn','so quyet dinh hthn']),decisionDate:find(['ngay ban hanh qdhn','ngay quyet dinh hthn','ngay ban hanh qd hthn']),school:find(['co so dao tao nghe']),bhxh:find(['so so bhxh']),apply:find(['ap dung']),study:find(['tham gia hoc']),dropoutPeriod:find(['thang bo hoc']),dropoutReason:find(['ly do bo hoc'])};
+  if(['name','decision','decisionDate','school'].some(k=>col[k]<0))throw Error('Thiếu cột Họ tên, Số QĐ HTHN, Ngày ban hành QĐHN hoặc Cơ sở đào tạo nghề.');
+  const marker=status==='DA_THAM_GIA'?(col.apply>=0?col.apply:col.study):col.apply;
+  if(marker<0)throw Error(status==='DA_THAM_GIA'?'Cần cột Tham gia học (X) hoặc Áp dụng (X).':'Với tình trạng đã chọn, phải sử dụng file danh sách riêng có cột Áp dụng (X).');
+  const rows=[],skipped=[];const offset=second?2:1;
+  for(let i=offset;i<raw.length;i++){
+    const cells=raw[i]||[],line=i+1;
+    const val=k=>col[k]<0?'':String(cells[col[k]]??'').trim();
+    if(!cells.some(v=>String(v??'').trim()))continue;
+    const name=val('name'),decision=val('decision'),date=excelISO(val('decisionDate')),school=val('school');
+    if(!name&&!decision&&!school){skipped.push({line,kind:'ignored',reason:'Dòng tổng hợp không phải hồ sơ cá nhân.'});continue;}
+    const isMarked=/^[xX]$/.test(String(cells[marker]??'').trim());
+    if(!isMarked){skipped.push({line,kind:'unselected',reason:'Không đánh dấu X, giữ nguyên hồ sơ.'});continue;}
+    rows.push({line,name,decision,decisionDate:date,school,bhxh:val('bhxh'),dropoutPeriod:val('dropoutPeriod'),dropoutReason:val('dropoutReason')});
+  }
+  if(rows.length+skipped.length>3000)throw Error('File vượt 3.000 dòng. Hãy chia thành nhiều lần.');
+  return {rows,skipped};
+}
+function statusBulkForm(){
+  if(state.user?.VAI_TRO!=='ADMIN')return;
+  state.statusImport={rows:[],skipped:[],results:[],fileName:'',verified:false,session:null};
+  const opts=allStatusOptions().map(([id,label])=>option(id,label,'DA_THAM_GIA')).join('');
+  showModal('Cập nhật tình trạng từ Excel',`<form id="status-bulk-form" class="form-grid">
+    <div class="full info-banner">Chỉ Quản trị viên được cập nhật hàng loạt. <b>Chỉ hồ sơ Chưa xác nhận mới được thay đổi.</b> Hồ sơ đã có tình trạng khác sẽ giữ nguyên, kể cả hồ sơ Bỏ học.</div>
+    <div class="field full"><label>Tình trạng cần cập nhật *</label><select name="status">${opts}</select></div>
+    <div class="field full status-bulk-dropout" hidden><label>Tháng bắt đầu bỏ học (nếu chung cho danh sách)</label><select name="dropoutPeriod">${option('','-- Chọn --')}${Array.from({length:11},(_,i)=>option('KY:'+(i+2),'Tháng thứ '+(i+2))).join('')}</select></div>
+    <div class="field full status-bulk-dropout" hidden><label>Lý do bỏ học (nếu chung cho danh sách)</label><select name="dropoutReason">${option('','-- Chọn --')}${(state.cats.lydo||[]).filter(x=>x.TRANG_THAI==='ACTIVE').map(x=>option(x.LY_DO_ID,x.NOI_DUNG)).join('')}</select></div>
+    <div class="full"><button type="button" class="btn btn-light" data-status-bulk-template="1">⬇ Tải Excel mẫu cập nhật tình trạng</button></div>
+    <div class="field full"><label>Chọn file Excel (.xlsx) *</label><input id="status-bulk-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div>
+    <p class="small full">Nếu chọn <b>Đã tham gia học</b>, hệ thống chỉ lấy người được đánh dấu X tại cột Tham gia học hoặc Áp dụng. Với tình trạng khác, sử dụng mẫu danh sách riêng, đánh dấu X tại cột Áp dụng. Ô không có X không bị thay đổi.</p>
+    <div id="status-bulk-progress" class="full import-review" aria-live="polite">Chưa chọn file. Hãy chọn một tình trạng và danh sách tương ứng.</div>
+    <div class="full"><button type="button" class="btn btn-light" data-status-bulk-errors="1" hidden>⬇ Xuất danh sách cần kiểm tra</button></div>
+    <label class="import-accept full"><input name="ack" type="checkbox" required> Tôi đã kiểm tra kết quả đối chiếu và đồng ý chỉ cập nhật các hồ sơ đủ điều kiện.</label>
+    <div class="modal-foot full"><button type="button" class="btn" data-close="1">Hủy</button><button type="button" class="btn btn-light" data-status-bulk-check="1">Kiểm tra dữ liệu</button><button type="submit" class="btn btn-primary" id="status-bulk-submit" disabled data-submit-btn="1">Xác nhận cập nhật</button></div>
+  </form>`);
+  statusBulkToggle();
+}
+function statusBulkToggle(){const f=$('#status-bulk-form');if(!f)return;const dropout=f.elements.status.value==='BO_HOC';f.querySelectorAll('.status-bulk-dropout').forEach(e=>e.hidden=!dropout);}
+function resetStatusBulkReview(message){if(!state.statusImport)return;state.statusImport.verified=false;state.statusImport.session=null;state.statusImport.results=[];const el=$('#status-bulk-progress');if(el)el.textContent=message;const button=$('#status-bulk-submit');if(button)button.disabled=true;const errors=$('[data-status-bulk-errors]');if(errors)errors.hidden=true;}
+const statusBulkCounts=items=>items.reduce((o,r)=>(o[r.kind]=(o[r.kind]||0)+1,o),{});
+function statusBulkRenderResults(rows,skipped){
+  const box=$('#status-bulk-progress');if(!box)return;
+  const all=[...rows,...skipped],count=statusBulkCounts(all),summary=[['eligible','Đủ điều kiện'],['updated','Đã cập nhật'],['same','Đã đúng tình trạng'],['protected','Đã có tình trạng khác'],['changed','Đã thay đổi khi ghi'],['missing','Không tìm thấy'],['duplicate','Trùng'],['invalid','Sai/thiếu thông tin'],['unselected','Không đánh dấu X'],['ignored','Dòng tổng hợp'],['pending','Chưa xử lý']];
+  const cards=summary.filter(([k])=>count[k]).map(([k,label])=>`<span>${esc(label)}: <b>${num(count[k])}</b></span>`).join('');
+  const problematic=all.filter(x=>!['eligible','updated','ignored','unselected'].includes(x.kind));
+  const sample=all.slice(0,35).map(x=>`<tr><td>${num(x.line)}</td><td>${esc(x.kind)}</td><td>${esc(x.reason)}</td></tr>`).join('');
+  box.innerHTML=`<div class="import-summary"><b>${num(all.length)} dòng được đọc</b>${cards}</div>${problematic.length?`<p class="small"><b>${num(problematic.length)} dòng không cập nhật / cần rà soát.</b> Có thể tải danh sách riêng để kiểm tra.</p>`:''}<div class="table-wrap import-preview-table"><table><thead><tr><th>Dòng</th><th>Phân loại</th><th>Kết quả / lý do</th></tr></thead><tbody>${sample}</tbody></table></div>`;
+  const exportBtn=$('[data-status-bulk-errors]');if(exportBtn)exportBtn.hidden=!problematic.length;
+}
+async function statusBulkCheck(){
+  const f=$('#status-bulk-form'),s=state.statusImport;
+  if(!f||!s?.rows?.length)throw Error('Vui lòng chọn file có ít nhất một dòng đánh dấu X.');
+  const status=f.elements.status.value;if(s.target!==status)throw Error('Bạn đã đổi tình trạng. Vui lòng chọn lại file và kiểm tra.');
+  const checked=[],global={dropoutPeriod:f.elements.dropoutPeriod.value,dropoutReason:f.elements.dropoutReason.value};
+  const btn=$('[data-status-bulk-check]'),before=btn.textContent;btn.disabled=true;btn.textContent='Đang kiểm tra...';
+  try{
+    for(let i=0;i<s.rows.length;i+=120){$('#status-bulk-progress').textContent=`Đã kiểm tra ${num(i)}/${num(s.rows.length)} dòng. Đang đối chiếu với hồ sơ...`;
+      const part=await rpc('record_status_bulk_check',{status,...global,rows:s.rows.slice(i,i+120)},{ttl:0});checked.push(...part.items);}
+  }finally{btn.disabled=false;btn.textContent=before;}
+  // Hai dòng cùng quyết định/năm trên toàn bộ file không được chọn ngẫu nhiên một dòng.
+  const grouped=new Map();for(const r of s.rows){const k=String(r.decision).replace(/^0+(?=\d)/,'')+'|'+r.decisionDate.slice(0,4);grouped.set(k,(grouped.get(k)||0)+1);}
+  const statusByLine=new Map(s.rows.map(r=>[r.line,r]));
+  for(const row of checked){const source=statusByLine.get(row.line);if(!source)continue;const key=String(source.decision).replace(/^0+(?=\d)/,'')+'|'+source.decisionDate.slice(0,4);if(grouped.get(key)>1){Object.assign(row,{kind:'duplicate',reason:'Số quyết định/năm xuất hiện nhiều lần trong file.',hoSoId:'',version:''});}}
+  s.results=checked;s.verified=true;s.session=null;s.global=global;
+  statusBulkRenderResults(checked,s.skipped);
+  $('#status-bulk-submit').disabled=!checked.some(x=>x.kind==='eligible');
+}
+async function statusBulkApply(){
+  const s=state.statusImport,f=$('#status-bulk-form');if(!s?.verified||!f)throw Error('Bạn cần Kiểm tra dữ liệu trước khi cập nhật.');
+  if(!f.elements.ack.checked)throw Error('Vui lòng xác nhận đã kiểm tra kết quả.');
+  const target=f.elements.status.value;
+  if(target!==s.target||JSON.stringify(s.global)!==JSON.stringify({dropoutPeriod:f.elements.dropoutPeriod.value,dropoutReason:f.elements.dropoutReason.value}))throw Error('Thông tin đã thay đổi, hãy kiểm tra lại.');
+  const task=s.session||(s.session={batchId:rid(),offset:0,lines:s.results.filter(x=>x.kind==='eligible')});
+  const list=task.lines,source=new Map(s.rows.map(r=>[r.line,r]));
+  if(!list.length)throw Error('Không có hồ sơ đủ điều kiện cập nhật.');
+  for(let i=task.offset;i<list.length;i+=10){
+    const slice=list.slice(i,i+10),rows=slice.map(x=>({...source.get(x.line),hoSoId:x.hoSoId,version:x.version}));
+    const result=await rpc('record_status_bulk_apply',{status:target,...s.global,batchId:task.batchId,rows},{mutate:true,requestId:task.batchId+'_'+String(i).padStart(5,'0')});
+    for(const item of result.results){const current=s.results.find(x=>x.line===item.line);if(current)Object.assign(current,item);}
+    task.offset=Math.min(i+10,list.length);
+    const box=$('#status-bulk-progress');if(box)box.textContent=`Đã xử lý ${num(task.offset)}/${num(list.length)} hồ sơ đủ điều kiện. Đang cập nhật...`;
+  }
+  s.session=null;s.verified=false;
+  statusBulkRenderResults(s.results,s.skipped);
+  const updated=s.results.filter(x=>x.kind==='updated').length;
+  $('#status-bulk-submit').disabled=true;
+  notify(`Đã cập nhật ${num(updated)} hồ sơ. Các hồ sơ đã có tình trạng khác được giữ nguyên.`);
+  // Không đóng ngay kết quả; invalidation dữ liệu cần làm mới khi trở lại trang.
+  expireCacheActions(['overview','report_matrix','records_list','report_export']);state.pageViews.delete('dashboard');state.pageViews.delete('reports');state.pageViews.delete('records');
+  if(state.page==='records')void navigate('records',true).catch(failure);
+}
+
 function bulkRecordForm(){
   if(state.user?.VAI_TRO!=='ADMIN')return;
   state.importRows=null;state.importFile=null;state.importPreview=null;state.importSession=null;
@@ -736,7 +854,7 @@ const serialized=async(fn,progress={})=>{
   finally{
     state.busy=false;
     if(button?.isConnected){button.innerHTML=prior;button.removeAttribute('aria-busy');}
-    document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid);});
+    document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid) || (x.id==='status-bulk-submit' && (!state.statusImport?.verified || !state.statusImport?.results?.some(r=>r.kind==='eligible')));});
   }
 };
 // Delegated buttons: no inline user-controlled event handlers.
@@ -747,6 +865,10 @@ document.addEventListener('click',async e=>{
   if(node.hasAttribute('data-dashboard-detail')){if(allowed('REPORT_VIEW'))navigate('reports');return;}
   if(node.hasAttribute('data-retry')){navigate(state.page,true);return;}
   if(node.hasAttribute('data-bulk-record')){bulkRecordForm();return;}
+  if(node.hasAttribute('data-status-bulk')){statusBulkForm();return;}
+  if(node.hasAttribute('data-status-bulk-template')){const a=document.createElement('a');a.href='/templates/MAU_CAP_NHAT_TINH_TRANG.xlsx';a.download='MAU_CAP_NHAT_TINH_TRANG.xlsx';document.body.append(a);a.click();a.remove();return;}
+  if(node.hasAttribute('data-status-bulk-check')){await serialized(statusBulkCheck);return;}
+  if(node.hasAttribute('data-status-bulk-errors')){const s=state.statusImport;if(!s)return;const list=[...(s.results||[]),...(s.skipped||[])].filter(x=>!['eligible','updated','ignored','unselected'].includes(x.kind));downloadCsv('ket-qua-chua-cap-nhat.csv',[['Dòng','Phân loại','Lý do'],...list.map(x=>[x.line,x.kind,x.reason])]);return;}
   if(node.hasAttribute('data-record-template')){downloadRecordTemplate();return;}
   if(node.hasAttribute('data-record-check')){await serialized(recordBulkCheck);return;}
   if(node.hasAttribute('data-record-errors')){const issues=state.importPreview?.issues||[];if(!issues.length)return;downloadCsv('danh-sach-loi-nhap-ho-so.csv',[['Dòng trong file','Vấn đề'],...issues.map(x=>[x.line,x.reason])]);return;}
@@ -794,7 +916,14 @@ document.addEventListener('click',async e=>{
   }
   if(node.hasAttribute('data-select-person')){const f=$('#record-form');if(!f)return;f.elements.NGUOI_HOC_ID.value=node.dataset.selectPerson;f.elements.HO_TEN.value=node.dataset.personName;f.elements.NGAY_SINH.value=node.dataset.personBirth;f.elements.GIOI_TINH.value=node.dataset.personSex;$('#selected-person').textContent='Đã chọn người học: '+node.dataset.personName;$('#person-results').innerHTML='';return;}
 });
-document.addEventListener('change',async e=>{if(e.target.id==='record-import-file'){
+document.addEventListener('change',async e=>{if(e.target.id==='status-bulk-file'){
+  try{const f=e.target.files?.[0],s=state.statusImport;resetStatusBulkReview('Đang đọc file Excel...');if(!f){if(s){s.rows=[];s.skipped=[];}return;}
+    if(!/\.xlsx$/i.test(f.name)||f.size>6*1024*1024)throw Error('Chỉ chấp nhận Excel .xlsx dưới 6 MB.');
+    const status=statusBulkTarget(),parsed=parseStatusBulkExcel(await readXlsxRows(await f.arrayBuffer(),{allowCachedFormula:true,sheetName:'Danh sách'}),status);
+    s.rows=parsed.rows;s.skipped=parsed.skipped;s.fileName=f.name;s.target=status;
+    resetStatusBulkReview(`Đã đọc ${num(parsed.rows.length)} dòng đánh dấu X từ ${f.name}; bỏ qua ${num(parsed.skipped.length)} dòng. Hãy bấm Kiểm tra dữ liệu.`);
+  }catch(err){if(state.statusImport)state.statusImport.rows=[];e.target.value='';resetStatusBulkReview('Chưa đọc được file. Vui lòng chọn lại.');failure(err);}return;
+}if(e.target.id==='record-import-file'){
   try{const file=e.target.files?.[0];state.importRows=null;state.importFile=null;state.importPreview=null;state.importSession=null;$('#record-import-submit').disabled=true;
     if(!file)return;if(!/\.xlsx$/i.test(file.name)||file.size>6*1024*1024)throw Error('Vui lòng chọn file Excel .xlsx không quá 6 MB.');
     const parsed=parseRecordExcel(await readXlsxRows(await file.arrayBuffer(),{allowCachedFormula:true}));state.importRows=parsed.rows;state.importFile={name:file.name,unused:parsed.unused};
@@ -828,7 +957,7 @@ document.addEventListener('change',async e=>{if(e.target.id==='record-import-fil
 }});
 document.addEventListener('input',e=>{if(e.target.name==='SO_THANG_HO_TRO'&&e.target.closest('#record-form')){const form=e.target.closest('form'),select=form.elements.NGAY_BO_HOC;if(!select)return;const N=Number(String(e.target.value).replace(',','.')),prior=select.value,periods=Number.isInteger(N)&&N>1?Array.from({length:Math.min(N-1,120)},(_,i)=>i+2):[];select.innerHTML=option('','-- Chọn tháng bắt đầu bỏ học --',prior)+periods.map(n=>option('KY:'+n,'Tháng thứ '+n,prior)).join('');select.disabled=!periods.length||form.elements.UI_TINH_TRANG?.value!=='BO_HOC';}});
 document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){state.catalogSearch=e.target.value;const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
-document.addEventListener('change',e=>{if(e.target.name==='UI_TINH_TRANG'){updateDropoutFields(e.target.closest('form'));}if(e.target.name==='role'&&e.target.closest('#account-form'))updateAccountSchool(e.target.closest('form'));if(e.target.name==='type'&&e.target.closest('#bulk-catalog-form')){const f=e.target.closest('form');f.dataset.ready='no';f.dataset.verified='';state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';$('#bulk-import-submit').disabled=true;}});
+document.addEventListener('change',e=>{if(e.target.name==='status'&&e.target.closest('#status-bulk-form')){statusBulkToggle();if(state.statusImport){state.statusImport.rows=[];state.statusImport.skipped=[];}const file=$('#status-bulk-file');if(file)file.value='';resetStatusBulkReview('Đã thay đổi tình trạng. Vui lòng chọn lại file Excel.');}if(['dropoutPeriod','dropoutReason'].includes(e.target.name)&&e.target.closest('#status-bulk-form'))resetStatusBulkReview('Đã thay đổi thông tin bỏ học. Vui lòng bấm Kiểm tra dữ liệu lại.');if(e.target.name==='UI_TINH_TRANG'){updateDropoutFields(e.target.closest('form'));}if(e.target.name==='role'&&e.target.closest('#account-form'))updateAccountSchool(e.target.closest('form'));if(e.target.name==='type'&&e.target.closest('#bulk-catalog-form')){const f=e.target.closest('form');f.dataset.ready='no';f.dataset.verified='';state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';$('#bulk-import-submit').disabled=true;}});
 document.addEventListener('change',e=>{if(e.target.name==='NGAY_QUYET_DINH'&&$('#preview-year'))$('#preview-year').value=e.target.value?.slice(0,4)||'Tự lấy từ ngày quyết định';});
 document.addEventListener('submit',e=>{
   const form=e.target,formId=form.getAttribute('id');if(!formId)return;e.preventDefault();
@@ -837,6 +966,7 @@ document.addEventListener('submit',e=>{
   if(formId==='dashboard-filters'){state.dashboardFilters=getFormFields(form);state.pageViews.delete('dashboard');navigate('dashboard',true);return;}
   if(formId==='reports-filters'){state.reportFilters=getFormFields(form);state.pageViews.delete('reports');navigate('reports',true);return;}
   if(formId==='bulk-record-form'){serialized(importBulkRecords);return;}
+  if(formId==='status-bulk-form'){serialized(statusBulkApply,{button:form.querySelector('[data-submit-btn]'),label:'Đang cập nhật...'});return;}
   if(formId==='record-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_save',p,{mutate:true});notify('Đã lưu hồ sơ '+d.record.SO_QUYET_DINH+'/'+d.record.NAM_QUYET_DINH);await afterMutation('records');});return;}
   if(formId==='status-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_status',p,{mutate:true,preserveRecordList:true});if(p.customStatusName)await refreshBootstrap();const next=d.record;state.records=state.records.map(r=>r.HO_SO_ID===next.HO_SO_ID?next:r);for(const [key,item] of state.cache){
       if(cacheAction(key)!=='records_list')continue;
@@ -873,4 +1003,4 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!state.busy)closeMo
 initialize();
 
 // Export for non-network unit tests only; no tokens/private data exported.
-export const tests = {esc,dateVN,STATUS,RIGHTS,csvCell,parseCsv,BULK_HEADERS,STAFF_RIGHTS,RECORD_HEADERS,parseRecordExcel,excelISO};
+export const tests = {esc,dateVN,STATUS,RIGHTS,csvCell,parseCsv,BULK_HEADERS,STAFF_RIGHTS,RECORD_HEADERS,parseRecordExcel,excelISO,parseStatusBulkExcel,statusBulkCounts};

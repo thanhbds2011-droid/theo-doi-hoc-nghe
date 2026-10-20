@@ -685,3 +685,74 @@ test('YC015 cập nhật tình trạng chỉ đọc toàn hàng đích, không n
   const stale=c.send('record_status',{HO_SO_ID:old.HO_SO_ID,PHIEN_BAN:old.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'});
   assert.equal(stale.error.code,'VERSION_CONFLICT');
 });
+
+// YC-HN-016: only CHO_XAC_NHAN can be changed by bulk Excel, with backend revalidation.
+const statusInput=(ctx,decision='6273',date='2026-10-13',name='Nguyễn Văn A')=>({line:3,decision,decisionDate:date,name,school:ctx.school.TEN_TRUONG,bhxh:''});
+test('YC016: xem trước + ghi một hồ sơ chưa xác nhận, giữ nguyên hồ sơ gốc',()=>{
+  const c=setupLive();const first=c.send('record_save',record(c,'6273','2026-10-13')).data.record;
+  const src=statusInput(c),check=c.send('record_status_bulk_check',{status:'DA_THAM_GIA',rows:[src]});
+  assert.equal(check.ok,true,JSON.stringify(check.error));assert.equal(check.data.items[0].kind,'eligible');
+  const row=check.data.items[0],write=c.send('record_status_bulk_apply',{status:'DA_THAM_GIA',batchId:'batch16',rows:[{...src,hoSoId:row.hoSoId,version:row.version}]},'yc016_write_req_00001');
+  assert.equal(write.ok,true,JSON.stringify(write.error));assert.equal(write.data.updated,1);
+  const detail=c.send('records_list',{query:'6273'}).data.items[0];
+  assert.equal(detail.TRANG_THAI_THAM_GIA,'DA_THAM_GIA');assert.equal(detail.HO_TEN,first.HO_TEN);
+  assert.equal(detail.PHIEN_BAN,'2');
+  assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),2);
+  const logs=c.tables.get('Nhật ký thay đổi').rows;
+  assert.ok(logs.some(r=>r.includes('CAP_NHAT_TINH_TRANG_HANG_LOAT')));
+});
+test('YC016: hai lần import cùng QĐ không được ghi đè hay tăng phiên bản lần hai',()=>{
+  const c=setupLive();c.send('record_save',record(c,'67','2026-10-13'));
+  const src=statusInput(c,'067'),check=c.send('record_status_bulk_check',{status:'DA_THAM_GIA',rows:[src]}).data.items[0];
+  assert.equal(check.kind,'eligible');
+  const row={...src,hoSoId:check.hoSoId,version:check.version};
+  const x=c.send('record_status_bulk_apply',{status:'DA_THAM_GIA',rows:[row],batchId:'one'},'yc016_dedupe_key_01');
+  assert.equal(x.data.updated,1);
+  const retry=c.send('record_status_bulk_apply',{status:'DA_THAM_GIA',rows:[row],batchId:'one'},'yc016_dedupe_key_01');
+  assert.equal(retry.data.updated,1);
+  const twice=c.send('record_status_bulk_apply',{status:'DA_THAM_GIA',rows:[row],batchId:'two'},'yc016_dedupe_key_02');
+  assert.equal(twice.data.updated,0);assert.equal(twice.data.results[0].kind,'same');
+  assert.equal(c.send('records_list',{query:'67'}).data.items[0].PHIEN_BAN,'2');
+});
+test('YC016: hồ sơ đang bỏ học không thể bị ghi đè kể cả trùng số và họ tên',()=>{
+  const c=setupLive();const a=c.send('record_save',record(c,'6280','2026-10-13',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID})).data.record;
+  const src=statusInput(c,'6280'),check=c.send('record_status_bulk_check',{status:'DA_THAM_GIA',rows:[src]});
+  assert.equal(check.data.items[0].kind,'protected');
+  const out=c.send('record_status_bulk_apply',{status:'DA_THAM_GIA',rows:[{...src,hoSoId:a.HO_SO_ID,version:a.PHIEN_BAN}]});
+  assert.equal(out.data.updated,0);
+  const after=c.send('records_list',{query:'6280'}).data.items[0];assert.equal(after.DA_BO_HOC,'TRUE');assert.equal(after.NGAY_BO_HOC,'KY:2');assert.equal(after.LY_DO_BO_HOC_ID,c.reason.LY_DO_ID);
+});
+test('YC016: thay đổi đồng thời sau xem trước không cho ghi đè',()=>{
+  const c=setupLive();const a=c.send('record_save',record(c,'6273','2026-10-13')).data.record;
+  const src=statusInput(c);const check=c.send('record_status_bulk_check',{status:'KHONG_THAM_GIA',rows:[src]}).data.items[0];
+  const update=c.send('record_status',{HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:'1',TRANG_THAI_THAM_GIA:'KHONG_NHAN_QUYET_DINH'});
+  assert.equal(update.ok,true,JSON.stringify(update.error));
+  const apply=c.send('record_status_bulk_apply',{status:'KHONG_THAM_GIA',rows:[{...src,hoSoId:check.hoSoId,version:check.version}]});
+  assert.equal(apply.data.updated,0);assert.equal(apply.data.results[0].kind,'protected');
+  assert.equal(c.send('records_list',{query:'6273'}).data.items[0].TRANG_THAI_THAM_GIA,'KHONG_NHAN_QUYET_DINH');
+});
+test('YC016: sai họ tên/trường, trùng và thiếu quyết định được liệt kê, không ghi',()=>{
+  const c=setupLive();c.send('record_save',record(c,'6273','2026-10-13'));
+  const p={status:'DA_THAM_GIA',rows:[statusInput(c,'6273','2026-10-13','Khác tên'),{...statusInput(c),line:4,school:'Trường XYZ'},statusInput(c,'99'),{...statusInput(c,'6273'),line:6}]};
+  const x=c.send('record_status_bulk_check',p);assert.equal(x.ok,true);
+  assert.equal(x.data.items[0].kind,'invalid');assert.equal(x.data.items[1].kind,'duplicate');assert.equal(x.data.items[2].kind,'missing');assert.equal(x.data.items[3].kind,'duplicate');
+  assert.equal(c.send('records_list',{query:'6273'}).data.items[0].TRANG_THAI_THAM_GIA,'CHO_XAC_NHAN');
+});
+test('YC016: Bỏ học bắt buộc kỳ hợp lệ, lý do hợp lệ',()=>{
+  const c=setupLive();const a=c.send('record_save',record(c,'6273','2026-10-13',{SO_THANG_HO_TRO:'3'})).data.record;
+  const src=statusInput(c),row={...src,hoSoId:a.HO_SO_ID,version:a.PHIEN_BAN};
+  assert.equal(c.send('record_status_bulk_check',{status:'BO_HOC',rows:[src]}).data.items[0].kind,'invalid');
+  assert.equal(c.send('record_status_bulk_apply',{status:'BO_HOC',rows:[row]}).data.updated,0);
+  const good=c.send('record_status_bulk_check',{status:'BO_HOC',dropoutPeriod:'KY:2',dropoutReason:c.reason.LY_DO_ID,rows:[src]});
+  assert.equal(good.data.items[0].kind,'eligible');
+  const out=c.send('record_status_bulk_apply',{status:'BO_HOC',dropoutPeriod:'KY:2',dropoutReason:c.reason.LY_DO_ID,rows:[row]});
+  assert.equal(out.data.updated,1);
+  const after=c.send('records_list',{query:'6273'}).data.items[0];assert.equal(after.DA_BO_HOC,'TRUE');assert.equal(after.NGAY_BO_HOC,'KY:2');
+});
+test('YC016: NHAN_VIEN không được phép kiểm tra/ghi hàng loạt',()=>{
+  const c=setupLive();c.send('account_save',{email:'staff016@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE'});
+  const identity={sub:'82345678901234567890',aud:audience,email:'staff016@example.com'};
+  const res=c.signed('record_status_bulk_check',{status:'DA_THAM_GIA',rows:[statusInput(c)]},'yc016_denied_request_01',identity);
+  const out=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(res)}}).getContent());
+  assert.equal(out.ok,false);assert.equal(out.error.code,'NO_PERMISSION');
+});

@@ -295,3 +295,6 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 #list-output.records-failed{opacity:.55;pointer-events:none}
 #record-count[role="status"]{min-height:1.2em}
 #status-form [data-submit-btn][aria-busy="true"]{cursor:progress}
+
+/* YC-HN-016: trạng thái trường phụ thuộc chỉ hiển thị khi chọn Bỏ học. */
+.status-bulk-dropout[hidden]{display:none!important}

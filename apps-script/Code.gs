@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.1-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.3-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.1-RC',
+  version: '1.2.3-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -191,6 +191,8 @@ function doPost(e) {
       case 'records_list': data = listRecords_(user,payload); break;
       case 'person_lookup': data = personLookup_(user,payload); break;
       case 'record_bulk_check': data = recordBulkCheck_(user,payload); break;
+      case 'record_status_bulk_check': data = statusBulkCheck_(user,payload); break;
+      case 'record_status_bulk_apply': data = withLock_(function(){return statusBulkApply_(user,payload,body.requestId);}); break;
       case 'record_bulk_import': data = withLock_(function(){return recordBulkImport_(user,payload,body.requestId);}); break;
       case 'record_save': data = withLock_(function(){return saveRecord_(user, payload, body.requestId);}); break;
       case 'record_status': data = withLock_(function(){return statusRecord_(user, payload, body.requestId);}); break;
@@ -334,7 +336,7 @@ function authorize_(identity,action){
   }
   var needs={
     bootstrap:'RECORD_VIEW', overview:'RECORD_VIEW', records_list:'RECORD_VIEW', person_lookup:'RECORD_VIEW',
-    report_matrix:'REPORT_EXPORT', record_bulk_check:'ACCOUNT_MANAGE', record_bulk_import:'ACCOUNT_MANAGE', record_save:'RECORD_CREATE', record_status:'RECORD_STATUS', record_delete:'RECORD_DELETE', report_export:'REPORT_EXPORT',
+    report_matrix:'REPORT_EXPORT', record_bulk_check:'ACCOUNT_MANAGE', record_bulk_import:'ACCOUNT_MANAGE', record_status_bulk_check:'ACCOUNT_MANAGE', record_status_bulk_apply:'ACCOUNT_MANAGE', record_save:'RECORD_CREATE', record_status:'RECORD_STATUS', record_delete:'RECORD_DELETE', report_export:'REPORT_EXPORT',
     catalog_list:'CATALOG_MANAGE', catalog_save:'CATALOG_MANAGE', catalog_delete:'CATALOG_MANAGE', catalog_bulk_check:'CATALOG_MANAGE', catalog_bulk_import:'CATALOG_MANAGE', accounts_list:'ACCOUNT_MANAGE', account_save:'ACCOUNT_MANAGE', account_delete:'ACCOUNT_MANAGE',
     audit_list:'AUDIT_VIEW', file_upload:'FILE_UPLOAD', file_get:'FILE_VIEW', file_info:'FILE_VIEW', file_chunk:'FILE_VIEW', file_upload_begin:'FILE_UPLOAD', file_upload_chunk:'FILE_UPLOAD', file_upload_cancel:'FILE_UPLOAD', file_remove:'FILE_UPLOAD'
   };
@@ -600,6 +602,103 @@ function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
   try{audit_(user,'CAP_NHAT_TRANG_THAI','HO_SO',id,{trangThai:data.TRANG_THAI_THAM_GIA,boHoc:data.DA_BO_HOC},requestId);}catch(e){console.error('Audit failed',e);}
   return {record:safeRecord_(data)};
 });}
+/** YC-HN-016: Không ghi đè: nhập trạng thái hàng loạt chỉ dành cho hồ sơ CHO_XAC_NHAN. */
+function statusBulkTarget_(p){
+  var status=str_(p.status,70),code=status==='BO_HOC'?'DA_THAM_GIA':status;
+  must_(status==='BO_HOC'||isValidStatus_(status),'VALIDATION','Tình trạng đích không hợp lệ.');
+  return {selected:status,code:code};
+}
+function statusBulkSource_(raw){
+  must_(raw && typeof raw==='object' && !Array.isArray(raw),'VALIDATION','Dòng không hợp lệ.');
+  var row={line:Number(raw.line),decision:str_(raw.decision,20),decisionDate:str_(raw.decisionDate,10),name:str_(raw.name,250),school:str_(raw.school,250),bhxh:str_(raw.bhxh,45),dropoutPeriod:str_(raw.dropoutPeriod,25),dropoutReason:str_(raw.dropoutReason,250)};
+  must_(Number.isInteger(row.line)&&row.line>=2&&row.line<10000,'VALIDATION','Số dòng Excel không hợp lệ.');
+  must_(!!row.name&&!!row.school,'VALIDATION','Thiếu họ tên hoặc cơ sở đào tạo.');
+  row.key=decisionKey_(row.decision,row.decisionDate);
+  return row;
+}
+function statusBulkFind_(source,r,schools){
+  must_(r.TRANG_THAI_HO_SO!=='DELETED','VALIDATION','Hồ sơ đã xóa hoặc ngừng hoạt động.');
+  must_(norm_(source.name)===norm_(r.HO_TEN),'VALIDATION','Họ tên không khớp với hồ sơ.');
+  var school=schools[r.TRUONG_ID];
+  must_(school && norm_(source.school)===norm_(school),'VALIDATION','Cơ sở đào tạo không khớp với hồ sơ.');
+  // Khi hai bên đều có số BHXH phải chính xác: không bỏ qua sai lệch.
+  if(source.bhxh&&r.SO_SO_BHXH)must_(source.bhxh.replace(/\s/g,'')===String(r.SO_SO_BHXH).replace(/\s/g,''),'VALIDATION','Số sổ BHXH không trùng hồ sơ.');
+  must_(source.key===decisionKey_(r.SO_QUYET_DINH,r.NGAY_QUYET_DINH),'VALIDATION','Số hoặc năm quyết định đã thay đổi.');
+}
+function statusBulkEligible_(r,target,source,reasons,p){
+  if(r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA' && bool_(r.DA_BO_HOC))return {kind:target.selected==='BO_HOC'?'same':'protected',reason:'Đã bỏ học — giữ nguyên tháng và lý do.'};
+  if(r.TRANG_THAI_THAM_GIA!=='CHO_XAC_NHAN')return {kind:r.TRANG_THAI_THAM_GIA===target.code?'same':'protected',reason:r.TRANG_THAI_THAM_GIA===target.code?'Đã ở đúng tình trạng.':'Đã có tình trạng khác — giữ nguyên.'};
+  if(target.selected==='CHO_XAC_NHAN')return {kind:'same',reason:'Đã ở tình trạng Chưa xác nhận.'};
+  if(target.selected==='BO_HOC'){
+    var period=source.dropoutPeriod||str_(p.dropoutPeriod,24);
+    dropoutPeriod_(period,r.SO_THANG_HO_TRO,false);
+    var reasonName=source.dropoutReason||str_(p.dropoutReason,250);
+    var possible=reasons.filter(function(x){return x.TRANG_THAI==='ACTIVE' && (x.LY_DO_ID===reasonName||norm_(x.NOI_DUNG)===norm_(reasonName));});
+    must_(possible.length===1,'VALIDATION','Cần một lý do bỏ học hợp lệ, duy nhất.');
+    return {kind:'eligible',reason:'Chưa xác nhận — được cập nhật.',period:period,reasonId:possible[0].LY_DO_ID};
+  }
+  return {kind:'eligible',reason:'Chưa xác nhận — được cập nhật.'};
+}
+function statusBulkSchoolMap_(){var m={};catalogRows_('truong').forEach(function(x){m[x.TRUONG_ID]=x.TEN_TRUONG;});return m;}
+function statusBulkCheck_(user,p){
+  must_(user.VAI_TRO==='ADMIN','NO_PERMISSION','Chỉ Quản trị viên được cập nhật tình trạng hàng loạt.');
+  must_(Array.isArray(p.rows)&&p.rows.length>0&&p.rows.length<=120,'VALIDATION','Kiểm tra tối đa 120 dòng mỗi đợt.');
+  var target=statusBulkTarget_(p),schools=statusBulkSchoolMap_(),reasons=target.selected==='BO_HOC'?catalogRows_('lydo'):[];
+  var byKey={};cachedRecordSnapshot_().forEach(function(r){if(r.SO_QUYET_DINH_KEY){(byKey[r.SO_QUYET_DINH_KEY]||(byKey[r.SO_QUYET_DINH_KEY]=[])).push(r);}});
+  var seen={},items=p.rows.map(function(raw){
+    var item={line:Number(raw&&raw.line)||0,kind:'invalid',reason:'Dữ liệu không hợp lệ.'};
+    try{
+      var source=statusBulkSource_(raw);item.line=source.line;
+      if(seen[source.key]){item.kind='duplicate';item.reason='Trùng quyết định/năm trong file.';return item;}
+      seen[source.key]=true;
+      var matches=byKey[source.key]||[];
+      if(!matches.length){item.kind='missing';item.reason='Không tìm thấy số quyết định/năm.';return item;}
+      if(matches.length!==1){item.kind='duplicate';item.reason='Số quyết định/năm không duy nhất trong dữ liệu hệ thống.';return item;}
+      var r=matches[0];statusBulkFind_(source,r,schools);
+      var check=statusBulkEligible_(r,target,source,reasons,p);
+      return {line:source.line,kind:check.kind,reason:check.reason,hoSoId:check.kind==='eligible'?r.HO_SO_ID:'',version:check.kind==='eligible'?r.PHIEN_BAN:'',currentStatus:r.TRANG_THAI_THAM_GIA,recordName:r.HO_TEN};
+    }catch(ex){item.reason=ex.code==='VALIDATION'?ex.message:'Dòng dữ liệu chưa hợp lệ.';return item;}
+  });
+  return {items:items,total:items.length};
+}
+function statusBulkApply_(user,p,requestId){return dedupeWrite_(requestId,function(){
+  must_(user.VAI_TRO==='ADMIN','NO_PERMISSION','Chỉ Quản trị viên được cập nhật tình trạng hàng loạt.');
+  must_(Array.isArray(p.rows)&&p.rows.length>0&&p.rows.length<=10,'VALIDATION','Mỗi đợt ghi tối đa 10 hồ sơ.');
+  var target=statusBulkTarget_(p),schools=statusBulkSchoolMap_(),reasons=target.selected==='BO_HOC'?catalogRows_('lydo'):[];
+  var sh=getSheet_('HO_SO_HOC_NGHE'),last=sh.getLastRow(),hdr=APP.lists.HO_SO_HOC_NGHE;
+  must_(sh.getRange(1,40,1,1).getDisplayValues()[0][0]===APP.headersVi.HO_SO_HOC_NGHE[39],'SCHEMA_MISSING','Cấu trúc hồ sơ không hợp lệ.');
+  var positions={};if(last>=2){sh.getRange(2,1,last-1,1).getDisplayValues().forEach(function(c,i){if(c[0])positions[c[0]]=i+2;});}
+  var seen={},changed=[],results=p.rows.map(function(raw){
+    var item={line:Number(raw&&raw.line)||0,kind:'invalid',reason:'Dòng không hợp lệ.'};
+    try{
+      var source=statusBulkSource_(raw),id=str_(raw.hoSoId,70),expectedVersion=Number(raw.version);item.line=source.line;
+      if(seen[source.key]){item.kind='duplicate';item.reason='Trùng quyết định/năm trong đợt.';return item;}seen[source.key]=true;
+      if(!id||!positions[id]){item.kind='missing';item.reason='Hồ sơ không còn tồn tại.';return item;}
+      var rowNumber=positions[id],cells=sh.getRange(rowNumber,1,1,hdr.length).getDisplayValues()[0],r={};
+      hdr.forEach(function(key,i){r[key]=cells[i];});
+      must_(r.HO_SO_ID===id,'VALIDATION','Hồ sơ đã thay đổi vị trí.');
+      statusBulkFind_(source,r,schools);
+      var check=statusBulkEligible_(r,target,source,reasons,p);
+      if(check.kind!=='eligible'){item.kind=check.kind;item.reason=check.reason;return item;}
+      if(!Number.isInteger(expectedVersion)||expectedVersion!==Number(r.PHIEN_BAN)){
+        item.kind='changed';item.reason='Hồ sơ đã thay đổi sau bước kiểm tra, vui lòng kiểm tra lại.';return item;
+      }
+      var next=Object.assign({},r,{TRANG_THAI_THAM_GIA:target.code,DA_BO_HOC:target.selected==='BO_HOC'?'TRUE':'FALSE',NGAY_BO_HOC:check.period||'',LY_DO_BO_HOC_ID:check.reasonId||'',PHIEN_BAN:String(Number(r.PHIEN_BAN)+1),CAP_NHAT_LUC:now_(),CAP_NHAT_BOI:user.EMAIL});
+      sh.getRange(rowNumber,1,1,hdr.length).setValues([hdr.map(function(k){return safeSheetCell_(next[k]);})]);
+      changed.push({line:source.line,id:id,before:r.TRANG_THAI_THAM_GIA,after:target.selected});
+      return {line:source.line,kind:'updated',reason:'Đã cập nhật.'};
+    }catch(ex){item.reason=ex.code==='VALIDATION'?ex.message:'Dòng chưa đủ điều kiện hoặc ghi không thành công.';return item;}
+  });
+  if(changed.length){
+    bump_('DATA');
+    try{
+      var logs=changed.map(function(x){var o={NHAT_KY_ID:randomId_('LOG'),THOI_GIAN:now_(),TAI_KHOAN_ID:user.TAI_KHOAN_ID,EMAIL:user.EMAIL,HANH_DONG:'CAP_NHAT_TINH_TRANG_HANG_LOAT',LOAI_DOI_TUONG:'HO_SO',BAN_GHI_ID:x.id,NOI_DUNG_THAY_DOI:JSON.stringify({from:x.before,to:x.after,line:x.line,batchId:str_(p.batchId,80)}),KET_QUA:'THANH_CONG',REQUEST_ID:requestId};return APP.lists.NHAT_KY.map(function(k){return safeSheetCell_(o[k]);});});
+      var auditSheet=getSheet_('NHAT_KY');auditSheet.getRange(auditSheet.getLastRow()+1,1,logs.length,APP.lists.NHAT_KY.length).setValues(logs);
+    }catch(e){console.error('Bulk status audit needs reconciliation',e);}
+  }
+  return {results:results,updated:changed.length};
+});}
+
 /** YC-HN-009: Nhập hồ sơ theo từng đợt, chỉ ADMIN. Không làm thay đổi 7 tab / 79 cột. */
 /** YC-HN-012: kiểm tra danh mục mới không ghi dữ liệu; map placeholder chỉ dùng trong lượt nhập. */
 function recordBulkPlan_(user,p){
