@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.3-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.4-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.3-RC',
+  version: '1.2.4-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -157,7 +157,7 @@ function setupDatabase() {
 
 /** Chỉ sử dụng qua Vercel proxy, nơi đã verify Google ID token theo GOOGLE_CLIENT_ID. */
 function doPost(e) {
-  SS_CACHE_ = null;
+  SS_CACHE_ = null;HN_PERF_=null;
   try {
     if (!e || !e.postData || !e.postData.contents || e.postData.contents.length > 3500000) throw err_('BAD_REQUEST', 'Yêu cầu không hợp lệ.');
     var transport = JSON.parse(e.postData.contents);
@@ -180,12 +180,17 @@ function doPost(e) {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(who.email || '')) || !/^[0-9]{5,30}$/.test(String(who.sub || ''))) {
       throw err_('NOT_AUTHORIZED', 'Thiếu danh tính được xác minh.');
     }
+    if(cfg_().getProperty('HN_PERF_TEST')==='1')
+      HN_PERF_={started:Date.now(),action:body.action,authMs:0,lockWaitMs:0,sheetReads:0,cells:0};
+    var authStarted=Date.now();
     var user = authorize_(who, body.action);
+    if(HN_PERF_)HN_PERF_.authMs=Date.now()-authStarted;
     var action = body.action;
     var payload = body.payload && typeof body.payload === 'object' ? body.payload : {};
     var data;
     switch (action) {
       case 'bootstrap': data = bootstrap_(user); break;
+      case 'permission_check': data = permissionCheck_(user); break;
       case 'overview': data = overview_(user, payload); break;
       case 'report_matrix': data = reportMatrix_(user,payload); break;
       case 'records_list': data = listRecords_(user,payload); break;
@@ -217,8 +222,10 @@ function doPost(e) {
       case 'file_remove': data = withLock_(function(){return fileRemove_(user,payload,body.requestId);}); break;
       default: throw err_('BAD_REQUEST', 'Thao tác không được hỗ trợ.');
     }
+    perfEmit_(true);
     return json_({ok: true, data: data, requestId: body.requestId, version: APP.version});
   } catch (ex) {
+    perfEmit_(false);
     return json_({ok: false, error: {code: ex.code || 'SERVER_ERROR', message: ex.code ? ex.message : 'Máy chủ chưa xử lý được yêu cầu.'}});
   }
 }
@@ -229,6 +236,21 @@ function must_(condition, code, message) { if (!condition) throw err_(code,messa
 function constantTimeEqual_(a,b) { if(a.length !== b.length) return false; var d=0; for(var i=0;i<a.length;i++) d |= a.charCodeAt(i)^b.charCodeAt(i); return d === 0; }
 function cfg_() { return PropertiesService.getScriptProperties(); }
 var SS_CACHE_ = null;
+// Chỉ đo trên staging khi Script Properties HN_PERF_TEST = 1, không log danh tính/PII.
+var HN_PERF_ = null;
+function perfRead_(name,rows,cols){
+  if(HN_PERF_){HN_PERF_.sheetReads++;HN_PERF_.cells+=rows*cols;}
+}
+function perfEmit_(ok){
+  if(HN_PERF_){
+    HN_PERF_.totalMs=Date.now()-HN_PERF_.started;HN_PERF_.ok=ok;
+    var out={name:'YC017',action:HN_PERF_.action,ok:ok,totalMs:HN_PERF_.totalMs,
+      authMs:HN_PERF_.authMs||0,lockWaitMs:HN_PERF_.lockWaitMs,
+      sheetReads:HN_PERF_.sheetReads,cells:HN_PERF_.cells};
+    console.info(JSON.stringify(out));
+  }
+}
+
 function getSpreadsheet_() { if (SS_CACHE_) return SS_CACHE_; var id=cfg_().getProperty('SPREADSHEET_ID'); must_(Boolean(id),'SERVER_NOT_CONFIGURED','Thiếu SPREADSHEET_ID.'); SS_CACHE_ = SpreadsheetApp.openById(id); return SS_CACHE_; }
 function getSheet_(name) { var ss=getSpreadsheet_(),vi=APP.sheetNames[name]||name;var sh=ss.getSheetByName(vi)||ss.getSheetByName(name);must_(Boolean(sh),'SCHEMA_MISSING','Thiếu tab '+vi+'. Chạy chuyenSangTiengViet.');return sh; }
 function now_() { return Utilities.formatDate(new Date(),APP.tz,"yyyy-MM-dd'T'HH:mm:ss"); }
@@ -240,6 +262,7 @@ function randomId_(prefix) { return prefix + '_' + Utilities.getUuid().replace(/
 function sheetRows_(name) {
   var sh=getSheet_(name), hdr=APP.lists[name], last=sh.getLastRow();
   if(last<2) return [];
+  perfRead_(name,last-1,hdr.length);
   var all=sh.getRange(2,1,last-1,hdr.length).getDisplayValues();
   return all.filter(function(v){return v[0]!=='';}).map(function(v){var out={};hdr.forEach(function(k,i){out[k]=v[i];});return out;});
 }
@@ -252,12 +275,17 @@ function writeRecord_(name,rowNumber,obj) {
 function appendRecord_(name,obj) { var sh=getSheet_(name);writeRecord_(name,sh.getLastRow()+1,obj); }
 function findRowNumber_(name,idKey,id) {
   var sh=getSheet_(name),last=sh.getLastRow(); if(last<2) return -1;
-  var col=APP.lists[name].indexOf(idKey)+1, ids=sh.getRange(2,col,last-1,1).getDisplayValues();
+  var col=APP.lists[name].indexOf(idKey)+1;
+  perfRead_(name,last-1,1);
+  var ids=sh.getRange(2,col,last-1,1).getDisplayValues();
   for(var i=0;i<ids.length;i++) if(String(ids[i][0])===String(id))return i+2;
   return -1;
 }
 function withLock_(fn) {
-  var lock=LockService.getScriptLock();must_(lock.tryLock(25000),'BUSY','Hệ thống đang xử lý giao dịch khác. Vui lòng thử lại.');
+  var lock=LockService.getScriptLock(),started=Date.now();
+  var locked=lock.tryLock(25000);
+  if(HN_PERF_)HN_PERF_.lockWaitMs+=Date.now()-started;
+  must_(locked,'BUSY','Hệ thống đang xử lý giao dịch khác. Vui lòng thử lại.');
   try { return fn(); } finally { lock.releaseLock(); }
 }
 function cache_() {return CacheService.getScriptCache();}
@@ -320,8 +348,15 @@ function dropoutPeriod_(raw,months,allowLegacy){
 }
 function authorize_(identity,action){
   var email=norm_(identity.email);
-  var users=sheetRows_('TAI_KHOAN');
-  var row=users.filter(function(u){return norm_(u.EMAIL)===email&&u.TRANG_THAI==='ACTIVE';})[0];
+  // Revision thay đổi ngay khi cấp/thu hồi/chuyển trường thông qua ứng dụng.
+  // Cache ngắn trong Apps Script chỉ là tối ưu; mỗi request vẫn xác minh identity + quyền.
+  var authKey=cacheKey_('HNAUTH',[version_('USERS'),version_('CAT'),email,identity.sub]);
+  var hit=cache_().get(authKey),row=null;
+  if(hit){try{row=JSON.parse(hit);}catch(ex){row=null;}}
+  if(!row){
+    var users=sheetRows_('TAI_KHOAN');
+    row=users.filter(function(u){return norm_(u.EMAIL)===email&&u.TRANG_THAI==='ACTIVE';})[0];
+  }
   must_(row && row.TRANG_THAI==='ACTIVE','NOT_AUTHORIZED','Tài khoản chưa được cấp quyền hoặc đã khóa.');
   if(row.GOOGLE_SUB && row.GOOGLE_SUB!==identity.sub)throw err_('NOT_AUTHORIZED','Tài khoản Google không trùng định danh đã đăng ký.');
   if(!row.GOOGLE_SUB){
@@ -335,7 +370,7 @@ function authorize_(identity,action){
     } finally {lock.releaseLock();}
   }
   var needs={
-    bootstrap:'RECORD_VIEW', overview:'RECORD_VIEW', records_list:'RECORD_VIEW', person_lookup:'RECORD_VIEW',
+    bootstrap:'RECORD_VIEW', permission_check:'RECORD_VIEW', overview:'RECORD_VIEW', records_list:'RECORD_VIEW', person_lookup:'RECORD_VIEW',
     report_matrix:'REPORT_EXPORT', record_bulk_check:'ACCOUNT_MANAGE', record_bulk_import:'ACCOUNT_MANAGE', record_status_bulk_check:'ACCOUNT_MANAGE', record_status_bulk_apply:'ACCOUNT_MANAGE', record_save:'RECORD_CREATE', record_status:'RECORD_STATUS', record_delete:'RECORD_DELETE', report_export:'REPORT_EXPORT',
     catalog_list:'CATALOG_MANAGE', catalog_save:'CATALOG_MANAGE', catalog_delete:'CATALOG_MANAGE', catalog_bulk_check:'CATALOG_MANAGE', catalog_bulk_import:'CATALOG_MANAGE', accounts_list:'ACCOUNT_MANAGE', account_save:'ACCOUNT_MANAGE', account_delete:'ACCOUNT_MANAGE',
     audit_list:'AUDIT_VIEW', file_upload:'FILE_UPLOAD', file_get:'FILE_VIEW', file_info:'FILE_VIEW', file_chunk:'FILE_VIEW', file_upload_begin:'FILE_UPLOAD', file_upload_chunk:'FILE_UPLOAD', file_upload_cancel:'FILE_UPLOAD', file_remove:'FILE_UPLOAD'
@@ -344,7 +379,11 @@ function authorize_(identity,action){
   // YC-HN-007: các quyền nghiệp vụ được xác định theo VAI_TRO, không còn tin cột QUYEN lịch sử.
   var staffRights=['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','FILE_UPLOAD','REPORT_EXPORT'];
   must_(['ADMIN','NHAN_VIEN','CO_SO_DAO_TAO'].indexOf(row.VAI_TRO)>=0,'NOT_AUTHORIZED','Vai trò tài khoản chưa hợp lệ.');
-  if(row.VAI_TRO==='CO_SO_DAO_TAO')row.TRUONG_ID=schoolBinding_(row.TAI_KHOAN_ID);
+  if(row.VAI_TRO==='CO_SO_DAO_TAO' && !hit)row.TRUONG_ID=schoolBinding_(row.TAI_KHOAN_ID);
+  // Hết hạn trong 25s và cacheKey theo revision; thay đổi quyền qua UI được thu hồi ngay.
+  if(!hit && row.GOOGLE_SUB){
+    try{cache_().put(cacheKey_('HNAUTH',[version_('USERS'),version_('CAT'),email,identity.sub]),JSON.stringify(row),25);}catch(e){}
+  }
   var schoolRights=['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW'];
   var perms=row.VAI_TRO==='ADMIN'?['*']:row.VAI_TRO==='CO_SO_DAO_TAO'?schoolRights:staffRights;
   function has(p){return row.VAI_TRO==='ADMIN'||(row.VAI_TRO==='NHAN_VIEN'&&staffRights.indexOf(p)>=0)||(row.VAI_TRO==='CO_SO_DAO_TAO'&&schoolRights.indexOf(p)>=0);}
@@ -366,7 +405,12 @@ function bootstrap_(user){
       }
     }); } catch(ex){console.warn('Last-login update failed',ex.message);}
   }
-  return {user:safeUser_(user), statuses:customStatusList_(), catalogs:{truong:catalogRows_('truong').filter(function(x){return catalogVisible_(x) && (user.VAI_TRO!=='CO_SO_DAO_TAO'||x.TRUONG_ID===user.TRUONG_ID);}),nghe:catalogRows_('nghe').filter(catalogVisible_),lydo:catalogRows_('lydo').filter(catalogVisible_)},version:APP.version,permissionRevision:version_('USERS')};
+  return {user:safeUser_(user), statuses:customStatusList_(), catalogs:{truong:catalogRows_('truong').filter(function(x){return catalogVisible_(x) && (user.VAI_TRO!=='CO_SO_DAO_TAO'||x.TRUONG_ID===user.TRUONG_ID);}),nghe:catalogRows_('nghe').filter(catalogVisible_),lydo:catalogRows_('lydo').filter(catalogVisible_)},version:APP.version,permissionRevision:version_('USERS'),dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS')};
+}
+/** YC-HN-017: nhẹ hơn bootstrap; authorize_ vẫn kiểm tra mọi quyền ở máy chủ. */
+function permissionCheck_(user){
+  return {user:safeUser_(user),permissionRevision:version_('USERS'),
+    dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS')};
 }
 function catalogRows_(type){var def=APP.catalog[type];must_(Boolean(def),'BAD_REQUEST','Danh mục không tồn tại.');return cached_('CAT',type+'_'+version_('CAT'),300,function(){return sheetRows_(def.sheet);});}
 function catalogVisible_(r){return r.TRANG_THAI!=='DELETED';}
@@ -457,8 +501,12 @@ function cachedRecordSnapshot_(){
   var rev=version_('DATA'),stamp=cacheKey_('HNSNAP',[rev,'meta']),meta=cache_().get(stamp),i,part,rows=[],chunks=[];
   if(meta){
     try{var count=Number(meta);if(count>0&&count<=180){
+      var keys=[];
+      for(i=0;i<count;i++)keys.push(cacheKey_('HNSNAP',[rev,i]));
+      // YC-HN-017: một lượt getAll thay cho N lượt get() nối tiếp.
+      var blocks=cache_().getAll(keys);
       for(i=0;i<count;i++){
-        part=cache_().get(cacheKey_('HNSNAP',[rev,i]));
+        part=blocks[keys[i]];
         if(!part)throw new Error('Snapshot chunk expired');
         rows=rows.concat(JSON.parse(part));
       }
@@ -476,7 +524,8 @@ function cachedRecordSnapshot_(){
   if(batch.length)chunks.push(JSON.stringify(batch));
   if(chunks.length<=180){
     try{
-      chunks.forEach(function(chunk,index){cache_().put(cacheKey_('HNSNAP',[rev,index]),chunk,90);});
+      var chunkMap={};chunks.forEach(function(chunk,index){chunkMap[cacheKey_('HNSNAP',[rev,index])]=chunk;});
+      cache_().putAll(chunkMap,90);
       cache_().put(stamp,String(chunks.length),90);
     }catch(ex){console.warn('Snapshot cache skipped',ex.message);}
   }
@@ -507,16 +556,45 @@ function exactDecisionRecords_(filters,user){
   var q=str_(filters.query,140).replace(/^0+(?=\d)/,''),sh=getSheet_('HO_SO_HOC_NGHE'),last=sh.getLastRow();
   if(last<2)return [];
   var index=APP.lists.HO_SO_HOC_NGHE.indexOf('SO_QUYET_DINH')+1;
-  var decisions=sh.getRange(2,index,last-1,1).getDisplayValues(),hits=[];
-  for(var i=0;i<decisions.length;i++)if(String(decisions[i][0]).trim().replace(/^0+(?=\d)/,'')===q)hits.push(i+2);
-  // A malformed/imported dataset with many equal decisions is handled by the original verified path.
+  // Index QĐ trong CacheService: không lưu PII, TTL ngắn; luôn xác minh ô QĐ tại row.
+  var key=cacheKey_('HNDEC',[version_('DATA'),last]),cached=cache_().get(key),indexData=null;
+  try{if(cached)indexData=JSON.parse(cached);}catch(ex){indexData=null;}
+  function scanDecisions(){
+    perfRead_('HO_SO_HOC_NGHE',last-1,1);
+    var values=sh.getRange(2,index,last-1,1).getDisplayValues(),map={};
+    for(var i=0;i<values.length;i++){
+      var raw=String(values[i][0]).trim().replace(/^0+(?=\d)/,'');
+      if(/^\d+$/.test(raw))(map[raw]||(map[raw]=[])).push(i+2);
+    }
+    var txt=JSON.stringify(map);
+    if(txt.length<75000)try{cache_().put(key,txt,60);}catch(e){}
+    return map;
+  }
+  if(!indexData)indexData=scanDecisions();
+  var hits=indexData[q]||[];
   if(hits.length>40)return filteredRecords_(filters,user);
   var hdr=APP.lists.HO_SO_HOC_NGHE,matching=[];
-  hits.forEach(function(rowNumber){
-    var values=sh.getRange(rowNumber,1,1,hdr.length).getDisplayValues()[0],r={};
-    hdr.forEach(function(key,i){r[key]=values[i];});
-    if(r.HO_SO_ID&&r.TRANG_THAI_HO_SO!=='DELETED'&&ownsRecord_(user,r)&&recordMatches_(r,filters))matching.push(r);
-  });
+  function readHits(numbers){
+    var result=[],valid=true;
+    numbers.forEach(function(rowNumber){
+      if(rowNumber>last){valid=false;return;}
+      perfRead_('HO_SO_HOC_NGHE',1,hdr.length);
+      var values=sh.getRange(rowNumber,1,1,hdr.length).getDisplayValues()[0],r={};
+      hdr.forEach(function(k,i){r[k]=values[i];});
+      // Tránh dùng row cache sai khi ai đó sắp xếp/di chuyển dòng trực tiếp trong Sheets.
+      if(String(r.SO_QUYET_DINH).trim().replace(/^0+(?=\d)/,'')!==q){valid=false;return;}
+      if(r.HO_SO_ID&&r.TRANG_THAI_HO_SO!=='DELETED'&&ownsRecord_(user,r)&&recordMatches_(r,filters))result.push(r);
+    });
+    return {items:result,valid:valid};
+  }
+  var checked=readHits(hits);
+  if(!checked.valid){
+    cache_().remove(key);
+    indexData=scanDecisions();hits=indexData[q]||[];
+    if(hits.length>40)return filteredRecords_(filters,user);
+    checked=readHits(hits);
+  }
+  matching=checked.items;
   return matching.sort(function(a,b){return b.NGAY_QUYET_DINH.localeCompare(a.NGAY_QUYET_DINH)||b.TAO_LUC.localeCompare(a.TAO_LUC);});
 }
 /** Lọc báo cáo: tham gia toàn bộ bao gồm bỏ học; trạng thái cập nhật không đổi. */
@@ -581,6 +659,7 @@ function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
   var id=str_(p.HO_SO_ID,60),rowNumber=findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id);
   must_(rowNumber>=2,'NOT_FOUND','Không tìm thấy hồ sơ.');
   var sh=getSheet_('HO_SO_HOC_NGHE'),hdr=APP.lists.HO_SO_HOC_NGHE;
+  perfRead_('HO_SO_HOC_NGHE',1,hdr.length);
   var cells=sh.getRange(rowNumber,1,1,hdr.length).getDisplayValues()[0],old={};
   hdr.forEach(function(key,i){old[key]=cells[i];});
   must_(old.HO_SO_ID===id,'NOT_FOUND','Hồ sơ đã thay đổi vị trí. Vui lòng tải lại.');
@@ -931,7 +1010,16 @@ function accountDelete_(admin,p,requestId){return dedupeWrite_(requestId,functio
   return {deleted:true,id:id};
 });}
 
-function listAudit_(p){var page=Math.min(Math.max(Number(p.page)||1,1),10000),size=30,all=sheetRows_('NHAT_KY').reverse();return {items:all.slice((page-1)*size,page*size),total:all.length,page:page,pageSize:size};}
+function listAudit_(p){
+  // Nhật ký append-only: chỉ đọc 30 hàng của trang yêu cầu thay vì đọc toàn bộ tab.
+  var page=Math.min(Math.max(Number(p.page)||1,1),10000),size=30,sh=getSheet_('NHAT_KY'),last=sh.getLastRow();
+  var total=Math.max(0,last-1),end=last-(page-1)*size,items=[];
+  if(end>=2){
+    var count=Math.min(size,end-1),start=end-count+1,hdr=APP.lists.NHAT_KY;
+    items=sh.getRange(start,1,count,hdr.length).getDisplayValues().reverse().filter(function(row){return row[0]!=='';}).map(function(values){var r={};hdr.forEach(function(k,i){r[k]=values[i];});return r;});
+  }
+  return {items:items,total:total,page:page,pageSize:size};
+}
 function findRecord_(id){var rows=sheetRows_('HO_SO_HOC_NGHE'),i=indexOfRow_(rows,'HO_SO_ID',id);must_(i>=0,'NOT_FOUND','Không tìm thấy hồ sơ.');must_(rows[i].TRANG_THAI_HO_SO!=='DELETED','NOT_FOUND','Hồ sơ đã được xóa.');return rows[i];}
 function findRecordForUser_(user,id){return requireRecordOwner_(user,findRecord_(id));}
 function folder_(){var id=cfg_().getProperty('DRIVE_FOLDER_ID');must_(Boolean(id),'SERVER_NOT_CONFIGURED','Thiếu DRIVE_FOLDER_ID.');return DriveApp.getFolderById(id);}

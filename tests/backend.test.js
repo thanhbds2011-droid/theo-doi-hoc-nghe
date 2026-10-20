@@ -39,7 +39,7 @@ function makeEnv() {
     SpreadsheetApp:{openById(id){assert.equal(id,'TEST_SPREADSHEET');return spreadsheet;}},
     DriveApp:{getFileById(id){assert.equal(id,'TEST_SPREADSHEET');return {makeCopy(name){backups.push(name);return {getUrl(){return 'https://example.test/backup/'+backups.length;}};}};}},
     PropertiesService:{getScriptProperties(){return properties;}},
-    CacheService:{getScriptCache(){return {get(k){return cache.get(k)||null;},put(k,v){cache.set(k,v);}};}},
+    CacheService:{getScriptCache(){return {get(k){return cache.get(k)||null;},put(k,v){cache.set(k,v);},getAll(keys){return Object.fromEntries(keys.filter(k=>cache.has(k)).map(k=>[k,cache.get(k)]));},putAll(items){for(const [k,v] of Object.entries(items))cache.set(k,v);},remove(k){cache.delete(k);}};}},
     LockService:{getScriptLock(){return {tryLock(){return true;},releaseLock(){}};}},
     Utilities:{
       Charset:{UTF_8:'UTF-8'},DigestAlgorithm:{SHA_256:'sha256'},
@@ -755,4 +755,97 @@ test('YC016: NHAN_VIEN không được phép kiểm tra/ghi hàng loạt',()=>{
   const res=c.signed('record_status_bulk_check',{status:'DA_THAM_GIA',rows:[statusInput(c)]},'yc016_denied_request_01',identity);
   const out=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(res)}}).getContent());
   assert.equal(out.ok,false);assert.equal(out.error.code,'NO_PERMISSION');
+});
+
+// YC-HN-017: kiểm thử đường cache và tối ưu đúng, không giảm kiểm tra quyền.
+test('YC017: permission_check trả revision nhưng không tải danh mục/bootstrap',()=>{
+  const c=setupLive();
+  const res=c.send('permission_check');
+  assert.equal(res.ok,true,JSON.stringify(res.error));
+  assert.equal(res.data.user.VAI_TRO,'ADMIN');
+  assert.equal(res.data.permissionRevision,c.global.version_('USERS'));
+  assert.equal(res.data.dataRevision,c.global.version_('DATA'));
+  assert.ok(!Object.hasOwn(res.data,'catalogs'));
+});
+
+test('YC017: snapshot đọc cache getAll trọn vẹn khi không đọc được bảng nguồn',()=>{
+  const c=setupLive();
+  assert.equal(c.send('record_save',record(c,'067','2026-10-01')).ok,true);
+  const first=c.global.cachedRecordSnapshot_();
+  assert.equal(first.length,1);
+  const original=c.global.sheetRows_;
+  c.global.sheetRows_=()=>{throw Error('Đường cache nóng không được đọc Sheets');};
+  const warm=c.global.cachedRecordSnapshot_();
+  assert.equal(warm.length,1);
+  assert.equal(warm[0].SO_QUYET_DINH,'067');
+  c.global.sheetRows_=original;
+});
+
+test('YC017: index số quyết định tự quét lại khi dòng bị sắp xếp thủ công',()=>{
+  const c=setupLive();
+  assert.equal(c.send('record_save',record(c,'067','2026-10-01')).ok,true);
+  assert.equal(c.send('record_save',record(c,'6204','2026-10-02')).ok,true);
+  const user=c.global.authorize_({email:'admin@example.com',sub:'12345678901234567890'},'records_list');
+  const result=c.global.exactDecisionRecords_({query:'67'},user);
+  assert.equal(result.length,1);assert.equal(result[0].SO_QUYET_DINH,'067');
+  const sh=c.tables.get('Hồ sơ học nghề');
+  [sh.rows[1],sh.rows[2]]=[sh.rows[2],sh.rows[1]];
+  const again=c.global.exactDecisionRecords_({query:'67'},user);
+  assert.equal(again.length,1);assert.equal(again[0].SO_QUYET_DINH,'067');
+});
+
+test('YC017: phân trang nhật ký đọc đúng trang đầu và trang cuối khi có hơn 30 dòng',()=>{
+  const c=setupLive();
+  const sh=c.tables.get('Nhật ký thay đổi');
+  for(let i=0;i<65;i++)sh.rows.push(['LOG_'+i,'2026-10-20','ADMIN','admin@example.com','ACT_'+i,'RECORD','R_'+i,'','THANH_CONG','request_'+i]);
+  const first=c.send('audit_list',{page:1}),third=c.send('audit_list',{page:3});
+  assert.equal(first.ok,true,JSON.stringify(first.error));
+  assert.equal(first.data.total>=65,true);
+  assert.equal(first.data.items.length,30);
+  assert.equal(first.data.items[0].NHAT_KY_ID,'LOG_64');
+  assert.equal(third.data.items.length>=5,true);
+});
+
+test('YC017: thu hồi tài khoản có hiệu lực ngay khi USERS revision đổi',()=>{
+  const c=setupLive();
+  const created=c.send('account_save',{email:'school@example.com',name:'Trường ABC',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+  assert.equal(created.ok,true,JSON.stringify(created.error));
+  const who={email:'school@example.com',sub:'92345678901234567890',aud:audience};
+  function asSchool(){const signed=c.signed('permission_check',{},'school_permission_00001',who);return JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(signed)}}).getContent());}
+  const before=asSchool();assert.equal(before.ok,true,JSON.stringify(before.error));
+  const deleted=c.send('account_delete',{id:created.data.item.TAI_KHOAN_ID});
+  assert.equal(deleted.ok,true,JSON.stringify(deleted.error));
+  const after=asSchool();assert.equal(after.ok,false);assert.equal(after.error.code,'NOT_AUTHORIZED');
+});
+
+test('YC017: getAll đọc toàn bộ các mảnh snapshot trong một lượt dịch vụ',()=>{
+  const c=setupLive(),sh=c.tables.get('Hồ sơ học nghề');
+  const hdr=c.global.APP.lists.HO_SO_HOC_NGHE;
+  for(let i=0;i<300;i++)sh.rows.push(hdr.map((key,j)=>j===0?'ID_'+i:key==='HO_TEN'?'Người học số '+i:key==='SO_QUYET_DINH'?String(1000+i):key==='NAM_QUYET_DINH'?'2026':key==='TRANG_THAI_HO_SO'?'ACTIVE':''));
+  let batchReads=0,batchWrites=0;
+  const cache=c.global.cache_(),oldGetAll=cache.getAll,oldPutAll=cache.putAll;
+  // Stub CacheService wrappers preserve same in-memory backing Map between instances.
+  c.global.cache_=()=>({
+    ...cache,
+    getAll(keys){batchReads++;return oldGetAll(keys);},
+    putAll(map,ttl){batchWrites++;return oldPutAll(map,ttl);}
+  });
+  const first=c.global.cachedRecordSnapshot_();assert.equal(first.length,300);
+  const second=c.global.cachedRecordSnapshot_();assert.equal(second.length,300);
+  assert.equal(batchWrites,1);
+  assert.equal(batchReads,1);
+});
+
+test('YC017: auth cache chỉ tránh đọc lại tab tài khoản trong phạm vi cùng phiên bản quyền',()=>{
+  const c=setupLive();let reads=0;
+  const original=c.global.sheetRows_;
+  c.global.sheetRows_=(name)=>{if(name==='TAI_KHOAN')reads++;return original(name);};
+  const identity={email:'admin@example.com',sub:'12345678901234567890'};
+  c.global.authorize_(identity,'records_list');
+  const afterFirst=reads;
+  c.global.authorize_(identity,'records_list');
+  assert.equal(reads,afterFirst,'Lần hai không phải đọc toàn bộ TAI_KHOAN');
+  c.global.bump_('USERS');
+  c.global.authorize_(identity,'records_list');
+  assert.ok(reads>afterFirst,'Sau khi đổi USERS revision bắt buộc kiểm tra bảng quyền mới');
 });

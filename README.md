@@ -101,3 +101,9 @@ Xem `docs/YC-HN-014_V4_CHANGELOG_KIEM_THU_TRIEN_KHAI.md` để biết các hạn
 ### YC-HN-016 — Cập nhật tình trạng học nghề từ Excel (v1.2.3-RC)
 
 Chỉ Quản trị viên sử dụng nút **Cập nhật tình trạng từ Excel** trong **Hồ sơ học nghề**. Chỉ các hồ sơ `CHO_XAC_NHAN` mới có thể thay đổi; trạng thái khác được bảo toàn. Dùng file Excel mẫu trong `public/templates/MAU_CAP_NHAT_TINH_TRANG.xlsx`, hoặc file 26 cột có X tại cột Tham gia học khi muốn chuyển sang Đã tham gia học. Chức năng này không tạo thêm hồ sơ mới. Xem `docs/YC-HN-016_V2_v1.2.3-RC_CHANGELOG_VA_HUONG_DAN.md` trước khi triển khai.
+
+### YC-HN-017 V3 — tối ưu cache, menu, Sheets (v1.2.4-RC)
+
+Giữ màn hình đã mở trong RAM khi chuyển menu 3–4 phút, nhưng kiểm tra lại quyền nếu hết thời hạn; bổ sung `permission_check` nhẹ của Apps Script. Snapshot Sheet được truy xuất theo lô qua CacheService `getAll`/`putAll`; tìm số quyết định dùng chỉ mục cache có kiểm chứng; đọc Nhật ký phân trang, và có tùy chọn `HN_PERF_TEST=1` để benchmark trên staging.
+
+**Bắt buộc cập nhật Apps Script trước khi triển khai frontend mới**, không triển khai trực tiếp lên dữ liệu thật khi chưa test. Xem `docs/YC-HN-017_V3_v1.2.4-RC_CHANGELOG_VA_HUONG_DAN.md`.
