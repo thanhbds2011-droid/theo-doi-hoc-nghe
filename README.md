@@ -1,3 +1,5 @@
+> **MỚI NHẤT — v1.2.10-RC / YC-HN-021 V5.2**: Xuất Excel danh sách 25 cột đúng theo file mẫu đã nghiệm thu: B/J/O/V/W căn trái, các cột khác căn giữa; chiều cao hàng gọn và tự tăng khi Wrap Text. Hướng dẫn tại `docs/YC-HN-021_V5_2_HUONG_DAN_VA_KIEM_THU.md`. Không thay đổi nghiệp vụ hoặc dữ liệu trên Google Sheets.
+
 # THEO DÕI HỌC NGHỀ — v1.2.9-RC (YC-HN-021 V5.1)
 
 Bản nâng cấp frontend hiển thị bảng hồ sơ và định dạng Excel danh sách 25 cột; không thay đổi nghiệp vụ backend. Xem `docs/YC-HN-021_V5_1_v1.2.9-RC_CHANGELOG_VA_HUONG_DAN.md` để biết file sửa và cách triển khai. **Chưa triển khai production.**

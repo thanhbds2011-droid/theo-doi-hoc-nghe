@@ -7,7 +7,9 @@ function zipStored(files){let at=0;const chunks=[],central=[];function u16(d,v){
   for(const [path,body] of files){const name=enc.encode(path),content=enc.encode(body),crc=crc32(content),hdr=[];u32(hdr,0x04034b50);u16(hdr,20);u16(hdr,0x800);u16(hdr,0);u16(hdr,0);u16(hdr,0);u32(hdr,crc);u32(hdr,content.length);u32(hdr,content.length);u16(hdr,name.length);u16(hdr,0);chunks.push(new Uint8Array(hdr),name,content);
   const cd=[];u32(cd,0x02014b50);u16(cd,20);u16(cd,20);u16(cd,0x800);u16(cd,0);u16(cd,0);u16(cd,0);u32(cd,crc);u32(cd,content.length);u32(cd,content.length);u16(cd,name.length);u16(cd,0);u16(cd,0);u16(cd,0);u16(cd,0);u32(cd,0);u32(cd,at);central.push(new Uint8Array(cd),name);at+=hdr.length+name.length+content.length;
   }const dirSize=central.reduce((n,x)=>n+x.length,0);const footer=[];u32(footer,0x06054b50);u16(footer,0);u16(footer,0);u16(footer,files.length);u16(footer,files.length);u32(footer,dirSize);u32(footer,at);u16(footer,0);return new Blob([...chunks,...central,new Uint8Array(footer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
-// YC-HN-020/021 V5.1: cùng một bộ xuất XLSX danh sách 25 cột; chỉ B/J/O/R căn trái, các cột khác căn giữa.
+// YC-HN-021 V5.2: theo đúng file Excel đã được người dùng nghiệm thu ngày 21/10/2026.
+// Dữ liệu B/J/O/V/W căn trái, R và 19 cột còn lại căn giữa; toàn bộ ô giữa dọc.
+const RECORD_LEFT_COLUMNS=new Set([1,9,14,21,22]); // B, J, O, V, W
 const RECORD_DATE_COLUMNS=new Set([2,6,8,12,13,15,16,20]); // C,G,I,M,N,P,Q,U
 const RECORD_WIDTHS=[9,30,15,13,24,18,18,18,18,27,18,17,16,16,32,18,18,26,26,31,18,23,30,22,24];
 function dateSerial(value){
@@ -42,11 +44,15 @@ function recordRowHeight(row){
   let lines=1;
   row.forEach((v,i)=>{
     const value=String(v??'');if(!value)return;
-    const width=RECORD_WIDTHS[i],perLine=Math.max(7,Math.floor((width-3)*.87));
+    // Ước lượng số dòng khi Wrap Text với Arial 11 và độ rộng cột thực tế.
+    // Có chừa biên an toàn nhỏ để chữ tiếng Việt dài không bị cắt ở Excel/WPS.
+    const width=RECORD_WIDTHS[i],perLine=Math.max(7,Math.floor((width-3)*.93));
     const lineCount=value.split(/\r?\n/).reduce((sum,line)=>sum+Math.max(1,Math.ceil(Array.from(line).length/perLine)),0);
     lines=Math.max(lines,lineCount);
   });
-  return Math.min(350,Math.max(31,31+Math.max(0,lines-1)*15));
+  // Mẫu đã CHỐT: đa số hàng cao 47pt; nội dung dài tăng mỗi dòng 14pt
+  // (33 / 47 / 61 / 75 / 89 ...), không áp chiều cao cố định cho cả bảng.
+  return Math.min(350,Math.max(33,19+Math.max(0,lines-1)*14));
 }
 export function buildXlsx(rows){
   if(!Array.isArray(rows)||rows.length<1||rows[0]?.length!==25)throw Error('Cấu trúc danh sách phải có đúng 25 cột.');
@@ -64,14 +70,14 @@ export function buildXlsx(rows){
         const serial=dateSerial(value);if(serial!==null)return `<c r="${address(col)}${r}" s="3"><v>${serial}</v></c>`;
         if(String(value??'').trim())invalidDateCount++;
       }
-      const style=headerRow?(index===0?1:4):([1,9,14,17].includes(col)?2:0);
+      const style=headerRow?(index===0?1:4):(RECORD_LEFT_COLUMNS.has(col)?2:0);
       return recordTextCell(value,r,col,style);
     }).join('');
     const height=headerRow?(index===0?43:33):recordRowHeight(formatted);
     return `<row r="${r}" ht="${height}" customHeight="1">${cells}</row>`;
   }).join('');
   if(invalidDateCount)console.warn(`YC-HN-020: ${invalidDateCount} ô ngày không hợp lệ được giữ nguyên văn bản; cần đối chiếu dữ liệu nguồn.`);
-  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:Y${data.length}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="31"/><cols>${RECORD_WIDTHS.map((width,i)=>`<col min="${i+1}" max="${i+1}" width="${width}" customWidth="1"/>`).join('')}</cols><sheetData>${sheetRows}</sheetData><mergeCells count="1"><mergeCell ref="M1:N1"/></mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.35" right="0.35" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>`;
+  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetPr><pageSetUpPr fitToPage="1"/></sheetPr><dimension ref="A1:Y${data.length}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetFormatPr defaultRowHeight="33"/><cols>${RECORD_WIDTHS.map((width,i)=>`<col min="${i+1}" max="${i+1}" width="${width}" customWidth="1"/>`).join('')}</cols><sheetData>${sheetRows}</sheetData><mergeCells count="1"><mergeCell ref="M1:N1"/></mergeCells><printOptions horizontalCentered="1"/><pageMargins left="0.35" right="0.35" top="0.5" bottom="0.5" header="0.2" footer="0.2"/><pageSetup orientation="landscape" paperSize="9" fitToWidth="1" fitToHeight="0"/></worksheet>`;
   const files=[
     ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
     ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],

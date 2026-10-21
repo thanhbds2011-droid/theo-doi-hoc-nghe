@@ -23,13 +23,13 @@ test('YC021 V5.1: number of decision only; year stays in filters and original re
   assert.match(app,/NAM_QUYET_DINH/);
   assert.match(gs,/NAM_QUYET_DINH/);
 });
-test('YC021 V5.1: XLSX 25 columns, left exactly B/J/O/R; center the other 21 columns, normal dates intact', async()=>{
+test('YC021 V5.2: XLSX 25 columns, left B/J/O/V/W, center R and remaining columns, dates intact', async()=>{
   const head=Array.from({length:25},(_,i)=>'Header '+i);
   const row=Array.from({length:25},(_,i)=>`Value ${i}`);
   row[1]='Tên người học dài';row[9]='Nghề';row[14]='Cơ sở đào tạo dài';row[17]='Địa chỉ dài';row[3]='NU';row[2]='2026-10-21';
   const raw=Buffer.from(await buildXlsx([head,row]).arrayBuffer()).toString('utf8');
-  for(const col of ['B','J','O','R'])assert.match(raw,new RegExp(`<c r="${col}3" s="2"`),col);
-  for(const col of ['A','D','E','F','H','K','L','S','T','V','W','X','Y'])assert.match(raw,new RegExp(`<c r="${col}3" s="0"`),col);
+  for(const col of ['B','J','O','V','W'])assert.match(raw,new RegExp(`<c r="${col}3" s="2"`),col);
+  for(const col of ['A','D','E','F','H','K','L','R','S','T','X','Y'])assert.match(raw,new RegExp(`<c r="${col}3" s="0"`),col);
   for(const col of ['C','G','I','M','N','P','Q','U']){
     if(col==='C')assert.match(raw,/<c r="C3" s="3"><v>\d+<\/v><\/c>/);
     else assert.match(raw,new RegExp(`<c r="${col}3" s="0"`),col);
