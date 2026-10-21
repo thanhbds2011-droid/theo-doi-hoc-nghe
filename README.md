@@ -1,3 +1,9 @@
+# THEO DÕI HỌC NGHỀ — v1.2.5-RC (YC-HN-018 V3)
+
+Bản nâng cấp sau v1.2.4-RC. Xem `docs/YC-HN-018_V3_v1.2.5-RC_CHANGELOG_VA_HUONG_DAN.md` để biết thay đổi, giới hạn kiểm thử và quy trình staging/rollback. **Chưa tự triển khai production**.
+
+---
+
 # THEO DÕI HỌC NGHỀ — v1.2.2-RC (YC-HN-015 V1)
 
 Bản mã nguồn đã điều chỉnh theo YC-HN-013 V8.1; **chưa triển khai production**. Đọc `docs/YC-HN-013_V8_1_CHANGELOG_VA_HUONG_DAN.md` trước khi thay thế. 7 tab/94 cột dữ liệu và 25 cột danh sách Excel được giữ nguyên.

@@ -849,3 +849,39 @@ test('YC017: auth cache chỉ tránh đọc lại tab tài khoản trong phạm 
   c.global.authorize_(identity,'records_list');
   assert.ok(reads>afterFirst,'Sau khi đổi USERS revision bắt buộc kiểm tra bảng quyền mới');
 });
+
+// YC-HN-018: backend chặn KY:1 và các kỳ quá thời gian hỗ trợ, không sửa nhầm.
+test('YC018: kỳ 1 luôn bị từ chối, kỳ 2-3 hợp lệ với khóa 3 tháng, kỳ 4 bị từ chối',()=>{
+  const c=setupLive();const a=c.send('record_save',record(c,'8101','2026-10-19',{SO_THANG_HO_TRO:'3'})).data.record;
+  function update(period){return c.send('record_status',{HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:a.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:period,LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});}
+  assert.equal(update('KY:1').error.code,'VALIDATION');assert.equal(update('KY:4').error.code,'VALIDATION');
+  const okay=update('KY:3');assert.equal(okay.ok,true,JSON.stringify(okay.error));
+  assert.equal(okay.data.record.NGAY_BO_HOC,'KY:3');assert.equal(c.send('overview',{}).data.kpi.dropout,1);
+});
+test('YC018: 12 tháng có thể chọn kỳ 12 nhưng không quá 12, hỗ trợ lẻ không được làm tròn',()=>{
+  const c=setupLive();const a=c.send('record_save',record(c,'8102','2026-10-19',{SO_THANG_HO_TRO:'12'})).data.record;
+  const payload={HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:a.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,LY_DO_BO_HOC_ID:c.reason.LY_DO_ID};
+  assert.equal(c.send('record_status',{...payload,NGAY_BO_HOC:'KY:13'}).error.code,'VALIDATION');
+  assert.equal(c.send('record_status',{...payload,NGAY_BO_HOC:'KY:12'}).ok,true);
+  const part=c.send('record_save',record(c,'8103','2026-10-19',{SO_THANG_HO_TRO:'2,5'})).data.record;
+  const bad=c.send('record_status',{HO_SO_ID:part.HO_SO_ID,PHIEN_BAN:part.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(bad.error.code,'VALIDATION');
+  const one=c.send('record_save',record(c,'8104','2026-10-19',{SO_THANG_HO_TRO:'1'})).data.record;
+  assert.equal(c.send('record_status',{HO_SO_ID:one.HO_SO_ID,PHIEN_BAN:one.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}).error.code,'VALIDATION');
+});
+test('YC018: ngày bỏ học lịch sử giữ nguyên khi ghi lại trạng thái và không cho tự tạo ngày mới',()=>{
+  const c=setupLive();const r=c.send('record_save',record(c,'8105','2026-10-19',{SO_THANG_HO_TRO:'3',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID})).data.record;
+  const sh=c.tables.get('Hồ sơ học nghề'),col=c.global.APP.lists.HO_SO_HOC_NGHE.indexOf('NGAY_BO_HOC');sh.rows[1][col]='2026-10-20';
+  const preserved=c.send('record_status',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-10-20',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(preserved.ok,true,JSON.stringify(preserved.error));assert.equal(preserved.data.record.NGAY_BO_HOC,'2026-10-20');
+  const fresh=c.send('record_save',record(c,'8106','2026-10-19',{SO_THANG_HO_TRO:'3',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'2026-10-20',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));
+  assert.equal(fresh.error.code,'VALIDATION');
+});
+test('YC018: kỳ lịch sử ngoài 12 được đọc và giữ nguyên, không được chọn cho hồ sơ khác',()=>{
+  const c=setupLive();const r=c.send('record_save',record(c,'8107','2026-10-19',{SO_THANG_HO_TRO:'15',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:12',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID})).data.record;
+  const sh=c.tables.get('Hồ sơ học nghề'),col=c.global.APP.lists.HO_SO_HOC_NGHE.indexOf('NGAY_BO_HOC');sh.rows[1][col]='KY:13';
+  const next=c.send('record_status',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:13',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(next.ok,true,JSON.stringify(next.error));
+  const other=c.send('record_save',record(c,'8108','2026-10-19',{SO_THANG_HO_TRO:'15'})).data.record;
+  assert.equal(c.send('record_status',{HO_SO_ID:other.HO_SO_ID,PHIEN_BAN:other.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:13',LY_DO_BO_HOC_ID:c.reason.LY_DO_BO_HOC_ID||c.reason.LY_DO_ID}).error.code,'VALIDATION');
+});

@@ -1,5 +1,5 @@
 import {downloadReportXlsx} from './xlsx-export.js';
-/** THEO DÕI HỌC NGHỀ — v1.2.4-RC (YC-HN-017). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.5-RC (YC-HN-018). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -379,7 +379,7 @@ async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.reco
   const totalPages=Math.max(1,Math.ceil(data.total/20));
   $('#list-pages').innerHTML=`<div class="pagination"><button class="btn" data-page="${data.page-1}" ${data.page<=1?'disabled':''}>← Trước</button>Trang ${data.page}/${totalPages}<button class="btn" data-page="${data.page+1}" ${data.page>=totalPages?'disabled':''}>Tiếp →</button></div>`;
 }
-function reportKpiRows(k,extra={}){return [['Tổng số Quyết định',k.total],['Đã tham gia',k.participated],['Đang học',k.learning],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[])];}
+function reportKpiRows(k,extra={}){return [['Tổng số Quyết định',k.total],['Đã tham gia',k.participated],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[])];}
 async function renderReports(v,keepOld=false){
   const markup=heading('Báo cáo học nghề','',`${state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-primary" id="report-export">Xuất Excel</button>':''}<button class="btn" id="print-report">In báo cáo</button>`)+filterFields(state.reportFilters,'reports')+'<div id="report-output" class="spinner">Đang tải thống kê…</div>';
   if(!keepOld)$('#main').innerHTML=markup;
@@ -422,8 +422,41 @@ const selectField=(label,name,inner)=>`<div class="field"><label for="f-${esc(na
 function activeCatOptions(type,current){const id={truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type],name={truong:'TEN_TRUONG',nghe:'TEN_NGHE',lydo:'NOI_DUNG'}[type];return option('','-- Chọn --',current)+state.cats[type].filter(x=>x.TRANG_THAI==='ACTIVE'||x[id]===current).map(x=>option(x[id],x[name],current)).join('');}
 function learningSelection(r){return r?.DA_BO_HOC==='TRUE'?'BO_HOC':r?.TRANG_THAI_THAM_GIA||'CHO_XAC_NHAN';}
 function statusSelect(r){const selected=learningSelection(r);return selectField('Tình trạng tham gia *','UI_TINH_TRANG',allStatusOptions().map(([k,v])=>option(k,v,selected)).join('')+option('KHAC','Khác',selected))+`<div class="field full status-custom" hidden><label>Tình trạng khác *</label><input name="customStatusName" maxlength="60" placeholder="Ví dụ: Thôi việc" disabled></div>`;}
-function dropoutFields(r){const N=Number(String(r?.SO_THANG_HO_TRO||'').replace(',','.'));const periods=Number.isInteger(N)&&N>1?Array.from({length:Math.min(120,N-1)},(_,i)=>i+2):[];const prev=r?.NGAY_BO_HOC||'';const options=option('','-- Chọn tháng bắt đầu bỏ học --',prev)+periods.map(n=>option('KY:'+n,'Tháng thứ '+n,prev)).join('');const legacy=/^\d{4}-\d{2}-\d{2}$/.test(prev)?`<div class="form-hint">Dữ liệu cũ: ${esc(dateVN(prev))}. Không tự chuyển đổi ngày cũ sang tháng mới; chỉ đổi khi đã xác nhận kỳ học.</div>`:'';return `<div class="dropout-only field"><label>Tháng bỏ học *</label><select name="NGAY_BO_HOC" ${periods.length?'':'disabled'}>${options}${/^\d{4}-\d{2}-\d{2}$/.test(prev)?option(prev,'Dữ liệu cũ — '+dateVN(prev),prev):''}</select>${legacy}${periods.length?'':'<div class="form-hint">Cần số tháng hỗ trợ nguyên và lớn hơn 1 để chọn kỳ bỏ học.</div>'}</div><div class="dropout-only">${selectField('Lý do bỏ học *','LY_DO_BO_HOC_ID',activeCatOptions('lydo',r?.LY_DO_BO_HOC_ID))}</div>`;}
-function updateDropoutFields(form){if(!form)return;const st=form.elements.UI_TINH_TRANG?.value,isDropout=st==='BO_HOC';form.querySelectorAll('.dropout-only').forEach(node=>{node.hidden=!isDropout;node.querySelectorAll('input,select').forEach(input=>{input.disabled=!isDropout;input.required=isDropout;});});const cust=form.querySelector('.status-custom');if(cust){cust.hidden=st!=='KHAC';cust.querySelector('input').disabled=st!=='KHAC';cust.querySelector('input').required=st==='KHAC';}}
+// YC-HN-018: Luôn hiện 12 kỳ; không cho chọn KY:1 hoặc vượt số tháng hỗ trợ.
+// Giá trị lịch sử (ngày cũ / KY:13+) chỉ được giữ khi đã có sẵn trên hồ sơ.
+function dropoutMaxPeriod(months){const raw=String(months??'').trim().replace(',','.');const n=raw===''?NaN:Number(raw);return Number.isInteger(n)&&n>=2?Math.min(12,n):0;}
+function dropoutPeriodHelp(months){const raw=String(months??'').trim().replace(',','.');const n=raw===''?NaN:Number(raw);
+  if(!Number.isInteger(n)||n<=0)return 'Số tháng hỗ trợ chưa hợp lệ hoặc là số lẻ. Cần kiểm tra lại hồ sơ; không tự làm tròn kỳ.';
+  if(n===1)return 'Hồ sơ chỉ hỗ trợ 1 tháng nên chưa có kỳ bỏ học hợp lệ. Người đã tham gia rồi ngừng học cần xác định nghiệp vụ riêng.';
+  if(n>12)return 'Hệ thống hỗ trợ chọn kỳ 2–12. Kỳ từ 13 trở đi cần được xem xét riêng.';
+  return 'Chỉ chọn tháng thứ 2 đến tháng thứ '+n+'. Tháng thứ 1 đã tham gia dù một ngày vẫn tính đã học; chưa học ngày nào thì chọn Không tham gia.';
+}
+function dropoutPeriodOptions(months,selected='',original=''){
+  const limit=dropoutMaxPeriod(months);let html=option('','-- Chọn tháng bắt đầu bỏ học --',selected);
+  for(let n=1;n<=12;n++){
+    const val='KY:'+n,valid=n>=2&&n<=limit;
+    html+=`<option value="${val}" ${valid&&val===selected?'selected':''} ${valid?'':'disabled'}>Tháng thứ ${n}</option>`;
+  }
+  const saved=String(original||''),isDate=/^\d{4}-\d{2}-\d{2}$/.test(saved),isOldPeriod=/^KY:(?:1[3-9]|[2-9]\d+)$/.test(saved);
+  if(saved===selected&&(isDate||isOldPeriod))html+=option(saved,isDate?'Dữ liệu cũ — '+dateVN(saved):'Kỳ lịch sử — '+saved.slice(3),saved);
+  return html;
+}
+function dropoutFields(r){const months=r?.SO_THANG_HO_TRO||'',prev=r?.NGAY_BO_HOC||'';
+  const historical=/^\d{4}-\d{2}-\d{2}$/.test(prev)||/^KY:(?:1[3-9]|[2-9]\d+)$/.test(prev);
+  return `<div class="dropout-only field"><label>Tháng bỏ học *</label><select name="NGAY_BO_HOC">${dropoutPeriodOptions(months,prev,prev)}</select><div class="form-hint" data-dropout-help>${esc(dropoutPeriodHelp(months))}</div>${historical?'<div class="form-hint">Dữ liệu bỏ học lịch sử được giữ nguyên nếu không thay đổi; không tự chuyển sang kỳ mới.</div>':''}</div><div class="dropout-only">${selectField('Lý do bỏ học *','LY_DO_BO_HOC_ID',activeCatOptions('lydo',r?.LY_DO_BO_HOC_ID))}</div>`;
+}
+function refreshDropoutPeriod(form){const select=form?.elements?.NGAY_BO_HOC;if(!select)return;
+  const months=form.elements.SO_THANG_HO_TRO?.value??form.dataset.supportMonths??'',previous=select.value,original=form.dataset.originalPeriod||'';
+  const limit=dropoutMaxPeriod(months),n=/^KY:(\d+)$/.exec(previous),isValid=n&&Number(n[1])>=2&&Number(n[1])<=limit;
+  const keep=!!(isValid||(previous===original&&(/^\d{4}-\d{2}-\d{2}$/.test(original)||/^KY:(?:1[3-9]|[2-9]\d+)$/.test(original))));
+  select.innerHTML=dropoutPeriodOptions(months,keep?previous:'',original);
+  const note=form.querySelector('[data-dropout-help]');if(note)note.textContent=dropoutPeriodHelp(months);
+}
+function updateDropoutFields(form){if(!form)return;refreshDropoutPeriod(form);
+  const st=form.elements.UI_TINH_TRANG?.value,isDropout=st==='BO_HOC';
+  form.querySelectorAll('.dropout-only').forEach(node=>{node.hidden=!isDropout;node.querySelectorAll('input,select').forEach(input=>{input.disabled=!isDropout;input.required=isDropout;});});
+  const cust=form.querySelector('.status-custom');if(cust){cust.hidden=st!=='KHAC';cust.querySelector('input').disabled=st!=='KHAC';cust.querySelector('input').required=st==='KHAC';}
+}
 function recordPayload(form){const p=getFormFields(form),choice=p.UI_TINH_TRANG;
   p.TRANG_THAI_THAM_GIA=choice==='BO_HOC'?'DA_THAM_GIA':choice==='KHAC'?'':choice;
   p.DA_BO_HOC=choice==='BO_HOC';delete p.UI_TINH_TRANG;
@@ -431,7 +464,7 @@ function recordPayload(form){const p=getFormFields(form),choice=p.UI_TINH_TRANG;
 }
 function recordForm(r){
   const edit=Boolean(r),x=r||{};state.usedPerson=null;
-  const form=`<form id="record-form" class="form-grid" data-edit="${edit?'yes':'no'}">
+  const form=`<form id="record-form" class="form-grid" data-original-period="${esc(x.NGAY_BO_HOC||'')}" data-support-months="${esc(x.SO_THANG_HO_TRO||'')}" data-edit="${edit?'yes':'no'}">
   <input type="hidden" name="HO_SO_ID" value="${esc(x.HO_SO_ID||'')}"><input type="hidden" name="NGUOI_HOC_ID" value="${esc(x.NGUOI_HOC_ID||'')}"><input type="hidden" name="PHIEN_BAN" value="${esc(x.PHIEN_BAN||'')}">
   ${!edit?`<div class="full info-banner">Nếu người học đã có hồ sơ, hãy tìm theo tên để liên kết với đợt học mới.<div class="field" style="margin-top:10px"><label>Tìm người học đã có</label><div class="page-actions"><input id="person-query" placeholder="Nhập họ tên" style="flex:1;border:1px solid #cbdcea;border-radius:9px;padding:9px"><button class="btn" type="button" id="find-person">Tìm</button></div></div><div id="person-results" class="person-results"></div><div id="selected-person" class="small muted"></div></div>`:''}
   ${field('Họ tên người học *','HO_TEN',x.HO_TEN||'','text','required maxlength="250"')}
@@ -467,7 +500,7 @@ function recordForm(r){
 }
 const RECORD_DETAIL_LABELS=[['HO_TEN','Họ và tên'],['NGAY_SINH','Năm sinh'],['GIOI_TINH','Giới tính'],['SO_SO_BHXH','Số sổ BHXH'],['SO_QUYET_DINH','Số QĐ HTHN'],['NGAY_QUYET_DINH','Ngày ban hành QĐHN'],['SO_QD_TCTN','Số QĐ TCTN'],['NGAY_QD_TCTN','Ngày ban hành QĐ TCTN'],['NGHE_ID','Nghề đăng ký'],['SO_THANG_HO_TRO','Số tháng hỗ trợ'],['MUC_HO_TRO_THANG','Mức hỗ trợ/tháng'],['NGAY_BAT_DAU','Thời gian đào tạo – Từ ngày'],['NGAY_KET_THUC_DU_KIEN','Thời gian đào tạo – Đến ngày'],['TRUONG_ID','Cơ sở đào tạo nghề'],['NGAY_KET_THUC_TCTN','Ngày kết thúc hưởng TCTN'],['NGAY_KET_THUC_HO_TRO','Ngày kết thúc hỗ trợ học nghề'],['DIA_CHI_TAM_TRU','Địa chỉ tạm trú'],['DIA_CHI_THUONG_TRU','Địa chỉ thường trú'],['SO_CMND','Số CMND'],['NGAY_CAP_CMND','Ngày cấp CMND'],['NOI_CAP_CMND','Nơi cấp CMND'],['DIA_CHI_CO_SO','Địa chỉ cơ sở đào tạo'],['CHI_NHANH_BHTN','Chi nhánh BHTN'],['DIEN_THOAI','Điện thoại']];
 function recordDetail(r){const rows=RECORD_DETAIL_LABELS.map(([k,label])=>{let val=r[k]||'';if(k==='NGHE_ID')val=lookup('nghe',val);if(k==='TRUONG_ID')val=lookup('truong',val);if(k==='SO_THANG_HO_TRO')val=supportMonthsVN(val);if(k==='MUC_HO_TRO_THANG')val=supportMoneyVN(val);if(['NGAY_SINH','NGAY_QUYET_DINH','NGAY_QD_TCTN','NGAY_BAT_DAU','NGAY_KET_THUC_DU_KIEN','NGAY_KET_THUC_TCTN','NGAY_KET_THUC_HO_TRO','NGAY_CAP_CMND'].includes(k)&&val)val=dateVN(val);if(k==='GIOI_TINH')val=({NAM:'Nam',NU:'Nữ',KHAC:'Khác'})[val]||val;return `<tr><th>${esc(label)}</th><td>${esc(val||'—')}</td></tr>`;}).join('');showModal('Chi tiết hồ sơ học nghề',`<div class="table-wrap detail-table"><table><tbody>${rows}</tbody></table></div><div class="modal-foot"><button class="btn" data-close="1">Đóng</button></div>`);}
-function statusForm(r){showModal('Cập nhật tình trạng học nghề',`<form id="status-form" class="form-grid"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="full info-banner">${esc(r.HO_TEN)} · Quyết định ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}</div>${statusSelect(r)}${dropoutFields(r)}${modalFoot('Cập nhật tình trạng')}</form>`);updateDropoutFields($('#status-form'));}
+function statusForm(r){showModal('Cập nhật tình trạng học nghề',`<form id="status-form" class="form-grid" data-original-period="${esc(r.NGAY_BO_HOC||'')}" data-support-months="${esc(r.SO_THANG_HO_TRO||'')}"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="full info-banner">${esc(r.HO_TEN)} · Quyết định ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}</div>${statusSelect(r)}${dropoutFields(r)}${modalFoot('Cập nhật tình trạng')}</form>`);updateDropoutFields($('#status-form'));}
 function catalogForm(item){const type=state.catalogType,def={truong:['TRUONG_ID','MA_TRUONG','TEN_TRUONG'],nghe:['NGHE_ID','MA_NGHE','TEN_NGHE'],lydo:['LY_DO_ID','MA_LY_DO','NOI_DUNG']}[type],x=item||{};
   showModal((item?'Sửa':'Thêm')+' '+NAMES[type].toLowerCase(),`<form id="catalog-form" class="form-grid"><input type="hidden" name="id" value="${esc(x[def[0]])}"><input type="hidden" name="type" value="${type}">${item?field('Mã danh mục (không thể thay đổi)','code',x[def[1]]||'','text','readonly'):''}${field('Tên / Nội dung *','title',x[def[2]]||'','text','required maxlength="250"')}${type==='truong'?`${field('Tên viết tắt','shortName',x.TEN_VIET_TAT||'')}${field('Địa chỉ','address',x.DIA_CHI||'')}`:''}${type==='truong'?'':field('Thứ tự','order',x.THU_TU||0,'number')}${selectField('Trạng thái','status',option('ACTIVE','Đang sử dụng',x.TRANG_THAI||'ACTIVE')+option('INACTIVE','Ngừng sử dụng',x.TRANG_THAI))}<div class="field full"><label>Ghi chú</label><textarea name="note">${esc(x.GHI_CHU||'')}</textarea></div><div class="full form-hint">${item?'Mã danh mục đã cấp được giữ nguyên để bảo vệ hồ sơ liên kết.':'Hệ thống sẽ tự tạo mã sau khi lưu.'}</div>${modalFoot('Lưu danh mục')}</form>`);
 }
@@ -1013,7 +1046,7 @@ document.addEventListener('change',async e=>{if(e.target.id==='status-bulk-file'
     $('#bulk-review').textContent=file?'Đã đọc file. Vui lòng bấm Kiểm tra danh sách.':'Vui lòng kiểm tra danh sách trước khi nhập.';
   }catch(err){state.bulkRows=null;state.bulkFileText='';e.target.value='';failure(err);}
 }});
-document.addEventListener('input',e=>{if(e.target.name==='SO_THANG_HO_TRO'&&e.target.closest('#record-form')){const form=e.target.closest('form'),select=form.elements.NGAY_BO_HOC;if(!select)return;const N=Number(String(e.target.value).replace(',','.')),prior=select.value,periods=Number.isInteger(N)&&N>1?Array.from({length:Math.min(N-1,120)},(_,i)=>i+2):[];select.innerHTML=option('','-- Chọn tháng bắt đầu bỏ học --',prior)+periods.map(n=>option('KY:'+n,'Tháng thứ '+n,prior)).join('');select.disabled=!periods.length||form.elements.UI_TINH_TRANG?.value!=='BO_HOC';}});
+document.addEventListener('input',e=>{if(e.target.name==='SO_THANG_HO_TRO'&&e.target.closest('#record-form'))refreshDropoutPeriod(e.target.closest('form'));});
 document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){state.catalogSearch=e.target.value;const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
 document.addEventListener('change',e=>{if(e.target.name==='status'&&e.target.closest('#status-bulk-form')){statusBulkToggle();if(state.statusImport){state.statusImport.rows=[];state.statusImport.skipped=[];}const file=$('#status-bulk-file');if(file)file.value='';resetStatusBulkReview('Đã thay đổi tình trạng. Vui lòng chọn lại file Excel.');}if(['dropoutPeriod','dropoutReason'].includes(e.target.name)&&e.target.closest('#status-bulk-form'))resetStatusBulkReview('Đã thay đổi thông tin bỏ học. Vui lòng bấm Kiểm tra dữ liệu lại.');if(e.target.name==='UI_TINH_TRANG'){updateDropoutFields(e.target.closest('form'));}if(e.target.name==='role'&&e.target.closest('#account-form'))updateAccountSchool(e.target.closest('form'));if(e.target.name==='type'&&e.target.closest('#bulk-catalog-form')){const f=e.target.closest('form');f.dataset.ready='no';f.dataset.verified='';state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';$('#bulk-import-submit').disabled=true;}});
 document.addEventListener('change',e=>{if(e.target.name==='NGAY_QUYET_DINH'&&$('#preview-year'))$('#preview-year').value=e.target.value?.slice(0,4)||'Tự lấy từ ngày quyết định';});
