@@ -5,7 +5,7 @@
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.10-RC',
+  version: '1.2.12-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -244,10 +244,10 @@ function perfRead_(name,rows,cols){
 function perfEmit_(ok){
   if(HN_PERF_){
     HN_PERF_.totalMs=Date.now()-HN_PERF_.started;HN_PERF_.ok=ok;
-    var out={name:'YC017',action:HN_PERF_.action,ok:ok,totalMs:HN_PERF_.totalMs,
+    var out={name:'YC022',action:HN_PERF_.action,ok:ok,totalMs:HN_PERF_.totalMs,
       authMs:HN_PERF_.authMs||0,lockWaitMs:HN_PERF_.lockWaitMs,
       sheetReads:HN_PERF_.sheetReads,cells:HN_PERF_.cells,
-      rowLookupMs:HN_PERF_.rowLookupMs||0,rowReadMs:HN_PERF_.rowReadMs||0,
+      fullSheetReadMs:HN_PERF_.fullSheetReadMs||0,rowLookupMs:HN_PERF_.rowLookupMs||0,rowReadMs:HN_PERF_.rowReadMs||0,
       validationMs:HN_PERF_.validationMs||0,writeMs:HN_PERF_.writeMs||0,
       revisionMs:HN_PERF_.revisionMs||0,auditMs:HN_PERF_.auditMs||0};
     console.info(JSON.stringify(out));
@@ -644,7 +644,10 @@ function personLookup_(user,p){
   return {items:out.slice(0,20)};
 }
 function saveRecord_(user,p,requestId){return dedupeWrite_(requestId,function(){
-  var id=str_(p.HO_SO_ID,60), records=sheetRows_('HO_SO_HOC_NGHE'), idx=id?indexOfRow_(records,'HO_SO_ID',id):-1, old=idx>=0?records[idx]:null;
+  var tRead=Date.now();
+  var id=str_(p.HO_SO_ID,60), records=sheetRows_('HO_SO_HOC_NGHE');
+  if(HN_PERF_)HN_PERF_.fullSheetReadMs=Date.now()-tRead;
+  var tValidate=Date.now(), idx=id?indexOfRow_(records,'HO_SO_ID',id):-1, old=idx>=0?records[idx]:null;
   if(id&&!old)throw err_('NOT_FOUND','Hồ sơ cần sửa không tồn tại.');
    if(old){must_(old.TRANG_THAI_HO_SO!=='DELETED','NOT_FOUND','Hồ sơ đã được xóa.');requireRecordOwner_(user,old);}
   must_(user._has(old?'RECORD_EDIT':'RECORD_CREATE'),'NO_PERMISSION','Tài khoản không có quyền '+(old?'sửa':'tạo')+' hồ sơ.');
@@ -663,10 +666,18 @@ function saveRecord_(user,p,requestId){return dedupeWrite_(requestId,function(){
     TAO_LUC:old?old.TAO_LUC:ts,TAO_BOI:old?old.TAO_BOI:user.EMAIL,
     CAP_NHAT_LUC:ts,CAP_NHAT_BOI:user.EMAIL,PHIEN_BAN:String(old?Number(old.PHIEN_BAN)+1:1)
   });
-  if(old) writeRecord_('HO_SO_HOC_NGHE',findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id),data);
+  if(HN_PERF_)HN_PERF_.validationMs=Date.now()-tValidate;
+  var tLookup=Date.now(),targetRow=old?findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id):-1;
+  if(HN_PERF_)HN_PERF_.rowLookupMs=Date.now()-tLookup;
+  var tWrite=Date.now();
+  if(old) writeRecord_('HO_SO_HOC_NGHE',targetRow,data);
   else appendRecord_('HO_SO_HOC_NGHE',data);
-  bump_('DATA');
+  if(HN_PERF_)HN_PERF_.writeMs=Date.now()-tWrite;
+  var tRev=Date.now();bump_('DATA');
+  if(HN_PERF_)HN_PERF_.revisionMs=Date.now()-tRev;
+  var tAudit=Date.now();
   try{audit_(user,old?'SUA_HO_SO':'TAO_HO_SO','HO_SO',data.HO_SO_ID,{so:data.SO_QUYET_DINH,nam:data.NAM_QUYET_DINH,cacTruongThayDoi:old?Object.keys(obj).filter(function(k){return String(obj[k])!==String(old[k]);}):Object.keys(obj)},requestId);}catch(e){/* Giao dịch đã ghi; lưu lỗi trong execution log để đối soát */console.error('Audit failed',e);}
+  if(HN_PERF_)HN_PERF_.auditMs=Date.now()-tAudit;
   return {record:safeRecord_(data)};
 });}
 function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(){

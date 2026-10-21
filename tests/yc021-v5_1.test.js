@@ -14,9 +14,9 @@ test('YC021 V5.1: title Thao tác and its icon cell share centered alignment, no
   for (const code of ['data-detail-record','data-edit-record','data-delete-record','data-status-record','data-file-get','data-file-modal'])assert.ok(app.includes(code),code);
 });
 test('YC021 V5.1: number of decision only; year stays in filters and original records',()=>{
-  const line=app.split('\n').find(x=>x.includes("$('#list-output').innerHTML="));
+  const line=app.slice(app.indexOf('function renderRecordRow('),app.indexOf('function recordNeedsListRefresh('));
   assert.ok(line,'record list renderer exists');
-  assert.match(line,/<th>Số QĐ<\/th>/);
+  assert.match(app,/<th>Số QĐ<\/th>/);
   assert.match(line,/<td><b>\$\{esc\(r\.SO_QUYET_DINH\)\}<\/b><\/td>/);
   assert.doesNotMatch(line,/Năm \$\{esc\(r\.NAM_QUYET_DINH\)\}/);
   assert.match(app,/Năm quyết định/);

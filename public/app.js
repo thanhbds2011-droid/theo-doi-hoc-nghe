@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.11-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.11-RC (YC-HN-021 V5.2 hotfix style). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.12-RC (YC-HN-022 V2, giữ nguyên hotfix Excel). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -452,6 +452,66 @@ async function renderRecords(v,keepOld=false){
   if(!keepOld)$('#main').innerHTML=markup;
   await loadRecordList(v,keepOld,markup);
 }
+// YC-HN-022: one canonical escaped row renderer, for initial load and single-row update.
+function renderRecordRow(r){
+  return `<tr data-record-id="${dataAttr(r.HO_SO_ID)}"><td class="nowrap">${esc(dateVN(r.NGAY_QUYET_DINH))}</td><td><b>${esc(r.SO_QUYET_DINH)}</b></td><td>${esc(r.HO_TEN)}</td><td>${esc(lookup('truong',r.TRUONG_ID))}</td><td>${esc(lookup('nghe',r.NGHE_ID))}</td><td>${pillStatus(r)}</td><td class="record-action-cell"><div class="table-actions record-actions">${recordIconButton('eye','Chi tiết hồ sơ','data-detail-record',r.HO_SO_ID)}${allowed('RECORD_EDIT')?recordIconButton('pencil','Sửa hồ sơ','data-edit-record',r.HO_SO_ID):''}${canDeleteRecord(r)?recordIconButton('trash-2','Xóa hồ sơ','data-delete-record',r.HO_SO_ID,true):''}${allowed('RECORD_STATUS')?recordIconButton('clipboard-check','Cập nhật tình trạng','data-status-record',r.HO_SO_ID):''}${r.HAS_FILE&&allowed('FILE_VIEW')?recordIconButton('file-down','Xem hoặc tải tệp hiện có','data-file-get',r.HO_SO_ID):''}${allowed('FILE_UPLOAD')?recordIconButton('paperclip','Quản lý tệp đính kèm','data-file-modal',r.HO_SO_ID):''}</div></td></tr>`;
+}
+// A changed sort key or an applied filter field needs authoritative list/pagination refresh.
+// Prefer a conservative refresh over incorrectly keeping a row in a filtered list.
+function recordNeedsListRefresh(before,after,filters){
+  if(!before||!after||before.HO_SO_ID!==after.HO_SO_ID)return true;
+  if(before.TRUONG_ID!==after.TRUONG_ID || before.NGAY_QUYET_DINH!==after.NGAY_QUYET_DINH || before.TAO_LUC!==after.TAO_LUC)return true;
+  if(filters.year && before.NAM_QUYET_DINH!==after.NAM_QUYET_DINH)return true;
+  if(filters.nghe && before.NGHE_ID!==after.NGHE_ID)return true;
+  if(filters.status && (before.TRANG_THAI_THAM_GIA!==after.TRANG_THAI_THAM_GIA || before.DA_BO_HOC!==after.DA_BO_HOC))return true;
+  if(filters.dropout && before.DA_BO_HOC!==after.DA_BO_HOC)return true;
+  if(filters.query && ['HO_TEN','SO_QUYET_DINH','NGUOI_HOC_ID','HO_SO_ID'].some(k=>before[k]!==after[k]))return true;
+  // Conservatively invalidate results on changed status used by report filtering.
+  return false;
+}
+function invalidateSavedRecordViews(){
+  expireCacheActions(['records_list','overview','report_matrix','report_export','audit_list']);
+  for(const page of ['dashboard','reports','audits','records'])state.pageViews.delete(page);
+  for(const page of ['dashboard','reports','audits'])state.pageDataAt.delete(page);
+}
+// This starts ONLY after server ACK. Do not change the DOM with optimistic form values.
+async function commitSavedRecord(next,context){
+  invalidateSavedRecordViews();
+  // Invalidate any records_list request that was started before this mutation.
+  state.recordLoadVersion++;state.recordLoading=false;state.activeRecordRequestKey='';
+  for(const sel of ['#list-output','#list-pages']){const el=$(sel);el?.removeAttribute('aria-busy');el?.classList.remove('records-refreshing');}
+  const idx=state.records.findIndex(r=>r.HO_SO_ID===next.HO_SO_ID);
+  const before=idx>=0?state.records[idx]:null;
+  if(idx>=0)state.records[idx]=next;
+  closeModal();
+  if(state.page!=='records'||!$('#records-filters'))return 'deferred';
+  const sameView=context.scope===permissionScope() && context.page===state.recordPage &&
+    context.filters===JSON.stringify(state.filters) && context.route===state.routeVersion;
+  const row=sameView&&before?Array.from(document.querySelectorAll('#list-output tbody tr[data-record-id]'))
+    .find(tr=>tr.dataset.recordId===next.HO_SO_ID):null;
+  if(sameView && row && !recordNeedsListRefresh(before,next,state.filters)){
+    const replacement=document.createElement('tbody');replacement.innerHTML=renderRecordRow(next);
+    row.replaceWith(replacement.firstElementChild);
+    // Refresh the current snapshot only; other results/cache remain invalidated.
+    state.pageDataAt.set('records',Date.now());state.renderedPage='records';rememberPage('records');
+    return 'row';
+  }
+  // Changed sort/filters, create, or a pending navigation: update only the result region.
+  if(context.scope===permissionScope()){
+    void refreshRecordResults('Đang cập nhật danh sách sau khi lưu…');
+    return 'list';
+  }
+  return 'deferred';
+}
+function emitSaveTiming(started,ackAt,finished,mode,outcome){
+  // Opt-in in browser DevTools: window.HN_PERF_TEST=true; no personal data.
+  if(window.HN_PERF_TEST!==true)return;
+  console.info('[HN_PERF] record_save',{
+    mode,outcome,clickToAckMs:Math.round(ackAt-started),ackToUiMs:Math.round(finished-ackAt),
+    clickToUiMs:Math.round(finished-started)
+  });
+}
+
 async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.recordLoadVersion){
   // Snapshot tại thời điểm bấm Lọc. Request cũ không được ghi đè request mới.
   const filters={...state.filters},page=state.recordPage;
@@ -461,7 +521,7 @@ async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.reco
   state.records=data.items;state.recordTotal=data.total;
   $('#list-output').classList.remove('records-failed');
   $('#record-count').textContent=`Hiển thị ${num(data.items.length)} / ${num(data.total)} hồ sơ · Trang ${data.page}`;
-  $('#list-output').innerHTML=`<table><thead><tr><th>Ngày QĐ</th><th>Số QĐ</th><th>Người học</th><th>Cơ sở đào tạo</th><th>Nghề</th><th>Tình trạng</th><th class="record-action-header">Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(r=>`<tr><td class="nowrap">${esc(dateVN(r.NGAY_QUYET_DINH))}</td><td><b>${esc(r.SO_QUYET_DINH)}</b></td><td>${esc(r.HO_TEN)}</td><td>${esc(lookup('truong',r.TRUONG_ID))}</td><td>${esc(lookup('nghe',r.NGHE_ID))}</td><td>${pillStatus(r)}</td><td class="record-action-cell"><div class="table-actions record-actions">${recordIconButton('eye','Chi tiết hồ sơ','data-detail-record',r.HO_SO_ID)}${allowed('RECORD_EDIT')?recordIconButton('pencil','Sửa hồ sơ','data-edit-record',r.HO_SO_ID):''}${canDeleteRecord(r)?recordIconButton('trash-2','Xóa hồ sơ','data-delete-record',r.HO_SO_ID,true):''}${allowed('RECORD_STATUS')?recordIconButton('clipboard-check','Cập nhật tình trạng','data-status-record',r.HO_SO_ID):''}${r.HAS_FILE&&allowed('FILE_VIEW')?recordIconButton('file-down','Xem hoặc tải tệp hiện có','data-file-get',r.HO_SO_ID):''}${allowed('FILE_UPLOAD')?recordIconButton('paperclip','Quản lý tệp đính kèm','data-file-modal',r.HO_SO_ID):''}</div></td></tr>`).join(''):'<tr><td colspan="7" class="empty">Không có hồ sơ phù hợp.</td></tr>'}</tbody></table>`;
+  $('#list-output').innerHTML=`<table><thead><tr><th>Ngày QĐ</th><th>Số QĐ</th><th>Người học</th><th>Cơ sở đào tạo</th><th>Nghề</th><th>Tình trạng</th><th class="record-action-header">Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(renderRecordRow).join(''):'<tr><td colspan="7" class="empty">Không có hồ sơ phù hợp.</td></tr>'}</tbody></table>`;
   const totalPages=Math.max(1,Math.ceil(data.total/20));
   $('#list-pages').innerHTML=`<div class="pagination"><button class="btn" data-page="${data.page-1}" ${data.page<=1?'disabled':''}>← Trước</button>Trang ${data.page}/${totalPages}<button class="btn" data-page="${data.page+1}" ${data.page>=totalPages?'disabled':''}>Tiếp →</button></div>`;
 }
@@ -1197,7 +1257,20 @@ document.addEventListener('submit',e=>{
   if(formId==='reports-filters'){let filters;try{filters=readRangeFilters(form);}catch(error){failure(error);return;}state.reportFilters=filters;state.pageViews.delete('reports');void refreshCurrentAggregate('reports');return;}
   if(formId==='bulk-record-form'){serialized(importBulkRecords);return;}
   if(formId==='status-bulk-form'){serialized(statusBulkApply,{button:form.querySelector('[data-submit-btn]'),label:'Đang cập nhật...'});return;}
-  if(formId==='record-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_save',p,{mutate:true});notify('Đã lưu hồ sơ '+d.record.SO_QUYET_DINH+'/'+d.record.NAM_QUYET_DINH);await afterMutation('records');});return;}
+  if(formId==='record-form'){
+    serialized(async()=>{
+      const started=performance.now();const p=recordPayload(form);
+      const mode=p.HO_SO_ID?'edit':'create';
+      const context={scope:permissionScope(),page:state.recordPage,filters:JSON.stringify(state.filters),route:state.routeVersion};
+      // Retain the already-verified table; the backend still enforces owner, version and duplicate QĐ.
+      const d=await rpc('record_save',p,{mutate:true,preserveRecordList:true});
+      const ackAt=performance.now();
+      const outcome=await commitSavedRecord(d.record,context);
+      notify('Đã lưu hồ sơ '+d.record.SO_QUYET_DINH+'/'+d.record.NAM_QUYET_DINH);
+      emitSaveTiming(started,ackAt,performance.now(),mode,outcome);
+    },{button:form.querySelector('[data-submit-btn]'),label:'Đang lưu…'});
+    return;
+  }
   if(formId==='status-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_status',p,{mutate:true,preserveRecordList:true});if(p.customStatusName)await refreshBootstrap();const next=d.record;state.records=state.records.map(r=>r.HO_SO_ID===next.HO_SO_ID?next:r);for(const [key,item] of state.cache){
       if(cacheAction(key)!=='records_list')continue;
       const cachedFilters=JSON.parse(key.slice(key.indexOf('records_list|')+'records_list|'.length));

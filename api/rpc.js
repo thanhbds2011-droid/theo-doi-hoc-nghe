@@ -44,6 +44,7 @@ export async function POST(request) {
   if (!clientId || !gasUrl || !secret || secret.length < 32) {
     return textError('SERVER_NOT_CONFIGURED', 'Máy chủ chưa cấu hình đủ Google Client ID, Apps Script URL và khóa bảo mật.', 503);
   }
+  const perfOn=process.env.HN_PERF_TEST==='1';const perfStarted=Date.now();
   try {
     const sameOrigin = new URL(request.url).origin;
     const origin = request.headers.get('origin');
@@ -77,7 +78,9 @@ export async function POST(request) {
     const payload = input.payload && typeof input.payload === 'object' && !Array.isArray(input.payload) ? input.payload : {};
     const requestId = typeof input.requestId === 'string' && /^[a-zA-Z0-9_-]{12,80}$/.test(input.requestId)
       ? input.requestId : randomUUID();
+    const perfIdentityMs=Date.now()-perfStarted;
     const envelope = createSignedEnvelope({ ts: Date.now(), requestId, identity, action, payload }, secret);
+    const perfUpstreamStarted=Date.now();
     const upstream = await fetch(gasUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -86,6 +89,7 @@ export async function POST(request) {
       signal: AbortSignal.timeout(52_000)
     });
     const upstreamText = await upstream.text();
+    const perfUpstreamMs=Date.now()-perfUpstreamStarted;
     if (!upstream.ok || upstreamText.length > 4_000_000) {
       return textError('GATEWAY_UNAVAILABLE', 'Không nhận được phản hồi hợp lệ từ Apps Script.', 502);
     }
@@ -97,6 +101,7 @@ export async function POST(request) {
     // Chỉ cấp phiên khi Google token vừa được xác minh VÀ Apps Script xác nhận tài khoản còn hoạt động.
     if(result.ok&&idToken&&action==='bootstrap')headers['Set-Cookie']=cookieString(makeSession(identity,secret),SESSION_AGE);
     if(!result.ok&&result.error?.code==='NOT_AUTHORIZED')headers['Set-Cookie']=cookieString('',0);
+    if(perfOn && action==='record_save')console.info(JSON.stringify({name:'YC022',action:'record_save',identityMs:perfIdentityMs,upstreamMs:perfUpstreamMs,totalMs:Date.now()-perfStarted,ok:!!result.ok}));
     return Response.json(result, {
       status: result.ok ? 200 : (['NO_PERMISSION','NOT_OWNER'].includes(result.error?.code) ? 403 : ['NOT_AUTHORIZED','LOGIN_EXPIRED'].includes(result.error?.code) ? 401 : 400),
       headers
