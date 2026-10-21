@@ -885,3 +885,69 @@ test('YC018: kỳ lịch sử ngoài 12 được đọc và giữ nguyên, khôn
   const other=c.send('record_save',record(c,'8108','2026-10-19',{SO_THANG_HO_TRO:'15'})).data.record;
   assert.equal(c.send('record_status',{HO_SO_ID:other.HO_SO_ID,PHIEN_BAN:other.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:13',LY_DO_BO_HOC_ID:c.reason.LY_DO_BO_HOC_ID||c.reason.LY_DO_ID}).error.code,'VALIDATION');
 });
+
+// YC-HN-019 — lọc theo ngày ban hành quyết định: giao của các bộ lọc và ranh giới ngày.
+test('YC019: lọc đủ tháng, ngày cuối, một ngày và tổng chính xác ở các trang',()=>{
+  const c=setupLive();
+  for(const [i,date] of ['2026-06-30','2026-07-01','2026-07-15','2026-07-30','2026-07-31','2026-08-01'].entries()){
+    const out=c.send('record_save',record(c,String(600+i),date));assert.equal(out.ok,true,JSON.stringify(out.error));
+  }
+  const july=c.send('records_list',{from:'2026-07-01',to:'2026-07-31',pageSize:2,page:1});
+  assert.equal(july.ok,true);assert.equal(july.data.total,4);assert.equal(july.data.items.length,2);
+  const second=c.send('records_list',{from:'2026-07-01',to:'2026-07-31',pageSize:2,page:2});
+  assert.equal(second.data.total,4);assert.equal(second.data.items.length,2);
+  assert.equal(c.send('records_list',{from:'2026-07-01',to:'2026-07-30'}).data.total,3);
+  assert.equal(c.send('records_list',{from:'2026-07-31',to:'2026-07-31'}).data.total,1);
+  assert.equal(c.send('records_list',{from:'2026-07-31'}).data.total,2);
+  assert.equal(c.send('records_list',{to:'2026-07-01'}).data.total,2);
+  assert.equal(c.send('records_list',{}).data.total,6);
+  assert.equal(c.send('records_list',{year:'2025',from:'2026-07-01',to:'2026-07-31'}).data.total,0);
+});
+
+test('YC019: báo cáo, Excel ma trận và Excel chi tiết dùng chung khoảng ngày',()=>{
+  const c=setupLive();
+  const entries=[
+    ['701','2026-07-01','CHO_XAC_NHAN'],
+    ['702','2026-07-15','DA_THAM_GIA'],
+    ['703','2026-07-30','KHONG_THAM_GIA'],
+    ['704','2026-07-31','DA_THAM_GIA'],
+    ['705','2026-08-01','CHO_XAC_NHAN']
+  ];
+  for(const [no,date,status] of entries){const x=c.send('record_save',record(c,no,date,{TRANG_THAI_THAM_GIA:status}));assert.equal(x.ok,true,JSON.stringify(x.error));}
+  const range={from:'2026-07-01',to:'2026-07-30'},full={from:'2026-07-01',to:'2026-07-31'};
+  assert.equal(c.send('overview',range).data.kpi.total,3);
+  assert.equal(c.send('overview',full).data.kpi.total,4,'Cache khác khoảng ngày không được trộn');
+  assert.equal(c.send('overview',range).data.kpi.participated,1);
+  assert.equal(c.send('overview',{...full,status:'DA_THAM_GIA'}).data.kpi.total,2);
+  assert.equal(c.send('overview',{...range,status:'REPORT_PARTICIPATED_ALL'}).data.kpi.total,1);
+  assert.equal(c.send('report_matrix',{...range,groupBy:'truong'}).data.total,3);
+  assert.equal(c.send('report_matrix',{...range,groupBy:'nghe'}).data.items[0].total,3);
+  const exp=c.send('report_export',range).data;
+  assert.equal(exp.items.length,3);
+  assert.deepEqual(exp.items.map(r=>r[6]).sort(),['2026-07-01','2026-07-15','2026-07-30']);
+});
+
+test('YC019: API từ chối ngày không hợp lệ và Từ ngày sau Đến ngày',()=>{
+  const c=setupLive();
+  for(const pair of [
+    {from:'2026-02-30'}, {to:'2025-02-29'}, {from:'31/07/2026'}, {from:'2026-7-01'},
+    {from:'2026-08-01',to:'2026-07-31'}, {to:'ngay'}, {from:'2026-13-01'}
+  ])for(const action of ['records_list','overview','report_matrix','report_export']){
+    const payload=action==='report_matrix'?{...pair,groupBy:'truong'}:pair;
+    const out=c.send(action,payload);assert.equal(out.ok,false,action+JSON.stringify(pair));assert.equal(out.error.code,'VALIDATION');
+  }
+  assert.equal(c.send('records_list',{from:'2024-02-29',to:'2024-02-29'}).ok,true);
+});
+
+test('YC019: tài khoản trường chỉ được xem thống kê và hồ sơ đúng cơ sở trong khoảng lọc',()=>{
+  const c=setupLive(),xyz=catalog(c,'truong','CS002','Trường XYZ');
+  c.send('record_save',record(c,'801','2026-07-15'));
+  c.send('record_save',record(c,'802','2026-07-16',{TRUONG_ID:xyz.TRUONG_ID}));
+  const acc=c.send('account_save',{email:'school019@example.com',name:'Người dùng trường',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+  assert.equal(acc.ok,true);
+  const user={sub:'92345678901234567890',aud:audience,email:'school019@example.com'};
+  assert.equal(sendAs(c,user,'records_list',{from:'2026-07-01',to:'2026-07-31'}).data.total,1);
+  assert.equal(sendAs(c,user,'overview',{from:'2026-07-01',to:'2026-07-31'}).data.kpi.total,1);
+  assert.equal(sendAs(c,user,'records_list',{from:'2026-07-01',to:'2026-07-31',truong:xyz.TRUONG_ID}).data.total,0);
+  assert.equal(sendAs(c,user,'report_export',{from:'2026-07-01',to:'2026-07-31'}).error.code,'NO_PERMISSION');
+});

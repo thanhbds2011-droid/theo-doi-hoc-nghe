@@ -1,6 +1,6 @@
-# THEO DÕI HỌC NGHỀ — v1.2.5-RC (YC-HN-018 V3)
+# THEO DÕI HỌC NGHỀ — v1.2.6-RC (YC-HN-018 V3)
 
-Bản nâng cấp sau v1.2.4-RC. Xem `docs/YC-HN-018_V3_v1.2.5-RC_CHANGELOG_VA_HUONG_DAN.md` để biết thay đổi, giới hạn kiểm thử và quy trình staging/rollback. **Chưa tự triển khai production**.
+Bản nâng cấp sau v1.2.4-RC. Xem `docs/YC-HN-018_V3_v1.2.6-RC_CHANGELOG_VA_HUONG_DAN.md` để biết thay đổi, giới hạn kiểm thử và quy trình staging/rollback. **Chưa tự triển khai production**.
 
 ---
 

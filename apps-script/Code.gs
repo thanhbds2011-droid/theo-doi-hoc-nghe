@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.5-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.6-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.5-RC',
+  version: '1.2.6-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -537,6 +537,14 @@ function cachedRecordSnapshot_(){
   return rows;
 }
 function visibleRecords_(user){return cachedRecordSnapshot_().filter(function(r){return r.TRANG_THAI_HO_SO!=='DELETED' && ownsRecord_(user,r);});}
+// YC-HN-019: Chỉ chấp nhận ngày ISO hợp lệ, đầu mút có bao gồm ngày.
+function decisionRange_(p){
+  var from=str_(p.from,40).trim(),to=str_(p.to,40).trim();
+  if(from)must_(validDate_(from),'VALIDATION','Từ ngày ban hành quyết định không hợp lệ.');
+  if(to)must_(validDate_(to),'VALIDATION','Đến ngày ban hành quyết định không hợp lệ.');
+  must_(!from||!to||from<=to,'VALIDATION','Từ ngày không được sau Đến ngày.');
+  return {from:from,to:to};
+}
 function recordMatches_(r,p){
   if(p.year && String(r.NAM_QUYET_DINH)!==String(p.year))return false;
   if(p.truong && r.TRUONG_ID!==p.truong)return false;
@@ -546,8 +554,7 @@ function recordMatches_(r,p){
   if(p.status && p.status!=='BO_HOC' && p.status!=='DA_THAM_GIA' && r.TRANG_THAI_THAM_GIA!==p.status)return false;
   if(p.dropout==='yes' && !bool_(r.DA_BO_HOC))return false;
   if(p.dropout==='no' && bool_(r.DA_BO_HOC))return false;
-  if(p.from && r.NGAY_QUYET_DINH<p.from)return false;
-  if(p.to && r.NGAY_QUYET_DINH>p.to)return false;
+  if(p.from||p.to){var issued=String(r.NGAY_QUYET_DINH||'').slice(0,10);if(!validDate_(issued))return false;if(p.from && issued<p.from)return false;if(p.to && issued>p.to)return false;}
   if(p.query){var query=str_(p.query,140);if(/^\d+$/.test(query)){if(String(r.SO_QUYET_DINH).replace(/^0+(?=\d)/,'')!==query.replace(/^0+(?=\d)/,''))return false;}else if(norm_([r.HO_TEN,r.SO_QUYET_DINH,r.NGUOI_HOC_ID,r.HO_SO_ID].join(' ')).indexOf(norm_(query))<0)return false;}
   return true;
 }
@@ -611,18 +618,20 @@ function reportStatusValid_(status){
 function reportFilters_(p){
   var status=str_(p.status,80);
   must_(reportStatusValid_(status),'VALIDATION','Tình trạng báo cáo không hợp lệ.');
-  return {year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:status};
+  var period=decisionRange_(p);
+  return {year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:status,from:period.from,to:period.to};
 }
 function reportMatches_(r,p){
   if(p.status==='REPORT_PARTICIPATED_ALL')return r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA';
   return recordMatches_(r,p);
 }
 function reportRecords_(p,user){
-  var f=reportFilters_(p),basic={year:f.year,truong:f.truong,nghe:f.nghe};
+  var f=reportFilters_(p),basic={year:f.year,truong:f.truong,nghe:f.nghe,from:f.from,to:f.to};
   return filteredRecords_(basic,user).filter(function(r){return reportMatches_(r,f);});
 }
 function listRecords_(user,p){
-  var filters={year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:str_(p.status,40),dropout:str_(p.dropout,4),from:str_(p.from,10),to:str_(p.to,10),query:str_(p.query,140)};
+  var period=decisionRange_(p);
+  var filters={year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:str_(p.status,40),dropout:str_(p.dropout,4),from:period.from,to:period.to,query:str_(p.query,140)};
   var page=Math.min(Math.max(Number(p.page)||1,1),100000),size=Math.min(Math.max(Number(p.pageSize)||20,1),100);
   return cached_('RECORDS',[version_('DATA'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',version_('USERS'),filters,page,size],APP.cacheSeconds,function(){var all=/^\d+$/.test(filters.query)?exactDecisionRecords_(filters,user):filteredRecords_(filters,user);return {items:all.slice((page-1)*size,page*size).map(safeRecord_),total:all.length,page:page,pageSize:size};});
 }
@@ -909,7 +918,7 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
 
 function overview_(user,p){
   var filters=reportFilters_(p),year=filters.year,truong=filters.truong,nghe=filters.nghe;
-  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status],90,function(){
+  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to],90,function(){
     var all=reportRecords_(filters,user);
     var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0}, extras={notReceived:0,other:0}, schools={},trades={};
     all.forEach(function(r){

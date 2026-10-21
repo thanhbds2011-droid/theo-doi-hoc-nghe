@@ -1,5 +1,5 @@
 import {downloadReportXlsx} from './xlsx-export.js';
-/** THEO DÕI HỌC NGHỀ — v1.2.5-RC (YC-HN-018). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.6-RC (YC-HN-019). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -20,8 +20,8 @@ const RIGHTS = { RECORD_VIEW:'Xem hồ sơ', RECORD_CREATE:'Thêm hồ sơ', REC
 const NAMES = { truong:'Cơ sở đào tạo', nghe:'Nghề đào tạo', lydo:'Lý do bỏ học' };
 const state = {
   token:'', session:false, clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, statuses:[], page:'dashboard', routeVersion:0,
-  filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:''},
-  dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:''},
+  filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:'',from:'',to:''},
+  dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:'',from:'',to:''},
   records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
   cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:""
 };
@@ -182,6 +182,10 @@ const PAGE_AGE={dashboard:300000,records:300000,reports:300000,catalogs:300000,a
 function rememberPage(page){
   const main=$('#main');
   if(!main||state.renderedPage!==page||main.querySelector('.spinner')||(page==='records'&&state.recordLoading))return;
+  // Đồng bộ giá trị ĐANG HIỂN THỊ vào snapshot DOM (innerHTML thường giữ attribute ban đầu).
+  // Dùng cho ngày dd/mm/yyyy, từ khóa, năm và mọi select khi quay lại menu.
+  main.querySelectorAll('form[id$="-filters"] input').forEach(field=>{if(field.type!=='hidden')field.setAttribute('value',field.value);});
+  main.querySelectorAll('form[id$="-filters"] select').forEach(field=>{Array.from(field.options).forEach(option=>{if(option.selected)option.setAttribute('selected','');else option.removeAttribute('selected');});});
   state.pageViews.set(page,{html:main.innerHTML,at:Date.now(),dataAt:state.pageDataAt.get(page)||Date.now(),scope:permissionScope(),dataRevision:state.dataRevision});
   while(state.pageViews.size>6)state.pageViews.delete(state.pageViews.keys().next().value);
 }
@@ -255,22 +259,42 @@ function sel(name,items,selected='',empty='Tất cả',key='ID',value='TEN'){
 const schoolOpts= (s='',empty='Tất cả cơ sở',activeOnly=false) => isSchoolAccount()?`<input type="hidden" name="truong" value="${esc(state.user.TRUONG_ID)}"><select disabled><option>${esc(lookup('truong',state.user.TRUONG_ID))}</option></select>`:sel('truong',state.cats.truong.filter(x=>!activeOnly||x.TRANG_THAI==='ACTIVE'),s,empty,'TRUONG_ID','TEN_TRUONG');
 const tradeOpts= (s='',empty='Tất cả nghề',activeOnly=false) => sel('nghe',state.cats.nghe.filter(x=>!activeOnly||x.TRANG_THAI==='ACTIVE'),s,empty,'NGHE_ID','TEN_NGHE');
 function lookup(type,id){const def={truong:['TRUONG_ID','TEN_TRUONG'],nghe:['NGHE_ID','TEN_NGHE'],lydo:['LY_DO_ID','NOI_DUNG']}[type];let x=state.cats[type].find(r=>r[def[0]]===id);return x?.[def[1]] || 'Chưa có trong danh mục';}
+// YC-HN-019: Nhập ngày dd/mm/yyyy, gửi yyyy-mm-dd để so sánh không lệch múi giờ.
+function dateFilterToInput(value){const text=String(value||'');return /^\d{4}-\d{2}-\d{2}$/.test(text)?text.slice(8,10)+'/'+text.slice(5,7)+'/'+text.slice(0,4):text;}
+function dateFilterToISO(value,label){
+  const text=String(value||'').trim();if(!text)return '';
+  const parts=/^(\d{2})\/(\d{2})\/(\d{4})$/.exec(text);
+  if(!parts)throw Error(label+' phải có định dạng dd/mm/yyyy (ví dụ 01/07/2026).');
+  const day=Number(parts[1]),month=Number(parts[2]),year=Number(parts[3]);
+  const leap=year%4===0&&(year%100!==0||year%400===0);
+  const days=[31,leap?29:28,31,30,31,30,31,31,30,31,30,31];
+  if(year<1||month<1||month>12||day<1||day>days[month-1])throw Error(label+' không phải ngày hợp lệ.');
+  return `${parts[3]}-${parts[2]}-${parts[1]}`;
+}
+function readRangeFilters(form){
+  const data=getFormFields(form);data.from=dateFilterToISO(data.from,'Từ ngày');data.to=dateFilterToISO(data.to,'Đến ngày');
+  if(data.from&&data.to&&data.from>data.to)throw Error('Từ ngày không được sau Đến ngày.');
+  return data;
+}
+function dateFilterControls(filters){return `<div class="field"><label for="filter-from">Từ ngày</label><input id="filter-from" name="from" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" value="${esc(dateFilterToInput(filters.from))}" aria-describedby="filter-date-info"></div><div class="field"><label for="filter-to">Đến ngày</label><input id="filter-to" name="to" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" value="${esc(dateFilterToInput(filters.to))}" aria-describedby="filter-date-info"></div><p id="filter-date-info" class="filter-date-help">Lọc theo ngày ban hành quyết định học nghề, gồm cả ngày đầu và ngày cuối.</p>`;}
 function filterFields(filters,mode){return `<form class="card filter-grid ${mode==='dashboard'?'short':''}" id="${mode}-filters">
   <div class="field"><label>Năm quyết định</label><input type="number" min="1900" max="2200" name="year" placeholder="Tất cả các năm" value="${esc(filters.year||'')}"></div>
   <div class="field"><label>Cơ sở đào tạo</label>${schoolOpts(filters.truong)}</div>
   <div class="field"><label>Nghề đào tạo</label>${tradeOpts(filters.nghe)}</div>
   ${mode==='records'?`<div class="field"><label>Tình trạng</label><select name="status">${option('','Tất cả',filters.status)}${allStatusOptions().filter(([k])=>k!=='BO_HOC').concat([['BO_HOC','Bỏ học']]).map(([k,v])=>option(k,v,filters.status)).join('')}</select></div><div class="field"><label>Tìm người học / số QĐ</label><input name="query" value="${esc(filters.query||'')}" placeholder="Nhập từ khóa..."></div>`:''}
   ${mode==='reports'?`<div class="field"><label>Tình trạng</label><select name="status">${[['','Tất cả tình trạng'],['REPORT_PARTICIPATED_ALL','Đã tham gia'],['DA_THAM_GIA','Đang học'],['BO_HOC','Bỏ học'],['KHONG_THAM_GIA','Không tham gia'],['KHONG_NHAN_QUYET_DINH','Không nhận Quyết định'],['CHO_XAC_NHAN','Chưa xác nhận'],...state.statuses.map(x=>[x.id,x.label])].map(([k,v])=>option(k,v,filters.status||'')).join('')}</select></div>`:''}
+  ${mode==='records'||mode==='reports'?dateFilterControls(filters):''}
   <button class="btn btn-primary" type="submit">${iconSvg('filter',19)} Lọc dữ liệu</button></form>`;}
 function getFormFields(form){return Object.fromEntries(new FormData(form).entries());}
 // YC-HN-015: Chữ ký cố định cho bộ lọc, để quay về 'Tất cả' trúng cache cũ.
 function normalizeRecordFilters(input){
   const previous=state.filters;
-  return Object.fromEntries(['year','truong','nghe','status','dropout','from','to','query'].map(key=>[key,String(input[key]??(key==='dropout'||key==='from'||key==='to'?previous[key]||'':''))]));
+  return Object.fromEntries(['year','truong','nghe','status','dropout','from','to','query'].map(key=>[key,String(input[key]??(key==='dropout'?previous[key]||'':''))]));
 }
 // Không dựng lại form khi nhấn Lọc: draft ở DOM luôn thuộc quyền người đang nhập.
 async function applyRecordFilters(form, page=1){
-  const filters=normalizeRecordFilters(getFormFields(form));
+  let fields;try{fields=readRangeFilters(form);}catch(error){failure(error);return;}
+  const filters=normalizeRecordFilters(fields);
   const key=JSON.stringify({filters,page});
   if(state.recordLoading && state.activeRecordRequestKey===key)return;
   state.filters=filters;state.recordPage=page;state.pageViews.delete('records');
@@ -300,7 +324,7 @@ async function refreshRecordResults(message,key=''){
       if(table){table.removeAttribute('aria-busy');table.classList.remove('records-refreshing');}
       if(pages){pages.removeAttribute('aria-busy');pages.classList.remove('records-refreshing');}
       if(v===state.routeVersion&&!table?.classList.contains('records-failed')){
-        state.pageViews.set('records',{html:$('#main').innerHTML,at:Date.now(),scope:permissionScope()});
+        rememberPage('records');
       }
     }
   }
@@ -1055,7 +1079,7 @@ document.addEventListener('submit',e=>{
   if(formId==='report-export-form'){serialized(async()=>{const mode=form.elements.mode.value;if(mode==='list')await exportReport(state.reportFilters);else await exportSummaryOrMatrix(mode);closeModal();});return;}
   if(formId==='records-filters'){void applyRecordFilters(form,1);return;}
   if(formId==='dashboard-filters'){state.dashboardFilters=getFormFields(form);state.pageViews.delete('dashboard');navigate('dashboard',true);return;}
-  if(formId==='reports-filters'){state.reportFilters=getFormFields(form);state.pageViews.delete('reports');navigate('reports',true);return;}
+  if(formId==='reports-filters'){let filters;try{filters=readRangeFilters(form);}catch(error){failure(error);return;}state.reportFilters=filters;state.pageViews.delete('reports');navigate('reports',true);return;}
   if(formId==='bulk-record-form'){serialized(importBulkRecords);return;}
   if(formId==='status-bulk-form'){serialized(statusBulkApply,{button:form.querySelector('[data-submit-btn]'),label:'Đang cập nhật...'});return;}
   if(formId==='record-form'){serialized(async()=>{let p=recordPayload(form);const d=await rpc('record_save',p,{mutate:true});notify('Đã lưu hồ sơ '+d.record.SO_QUYET_DINH+'/'+d.record.NAM_QUYET_DINH);await afterMutation('records');});return;}

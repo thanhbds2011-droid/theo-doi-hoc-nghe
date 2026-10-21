@@ -298,3 +298,13 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 
 /* YC-HN-016: trạng thái trường phụ thuộc chỉ hiển thị khi chọn Bỏ học. */
 .status-bulk-dropout[hidden]{display:none!important}
+
+/* YC-HN-019: hai đầu mút ngày QĐHN, không nén ngang hoặc đổi giao diện Tổng quan. */
+.filter-grid#records-filters,.filter-grid#reports-filters{grid-template-columns:repeat(4,minmax(0,1fr))}
+.filter-date-help{grid-column:1/-1;margin:-3px 0 0;color:var(--muted);font-size:11px;line-height:1.4}
+.filter-grid#records-filters>.btn,.filter-grid#reports-filters>.btn{min-width:0}
+@media(max-width:1200px){.filter-grid#records-filters,.filter-grid#reports-filters{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:850px){.filter-grid#records-filters,.filter-grid#reports-filters{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:600px){.filter-grid#records-filters,.filter-grid#reports-filters{grid-template-columns:1fr}}
+
+.filter-grid#records-filters .filter-date-help,.filter-grid#reports-filters .filter-date-help{order:20}
