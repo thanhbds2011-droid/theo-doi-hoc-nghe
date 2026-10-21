@@ -8,7 +8,7 @@ html=re.sub(r'<meta http-equiv="Content-Security-Policy"[^>]+>','',html)
 html=html.replace('<link rel="stylesheet" href="/styles.css"/>','<style>'+(root/'public/styles.css').read_text()+'</style>')
 html=html.replace('<script src="https://accounts.google.com/gsi/client" async defer></script>','')
 html=html.replace('<script type="module" src="/app.js"></script>','')
-source=(root/'public/app.js').read_text().replace("import {downloadReportXlsx} from './xlsx-export.js';",'')
+source=(root/'public/app.js').read_text().replace("import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js';",'')
 source=re.sub(r'export const tests = \{[^;]+;', '',source)
 errors=[]
 with sync_playwright() as p:
@@ -36,8 +36,8 @@ with sync_playwright() as p:
  page.wait_for_selector('.kpi',timeout=15000)
  assert page.locator('#dashboard-filters [name="from"]').count()==0
  page.locator('[data-nav="records"]').click();page.wait_for_selector('#list-output table')
- page.locator('#records-filters [name="from"]').fill('01/07/2026')
- page.locator('#records-filters [name="to"]').fill('31/07/2026')
+ page.locator('#records-filters [name="from"]').click();page.locator('[data-calendar-year]').select_option('2026');page.locator('[data-calendar-month]').select_option('7');page.locator('[data-calendar-day="1"]').click()
+ page.locator('#records-filters [name="to"]').click();page.locator('[data-calendar-year]').select_option('2026');page.locator('[data-calendar-month]').select_option('7');page.locator('[data-calendar-day="31"]').click()
  page.locator('#records-filters [name="query"]').fill('6273')
  page.locator('#records-filters button[type="submit"]').click()
  page.wait_for_function('window.requests.some(r=>r.action==="records_list" && r.payload.from==="2026-07-01")')
@@ -45,16 +45,16 @@ with sync_playwright() as p:
  assert page.locator('#records-filters [name="query"]').input_value()=='6273'
  records=page.evaluate('window.requests.filter(r=>r.action==="records_list").at(-1).payload')
  assert records['to']=='2026-07-31' and records['query']=='6273',records
- page.locator('#records-filters [name="to"]').fill('31/02/2026')
+ page.evaluate('''() => {document.querySelector('#records-filters [name="to"]').value='31/02/2026'}''')
  before=page.evaluate('window.requests.length')
  page.locator('#records-filters button[type="submit"]').click()
  assert page.evaluate('window.requests.length')==before,'Ngày sai không gửi API'
- page.locator('#records-filters [name="to"]').fill('')
+ page.locator('#records-filters [name="to"]').click();page.locator('[data-calendar-clear]').click()
  page.locator('#records-filters button[type="submit"]').click()
  page.wait_for_function('window.requests.some(r=>r.action==="records_list" && r.payload.from==="2026-07-01" && r.payload.to==="")')
  page.locator('[data-nav="reports"]').click();page.wait_for_selector('#report-output table')
- page.locator('#reports-filters [name="from"]').fill('01/07/2026')
- page.locator('#reports-filters [name="to"]').fill('31/07/2026')
+ page.locator('#reports-filters [name="from"]').click();page.locator('[data-calendar-year]').select_option('2026');page.locator('[data-calendar-month]').select_option('7');page.locator('[data-calendar-day="1"]').click()
+ page.locator('#reports-filters [name="to"]').click();page.locator('[data-calendar-year]').select_option('2026');page.locator('[data-calendar-month]').select_option('7');page.locator('[data-calendar-day="31"]').click()
  page.locator('#reports-filters button[type="submit"]').click()
  page.wait_for_function('window.requests.some(r=>r.action==="overview" && r.payload.from==="2026-07-01")')
  page.wait_for_selector('#report-output table')

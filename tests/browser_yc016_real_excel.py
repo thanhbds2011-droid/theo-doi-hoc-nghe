@@ -8,7 +8,7 @@ html=re.sub(r'<meta http-equiv="Content-Security-Policy"[^>]+>', '', html)
 html=html.replace('<script src="https://accounts.google.com/gsi/client" async defer></script>','')
 html=html.replace('<script type="module" src="/app.js"></script>','')
 html=html.replace('<link rel="stylesheet" href="/styles.css"/>','<style>'+(root/'public/styles.css').read_text()+'</style>')
-src=(root/'public/app.js').read_text().replace("import {downloadReportXlsx} from './xlsx-export.js';",'')
+src=(root/'public/app.js').read_text().replace("import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js';",'')
 src=re.sub(r'export const tests = \{[^;]+;', '',src)
 wb=next(Path('/mnt/data').glob('Danh s*.xlsx'))
 with sync_playwright() as p:

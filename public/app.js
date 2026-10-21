@@ -1,5 +1,5 @@
-import {downloadReportXlsx} from './xlsx-export.js';
-/** THEO DÕI HỌC NGHỀ — v1.2.6-RC (YC-HN-019). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js';
+/** THEO DÕI HỌC NGHỀ — v1.2.7-RC (YC-HN-020). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -150,6 +150,7 @@ function activateSession(data){
 function signOut(){if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
 // YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
 const ICON_PATHS={
+  'calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
   'house':'<path d="m3 10 9-7 9 7"/><path d="M5 9v12h14V9"/><path d="M9 21v-8h6v8"/>',
   'file-text':'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',
   'chart-column':'<path d="M3 21h18"/><rect x="5" y="12" width="4" height="9" rx=".5"/><rect x="11" y="7" width="4" height="14" rx=".5"/><rect x="17" y="3" width="4" height="18" rx=".5"/>',
@@ -276,7 +277,58 @@ function readRangeFilters(form){
   if(data.from&&data.to&&data.from>data.to)throw Error('Từ ngày không được sau Đến ngày.');
   return data;
 }
-function dateFilterControls(filters){return `<div class="field"><label for="filter-from">Từ ngày</label><input id="filter-from" name="from" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" value="${esc(dateFilterToInput(filters.from))}" aria-describedby="filter-date-info"></div><div class="field"><label for="filter-to">Đến ngày</label><input id="filter-to" name="to" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" value="${esc(dateFilterToInput(filters.to))}" aria-describedby="filter-date-info"></div><p id="filter-date-info" class="filter-date-help">Lọc theo ngày ban hành quyết định học nghề, gồm cả ngày đầu và ngày cuối.</p>`;}
+function dateFilterControls(filters){return ['from','to'].map((which)=>{
+  const label=which==='from'?'Từ ngày':'Đến ngày';
+  const value=dateFilterToInput(filters[which]);
+  return `<div class="field calendar-field"><label for="filter-${which}">${label}</label><div class="calendar-input-wrap"><input id="filter-${which}" class="calendar-date-input" name="${which}" value="${esc(value)}" placeholder="dd/mm/yyyy" readonly autocomplete="off" aria-haspopup="dialog" aria-label="${label} ban hành quyết định, chỉ chọn từ lịch" aria-describedby="filter-date-info"><button type="button" class="calendar-open-btn" data-calendar-open="${which}" aria-label="Mở lịch ${label}">${iconSvg('calendar',18)}</button></div></div>`;
+}).join('')+'<p id="filter-date-info" class="filter-date-help">Lọc theo ngày ban hành quyết định học nghề, gồm cả ngày đầu và ngày cuối. Chọn trên lịch, có thể xóa ngày.</p>';}
+// YC-HN-020: popup lịch độc lập với HTML snapshot, không bao giờ dùng nhập ngày tùy ý.
+const CALENDAR_MONTHS=['Tháng Một','Tháng Hai','Tháng Ba','Tháng Tư','Tháng Năm','Tháng Sáu','Tháng Bảy','Tháng Tám','Tháng Chín','Tháng Mười','Tháng Mười Một','Tháng Mười Hai'];
+const CALENDAR_DAYS=['T2','T3','T4','T5','T6','T7','CN'];
+let activeCalendar=null;
+function calendarISO(y,m,d){return `${String(y).padStart(4,'0')}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;}
+function closeCalendar(returnFocus=false){
+  const input=activeCalendar?.input;document.getElementById('hn-date-calendar')?.remove();activeCalendar=null;
+  if(returnFocus&&input?.isConnected)input.focus();
+}
+function calendarPosition(){
+  const popup=document.getElementById('hn-date-calendar'),input=activeCalendar?.input;
+  if(!popup||!input?.isConnected){closeCalendar();return;}
+  const bounds=input.getBoundingClientRect(),space=8;
+  const width=Math.min(330,innerWidth-2*space),height=popup.offsetHeight;
+  const left=Math.max(space,Math.min(bounds.left,innerWidth-width-space));
+  const below=bounds.bottom+height+space<=innerHeight;
+  const top=below?bounds.bottom+5:Math.max(space,bounds.top-height-5);
+  popup.style.width=width+'px';popup.style.left=left+'px';popup.style.top=top+'px';
+}
+function renderCalendar(focusDay=false){
+  const cal=activeCalendar;if(!cal)return;
+  const {year,month}=cal,first=new Date(year,month-1,1),offset=(first.getDay()+6)%7;
+  const count=new Date(year,month,0).getDate(),today=new Date();
+  const todayISO=calendarISO(today.getFullYear(),today.getMonth()+1,today.getDate());
+  let selected='';try{selected=cal.input.value?dateFilterToISO(cal.input.value,'Ngày'):'';}catch{selected='';}
+  const weekdays=CALENDAR_DAYS.map(x=>`<span class="calendar-weekday">${x}</span>`).join('');
+  const cells=Array.from({length:offset},()=>'<span aria-hidden="true"></span>').join('')+
+    Array.from({length:count},(_,index)=>{const day=index+1,iso=calendarISO(year,month,day);return `<button type="button" class="calendar-day${iso===selected?' selected':''}${iso===todayISO?' today':''}" data-calendar-day="${day}" aria-label="Ngày ${day} tháng ${month} năm ${year}" aria-pressed="${iso===selected}">${day}</button>`;}).join('');
+  const years=Array.from({length:301},(_,i)=>1900+i).map(y=>`<option value="${y}" ${y===year?'selected':''}>${y}</option>`).join('');
+  const months=CALENDAR_MONTHS.map((name,i)=>`<option value="${i+1}" ${month===i+1?'selected':''}>${name}</option>`).join('');
+  const popup=document.getElementById('hn-date-calendar');if(!popup)return;
+  popup.innerHTML=`<div class="calendar-controls"><button type="button" class="calendar-step" data-calendar-step="-1" aria-label="Tháng trước">‹</button><select data-calendar-month aria-label="Chọn tháng">${months}</select><select data-calendar-year aria-label="Chọn năm">${years}</select><button type="button" class="calendar-step" data-calendar-step="1" aria-label="Tháng tiếp theo">›</button></div><div class="calendar-days" role="grid" aria-label="Lịch ${CALENDAR_MONTHS[month-1]} năm ${year}">${weekdays}${cells}</div><div class="calendar-footer"><button type="button" data-calendar-clear>Xóa ngày</button><button type="button" data-calendar-today>Hôm nay</button></div>`;
+  calendarPosition();if(focusDay)popup.querySelector('.calendar-day.selected,.calendar-day.today,.calendar-day')?.focus();
+}
+function openCalendar(input){
+  if(!input?.closest('#records-filters,#reports-filters'))return;
+  if(activeCalendar?.input===input){closeCalendar();return;}
+  closeCalendar();let chosen='';try{chosen=dateFilterToISO(input.value,'Ngày');}catch{}
+  const today=new Date();activeCalendar={input,year:chosen?Number(chosen.slice(0,4)):today.getFullYear(),month:chosen?Number(chosen.slice(5,7)):today.getMonth()+1};
+  const popup=document.createElement('div');popup.id='hn-date-calendar';popup.className='hn-date-calendar';popup.setAttribute('role','dialog');popup.setAttribute('aria-modal','false');popup.setAttribute('aria-label','Chọn ngày ban hành quyết định');document.body.append(popup);
+  renderCalendar();popup.querySelector('[data-calendar-month]')?.focus();
+}
+function pickCalendar(iso){
+  const input=activeCalendar?.input;if(!input)return;
+  input.value=dateFilterToInput(iso);input.dispatchEvent(new Event('change',{bubbles:true}));closeCalendar(true);
+}
+function calendarStep(delta){const a=activeCalendar;if(!a)return;const when=new Date(a.year,a.month-1+delta,1);a.year=when.getFullYear();a.month=when.getMonth()+1;renderCalendar();}
 function filterFields(filters,mode){return `<form class="card filter-grid ${mode==='dashboard'?'short':''}" id="${mode}-filters">
   <div class="field"><label>Năm quyết định</label><input type="number" min="1900" max="2200" name="year" placeholder="Tất cả các năm" value="${esc(filters.year||'')}"></div>
   <div class="field"><label>Cơ sở đào tạo</label>${schoolOpts(filters.truong)}</div>
@@ -894,23 +946,7 @@ async function afterMutation(page=state.page){closeModal();
 }
 function csvCell(x){const str=String(x??'');const secure=/^[\s]*[=+\-@\t\r]/.test(str)?"'"+str:str;return '"'+secure.replace(/"/g,'""')+'"';}
 function downloadCsv(name,rows){const csv='\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
-// YC-HN-011: xuất XLSX thực sự từ 25 cột Excel, không đẩy dữ liệu sang bên thứ ba.
-function downloadRecordXlsx(name,rows){
-  const encoder=new TextEncoder(),xmlEsc=x=>String(x??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;');
-  const cols=Array.from({length:25},(_,i)=>String.fromCharCode(65+i));
-  const cells=rows.map((r,i)=>`<row r="${i+1}">${r.slice(0,25).map((v,j)=>`<c r="${cols[j]}${i+1}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`).join('')}</row>`).join('');
-  const sheet=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>${cells}</sheetData><mergeCells count="1"><mergeCell ref="M1:N1"/></mergeCells></worksheet>`;
-  const files=[['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'],['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],['xl/workbook.xml','<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="Danh sách" sheetId="1" r:id="rId1"/></sheets></workbook>'],['xl/_rels/workbook.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'],['xl/worksheets/sheet1.xml',sheet]];
-  const w16=(a,o,n)=>{a[o]=n&255;a[o+1]=(n>>>8)&255;},w32=(a,o,n)=>{w16(a,o,n);w16(a,o+2,n>>>16);};
-  let chunks=[],central=[],offset=0;const crc=data=>{let c=0xffffffff;for(const b of data){c^=b;for(let j=0;j<8;j++)c=(c>>>1)^((c&1)?0xedb88320:0);}return (c^0xffffffff)>>>0;};
-  for(const [path,content] of files){const fn=encoder.encode(path),data=encoder.encode(content),checksum=crc(data),h=new Uint8Array(30+fn.length),d=new Uint8Array(46+fn.length);
-    w32(h,0,0x04034b50);w16(h,4,20);w32(h,14,checksum);w32(h,18,data.length);w32(h,22,data.length);w16(h,26,fn.length);h.set(fn,30);
-    w32(d,0,0x02014b50);w16(d,4,20);w16(d,6,20);w32(d,16,checksum);w32(d,20,data.length);w32(d,24,data.length);w16(d,28,fn.length);w32(d,42,offset);d.set(fn,46);
-    chunks.push(h,data);central.push(d);offset+=h.length+data.length;}
-  const csize=central.reduce((n,b)=>n+b.length,0),tail=new Uint8Array(22);w32(tail,0,0x06054b50);w16(tail,8,files.length);w16(tail,10,files.length);w32(tail,12,csize);w32(tail,16,offset);
-  const blob=new Blob([...chunks,...central,tail],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),10000);
-}
-async function exportReport(filters){const d=await rpc('report_export',filters,{ttl:30000});const firstHeader=[...d.columns];firstHeader[12]='Thời gian đào tạo';firstHeader[13]='';const secondHeader=Array(25).fill('');secondHeader[12]='Từ ngày';secondHeader[13]='Đến ngày';downloadRecordXlsx('danh-sach-hoc-nghe-'+new Date().toISOString().slice(0,10)+'.xlsx',[firstHeader,secondHeader,...d.items]);notify('Đã xuất Excel '+num(d.items.length)+' hồ sơ.');}
+async function exportReport(filters){const d=await rpc('report_export',filters,{ttl:30000});const firstHeader=[...d.columns];firstHeader[12]='Thời gian đào tạo';firstHeader[13]='';const secondHeader=Array(25).fill('');secondHeader[12]='Từ ngày';secondHeader[13]='Đến ngày';downloadXlsx('danh-sach-hoc-nghe-'+new Date().toISOString().slice(0,10)+'.xlsx',[firstHeader,secondHeader,...d.items]);notify('Đã xuất Excel '+num(d.items.length)+' hồ sơ.');}
 
 function exportModal(){showModal('Xuất Excel báo cáo học nghề',`<form id="report-export-form" class="form-grid"><div class="field full"><label>Mẫu Excel cần xuất</label><select name="mode"><option value="list">Danh sách hồ sơ học nghề (25 cột)</option><option value="summary">Báo cáo tổng hợp (Chỉ tiêu / Số lượng)</option><option value="truong">Báo cáo theo cơ sở đào tạo</option><option value="nghe">Báo cáo theo nghề đào tạo</option></select></div>${modalFoot('Xuất Excel')}</form>`);}
 async function exportSummaryOrMatrix(mode){
@@ -973,6 +1009,41 @@ const serialized=async(fn,progress={})=>{
   }
 };
 // Delegated buttons: no inline user-controlled event handlers.
+// YC-HN-020: lịch dùng event delegation; không bị mất handler khi chuyển menu.
+document.addEventListener('click',e=>{
+  const el=e.target.closest('button,.calendar-date-input');
+  if(el?.matches('.calendar-date-input,[data-calendar-open]')){
+    e.preventDefault();const input=el.matches('input')?el:el.closest('.calendar-field')?.querySelector('.calendar-date-input');openCalendar(input);return;
+  }
+  if(!activeCalendar)return;
+  if(!e.target.closest('#hn-date-calendar')){closeCalendar();return;}
+  const action=e.target.closest('button');if(!action)return;
+  if(action.hasAttribute('data-calendar-day')){pickCalendar(calendarISO(activeCalendar.year,activeCalendar.month,Number(action.dataset.calendarDay)));return;}
+  if(action.hasAttribute('data-calendar-step')){calendarStep(Number(action.dataset.calendarStep));return;}
+  if(action.hasAttribute('data-calendar-clear')){pickCalendar('');return;}
+  if(action.hasAttribute('data-calendar-today')){const d=new Date();pickCalendar(calendarISO(d.getFullYear(),d.getMonth()+1,d.getDate()));}
+});
+document.addEventListener('change',e=>{
+  if(!activeCalendar||!e.target.closest('#hn-date-calendar'))return;
+  const selector=e.target.matches('[data-calendar-month]')?'[data-calendar-month]':'[data-calendar-year]';
+  if(e.target.matches('[data-calendar-month]'))activeCalendar.month=Number(e.target.value);
+  if(e.target.matches('[data-calendar-year]'))activeCalendar.year=Number(e.target.value);
+  renderCalendar();document.querySelector('#hn-date-calendar '+selector)?.focus();
+});
+document.addEventListener('keydown',e=>{
+  if(!activeCalendar)return;
+  if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();closeCalendar(true);return;}
+  if(e.key==='Tab'&&!e.target.closest('#hn-date-calendar'))closeCalendar();
+  if(e.target.matches('.calendar-day')&&['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)){
+    e.preventDefault();const day=Number(e.target.dataset.calendarDay),step={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7}[e.key];
+    const d=new Date(activeCalendar.year,activeCalendar.month-1,day+step);
+    activeCalendar.year=d.getFullYear();activeCalendar.month=d.getMonth()+1;renderCalendar();
+    document.querySelector(`[data-calendar-day="${d.getDate()}"]`)?.focus();
+  }
+},true);
+document.addEventListener('focusin',e=>{if(activeCalendar&&!e.target.closest?.('#hn-date-calendar')&&e.target!==activeCalendar.input&&!e.target.closest?.('.calendar-input-wrap'))closeCalendar();});
+window.addEventListener('resize',()=>{if(activeCalendar)calendarPosition();});
+window.addEventListener('scroll',()=>{if(activeCalendar)calendarPosition();},true);
 document.addEventListener('click',async e=>{
   const node=e.target.closest('button');if(!node)return;
   if(node.hasAttribute('data-close')){if(!state.busy)closeModal();return;}

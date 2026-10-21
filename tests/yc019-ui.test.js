@@ -10,7 +10,7 @@ vm.createContext(ctx);vm.runInContext(fragment,ctx);
 
 test('YC019: hiển thị trường ngày trong Hồ sơ và Báo cáo, không ở Tổng quan',()=>{
   const rec=ctx.filterFields({from:'2026-07-01',to:'2026-07-31'},'records');
-  assert.match(rec,/name="from"/);assert.match(rec,/name="to"/);assert.match(rec,/value="01\/07\/2026"/);
+  assert.match(rec,/name="from"/);assert.match(rec,/name="to"/);assert.match(rec,/readonly/);assert.match(rec,/value="01\/07\/2026"/);
   assert.match(rec,/value="31\/07\/2026"/);assert.match(rec,/ngày ban hành quyết định học nghề/);
   const rep=ctx.filterFields({from:'',to:''},'reports');assert.match(rep,/name="from"/);assert.match(rep,/name="to"/);
   const dash=ctx.filterFields({},'dashboard');assert.doesNotMatch(dash,/name="from"/);
