@@ -9,7 +9,7 @@ test('YC020: lịch dạng chỉ chọn, có năm tháng ngày, xóa ngày, hỗ
  assert.match(css,/\.hn-date-calendar/);assert.match(app,/calendarISO/);
  assert.match(app,/filter-date-info/);assert.match(app,/dateFilterToISO\(data\.from/);
 });
-test('YC020: xuất 25 cột, ngày số Excel, giới tính có dấu, style căn phải B O',async()=>{
+test('YC020: xuất 25 cột, ngày số Excel, giới tính có dấu, style căn trái B O theo mẫu YC021',async()=>{
  const head=Array.from({length:25},(_,i)=>'Cột '+(i+1));head[12]='Thời gian đào tạo';head[13]='';
  const two=Array(25).fill('');two[12]='Từ ngày';two[13]='Đến ngày';
  const row=Array(25).fill('');row[1]='Bùi Thị Huỳnh Như';row[2]='1997-09-17';row[3]='NU';row[4]='001234';row[6]='2026-10-13';row[14]='Cơ sở đào tạo nghề ABC';
@@ -21,7 +21,7 @@ test('YC020: xuất 25 cột, ngày số Excel, giới tính có dấu, style c�
  assert.match(raw,/<c r="G3" s="3"><v>\d+<\/v><\/c>/);
  assert.match(raw,/<c r="D3" s="0" t="inlineStr"><is><t xml:space="preserve">Nữ<\/t>/);
  assert.match(raw,/001234/);
- assert.match(raw,/horizontal="right" vertical="center" wrapText="1" indent="1"/);
+ assert.match(raw,/horizontal="left" vertical="center" wrapText="1"/);
  assert.match(raw,/horizontal="center" vertical="center" wrapText="1"/);
 });
 test('YC020: 5000 hồ sơ vẫn đủ dòng, ngày không hợp lệ giữ nguyên không đổi bừa',async()=>{

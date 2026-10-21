@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.7-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.8-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.7-RC',
+  version: '1.2.8-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -625,9 +625,11 @@ function reportMatches_(r,p){
   if(p.status==='REPORT_PARTICIPATED_ALL')return r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA';
   return recordMatches_(r,p);
 }
-function reportRecords_(p,user){
+function reportRecords_(p,user,sorted){
   var f=reportFilters_(p),basic={year:f.year,truong:f.truong,nghe:f.nghe,from:f.from,to:f.to};
-  return filteredRecords_(basic,user).filter(function(r){return reportMatches_(r,f);});
+  // Aggregates do not need a 3,000-row sort. Exports retain the established sort.
+  var source=sorted===false?visibleRecords_(user).filter(function(r){return recordMatches_(r,basic);}):filteredRecords_(basic,user);
+  return source.filter(function(r){return reportMatches_(r,f);});
 }
 function listRecords_(user,p){
   var period=decisionRange_(p);
@@ -919,7 +921,7 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
 function overview_(user,p){
   var filters=reportFilters_(p),year=filters.year,truong=filters.truong,nghe=filters.nghe;
   return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to],90,function(){
-    var all=reportRecords_(filters,user);
+    var all=reportRecords_(filters,user,false);
     var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0}, extras={notReceived:0,other:0}, schools={},trades={};
     all.forEach(function(r){
       if(r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA'){k.participated++; if(bool_(r.DA_BO_HOC))k.dropout++;else k.learning++;}
@@ -937,7 +939,7 @@ function reportMatrix_(user,p){
   must_(user.VAI_TRO==='ADMIN','NO_PERMISSION','Chỉ Quản trị viên được xuất Excel.');
   var by=str_(p.groupBy,20);
   must_(by==='truong'||by==='nghe','VALIDATION','Vui lòng chọn mẫu báo cáo theo cơ sở hoặc theo nghề.');
-  var rows=reportRecords_(p,user),key=by==='truong'?'TRUONG_ID':'NGHE_ID',groups={};
+  var rows=reportRecords_(p,user,false),key=by==='truong'?'TRUONG_ID':'NGHE_ID',groups={};
   rows.forEach(function(r){
     var id=r[key]||'UNKNOWN',g=groups[id]||(groups[id]={id:id,total:0,learning:0,dropout:0,notParticipating:0,notReceived:0,pending:0,other:0});
     g.total++;

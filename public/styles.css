@@ -327,3 +327,11 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 .calendar-footer{display:flex;justify-content:space-between;margin-top:11px;padding-top:8px;border-top:1px solid #e1ebf6;gap:8px}
 .calendar-footer button{border:0;background:#eff6ff;border-radius:7px;padding:8px 13px;color:#125e9e;font-weight:600;cursor:pointer}
 @media(max-width:600px){.hn-date-calendar{padding:9px}.calendar-day{min-height:33px}}
+
+/* YC-HN-021 V4: compact record action icons only; other buttons unchanged. */
+.table-actions.record-actions{display:flex;align-items:center;justify-content:center;gap:5px;flex-wrap:nowrap;min-width:max-content}
+.table-actions.record-actions .record-icon-btn{width:37px;height:37px;min-height:37px;padding:0;display:inline-flex;align-items:center;justify-content:center;flex:0 0 37px}
+.table-actions.record-actions .record-icon-btn:focus-visible{outline:2px solid #146dcc;outline-offset:2px}
+.table-actions.record-actions .record-icon-btn svg{pointer-events:none}
+@media (pointer:coarse){.table-actions.record-actions .record-icon-btn{width:44px;height:44px;min-height:44px;flex-basis:44px}}
+.route-check{padding:16px;min-height:56px}
