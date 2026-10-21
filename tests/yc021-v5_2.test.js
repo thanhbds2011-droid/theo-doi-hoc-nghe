@@ -12,8 +12,8 @@ function rowHeight(raw,r){
 test('YC021 V5.2: mẫu đã CHỐT căn trái B/J/O/V/W, R và các cột khác center/middle',async()=>{
  const row=sample();for(const i of [1,9,14,17,21,22])row[i]=`Dữ liệu cột ${i}`;
  const raw=Buffer.from(await buildXlsx([header,row]).arrayBuffer()).toString('utf8');
- for(const col of ['B','J','O','V','W'])assert.match(raw,new RegExp(`<c r="${col}3" s="2"`),col);
- for(const col of ['A','R','S','D','X','Y'])assert.match(raw,new RegExp(`<c r="${col}3" s="0"`),col);
+ for(const col of ['B','J','O','V','W'])assert.match(raw,new RegExp(`<c r="${col}3" s="3"`),col);
+ for(const col of ['A','R','S','D','X','Y'])assert.match(raw,new RegExp(`<c r="${col}3" s="1"`),col);
  assert.match(raw,/horizontal="left" vertical="center" wrapText="1"/);
  assert.match(raw,/horizontal="center" vertical="center" wrapText="1"/);
 });
@@ -35,6 +35,6 @@ test('YC021 V5.2: chữ nhiều dòng giữ nguyên, không mất giới tính h
  const row=sample();row[1]='Người học\nTên trên dòng khác';row[2]='2026-10-21';row[3]='NU';row[4]='0012553';
  const raw=Buffer.from(await buildXlsx([header,row]).arrayBuffer()).toString('utf8');
  assert.match(raw,/Người học\nTên trên dòng khác/);assert.match(raw,/dd\/mm\/yyyy/);
- assert.match(raw,/<c r="C3" s="3"><v>\d+<\/v><\/c>/);
+ assert.match(raw,/<c r="C3" s="4"><v>\d+<\/v><\/c>/);
  assert.match(raw,/Nữ/);assert.match(raw,/0012553/);
 });

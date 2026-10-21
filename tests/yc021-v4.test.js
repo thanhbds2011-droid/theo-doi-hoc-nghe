@@ -30,10 +30,10 @@ test('YC021 V5.2: final approved Excel sample overrides V5.1; B/J/O/V/W left, R/
   const row=Array.from({length:25},()=> '');row[1]='Tên người học';row[14]='Cơ sở đào tạo có tên rất dài và có dấu tiếng Việt';
   row[9]='Nghề đào tạo';row[17]='Địa chỉ học nghề';row[3]='NU';row[6]='2026-10-21';
   const bytes=Buffer.from(await buildXlsx([head,row]).arrayBuffer()).toString('utf8');
-  for(const col of ['B','J','O','V','W'])assert.match(bytes,new RegExp(`<c r="${col}3" s="2"`));
-  for(const col of ['R','S'])assert.match(bytes,new RegExp(`<c r="${col}3" s="0"`));
+  for(const col of ['B','J','O','V','W'])assert.match(bytes,new RegExp(`<c r="${col}3" s="3"`));
+  for(const col of ['R','S'])assert.match(bytes,new RegExp(`<c r="${col}3" s="1"`));
   assert.match(bytes,/horizontal="left" vertical="center" wrapText="1"/);
   assert.match(bytes,/horizontal="center" vertical="center" wrapText="1"/);
-  assert.match(bytes,/<c r="G3" s="3"><v>\d+<\/v>/);
+  assert.match(bytes,/<c r="G3" s="4"><v>\d+<\/v>/);
   assert.match(bytes,/>Nữ<\/t>/);
 });

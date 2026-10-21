@@ -1,3 +1,5 @@
+> **HOTFIX v1.2.11-RC**: Đặt style 0 XLSX thành mặc định trung tính; tất cả ô dữ liệu có style riêng khác 0 để giữ căn ngang/dọc, Wrap Text, viền sau khi mở/lưu trên công cụ văn phòng. Có cache busting cho app.js và xlsx-export.js. Chỉ sửa frontend, không cần triển khai Apps Script. Xem `docs/YC-HN-021_V5_2_HOTFIX_XLSX_STYLE.md`.
+
 > **MỚI NHẤT — v1.2.10-RC / YC-HN-021 V5.2**: Xuất Excel danh sách 25 cột đúng theo file mẫu đã nghiệm thu: B/J/O/V/W căn trái, các cột khác căn giữa; chiều cao hàng gọn và tự tăng khi Wrap Text. Hướng dẫn tại `docs/YC-HN-021_V5_2_HUONG_DAN_VA_KIEM_THU.md`. Không thay đổi nghiệp vụ hoặc dữ liệu trên Google Sheets.
 
 # THEO DÕI HỌC NGHỀ — v1.2.9-RC (YC-HN-021 V5.1)

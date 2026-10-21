@@ -28,11 +28,11 @@ test('YC021 V5.2: XLSX 25 columns, left B/J/O/V/W, center R and remaining column
   const row=Array.from({length:25},(_,i)=>`Value ${i}`);
   row[1]='Tên người học dài';row[9]='Nghề';row[14]='Cơ sở đào tạo dài';row[17]='Địa chỉ dài';row[3]='NU';row[2]='2026-10-21';
   const raw=Buffer.from(await buildXlsx([head,row]).arrayBuffer()).toString('utf8');
-  for(const col of ['B','J','O','V','W'])assert.match(raw,new RegExp(`<c r="${col}3" s="2"`),col);
-  for(const col of ['A','D','E','F','H','K','L','R','S','T','X','Y'])assert.match(raw,new RegExp(`<c r="${col}3" s="0"`),col);
+  for(const col of ['B','J','O','V','W'])assert.match(raw,new RegExp(`<c r="${col}3" s="3"`),col);
+  for(const col of ['A','D','E','F','H','K','L','R','S','T','X','Y'])assert.match(raw,new RegExp(`<c r="${col}3" s="1"`),col);
   for(const col of ['C','G','I','M','N','P','Q','U']){
-    if(col==='C')assert.match(raw,/<c r="C3" s="3"><v>\d+<\/v><\/c>/);
-    else assert.match(raw,new RegExp(`<c r="${col}3" s="0"`),col);
+    if(col==='C')assert.match(raw,/<c r="C3" s="4"><v>\d+<\/v><\/c>/);
+    else assert.match(raw,new RegExp(`<c r="${col}3" s="1"`),col);
   }
   assert.match(raw,/<mergeCell ref="M1:N1"\/>/);
   assert.match(raw,/dd\/mm\/yyyy/);

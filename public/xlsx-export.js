@@ -30,7 +30,10 @@ function recordStyles(){return `<?xml version="1.0" encoding="UTF-8" standalone=
 <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFDDEBFA"/><bgColor indexed="64"/></patternFill></fill></fills>
 <borders count="2"><border/><border><left style="thin"><color rgb="FFB8CADC"/></left><right style="thin"><color rgb="FFB8CADC"/></right><top style="thin"><color rgb="FFB8CADC"/></top><bottom style="thin"><color rgb="FFB8CADC"/></bottom></border></borders>
 <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
-<cellXfs count="5">
+<cellXfs count="6">
+<!-- Style 0 is a neutral default. WPS/Excel may normalize style 0 on save.
+     Use explicit nonzero IDs for all formatted data cells. -->
+<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>
 <xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>
 <xf numFmtId="49" fontId="0" fillId="0" borderId="1" xfId="0" applyNumberFormat="1" applyAlignment="1"><alignment horizontal="left" vertical="center" wrapText="1"/></xf>
@@ -67,10 +70,10 @@ export function buildXlsx(rows){
     const r=index+1,headerRow=index<2,formatted=values.map((v,col)=>index>=2&&col===3?genderLabel(v):v);
     const cells=formatted.map((value,col)=>{
       if(!headerRow&&RECORD_DATE_COLUMNS.has(col)){
-        const serial=dateSerial(value);if(serial!==null)return `<c r="${address(col)}${r}" s="3"><v>${serial}</v></c>`;
+        const serial=dateSerial(value);if(serial!==null)return `<c r="${address(col)}${r}" s="4"><v>${serial}</v></c>`;
         if(String(value??'').trim())invalidDateCount++;
       }
-      const style=headerRow?(index===0?1:4):(RECORD_LEFT_COLUMNS.has(col)?2:0);
+      const style=headerRow?(index===0?2:5):(RECORD_LEFT_COLUMNS.has(col)?3:1);
       return recordTextCell(value,r,col,style);
     }).join('');
     const height=headerRow?(index===0?43:33):recordRowHeight(formatted);
