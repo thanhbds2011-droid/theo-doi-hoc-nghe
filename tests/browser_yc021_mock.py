@@ -50,6 +50,17 @@ with sync_playwright() as p:
   assert page.locator('.record-actions .record-icon-btn').count()>=2,role
   assert page.locator('[data-detail-record]').first.get_attribute('aria-label')=='Chi tiết hồ sơ'
   assert page.locator('[data-status-record]').first.count()==1,role
+  # YC-HN-021 V5.1: action header centered with icon cells; number shows without year below.
+  header=page.locator('#list-output th.record-action-header')
+  cell=page.locator('#list-output td.record-action-cell').first
+  assert header.count()==1 and cell.count()==1, role
+  assert header.evaluate('(el)=>getComputedStyle(el).textAlign')=='center',role
+  assert cell.evaluate('(el)=>getComputedStyle(el).textAlign')=='center',role
+  hdr=header.bounding_box();icons=cell.locator('.record-actions').bounding_box()
+  assert abs((hdr['x']+hdr['width']/2)-(icons['x']+icons['width']/2))<3,(role,hdr,icons)
+  decision=page.locator('#list-output tbody tr:first-child td:nth-child(2)')
+  assert decision.inner_text().strip()=='6273',role
+  assert 'Năm 2026' not in page.locator('#list-output').inner_text(),role
   if role=='CO_SO_DAO_TAO':
     assert page.locator('[data-delete-record]').count()==0
     assert page.locator('[data-edit-record]').count()==0

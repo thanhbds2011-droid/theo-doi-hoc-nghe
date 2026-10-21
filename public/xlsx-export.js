@@ -7,7 +7,7 @@ function zipStored(files){let at=0;const chunks=[],central=[];function u16(d,v){
   for(const [path,body] of files){const name=enc.encode(path),content=enc.encode(body),crc=crc32(content),hdr=[];u32(hdr,0x04034b50);u16(hdr,20);u16(hdr,0x800);u16(hdr,0);u16(hdr,0);u16(hdr,0);u32(hdr,crc);u32(hdr,content.length);u32(hdr,content.length);u16(hdr,name.length);u16(hdr,0);chunks.push(new Uint8Array(hdr),name,content);
   const cd=[];u32(cd,0x02014b50);u16(cd,20);u16(cd,20);u16(cd,0x800);u16(cd,0);u16(cd,0);u16(cd,0);u32(cd,crc);u32(cd,content.length);u32(cd,content.length);u16(cd,name.length);u16(cd,0);u16(cd,0);u16(cd,0);u16(cd,0);u32(cd,0);u32(cd,at);central.push(new Uint8Array(cd),name);at+=hdr.length+name.length+content.length;
   }const dirSize=central.reduce((n,x)=>n+x.length,0);const footer=[];u32(footer,0x06054b50);u16(footer,0);u16(footer,0);u16(footer,files.length);u16(footer,files.length);u32(footer,dirSize);u32(footer,at);u16(footer,0);return new Blob([...chunks,...central,new Uint8Array(footer)],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});}
-// YC-HN-020: duy nhất một bộ xuất XLSX danh sách 25 cột, không can thiệp mẫu báo cáo.
+// YC-HN-020/021 V5.1: cùng một bộ xuất XLSX danh sách 25 cột; chỉ B/J/O/R căn trái, các cột khác căn giữa.
 const RECORD_DATE_COLUMNS=new Set([2,6,8,12,13,15,16,20]); // C,G,I,M,N,P,Q,U
 const RECORD_WIDTHS=[9,30,15,13,24,18,18,18,18,27,18,17,16,16,32,18,18,26,26,31,18,23,30,22,24];
 function dateSerial(value){
@@ -64,7 +64,7 @@ export function buildXlsx(rows){
         const serial=dateSerial(value);if(serial!==null)return `<c r="${address(col)}${r}" s="3"><v>${serial}</v></c>`;
         if(String(value??'').trim())invalidDateCount++;
       }
-      const style=headerRow?(index===0?1:4):([1,9,14,17,18,21,22].includes(col)?2:0);
+      const style=headerRow?(index===0?1:4):([1,9,14,17].includes(col)?2:0);
       return recordTextCell(value,r,col,style);
     }).join('');
     const height=headerRow?(index===0?43:33):recordRowHeight(formatted);

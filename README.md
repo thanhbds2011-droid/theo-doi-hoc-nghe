@@ -1,3 +1,9 @@
+# THEO DÕI HỌC NGHỀ — v1.2.9-RC (YC-HN-021 V5.1)
+
+Bản nâng cấp frontend hiển thị bảng hồ sơ và định dạng Excel danh sách 25 cột; không thay đổi nghiệp vụ backend. Xem `docs/YC-HN-021_V5_1_v1.2.9-RC_CHANGELOG_VA_HUONG_DAN.md` để biết file sửa và cách triển khai. **Chưa triển khai production.**
+
+---
+
 # THEO DÕI HỌC NGHỀ — v1.2.6-RC (YC-HN-018 V3)
 
 Bản nâng cấp sau v1.2.4-RC. Xem `docs/YC-HN-018_V3_v1.2.6-RC_CHANGELOG_VA_HUONG_DAN.md` để biết thay đổi, giới hạn kiểm thử và quy trình staging/rollback. **Chưa tự triển khai production**.

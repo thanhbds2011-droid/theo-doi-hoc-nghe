@@ -25,12 +25,13 @@ test('YC021: permission-gated navigation and safe aggregate without full sort',(
   assert.match(gas,/var source=sorted===false\?visibleRecords_\(user\)/);
   assert.match(gas,/reportRecords_\(filters,user,false\)/);
 });
-test('YC021: export B/O and long text columns left & centered vertically with wrap; short fields centered',async()=>{
+test('YC021 V5.1: only B/J/O/R left with wrap; S/V/W and others centered',async()=>{
   const head=Array.from({length:25},(_,i)=>'Cột '+i);
   const row=Array.from({length:25},()=> '');row[1]='Tên người học';row[14]='Cơ sở đào tạo có tên rất dài và có dấu tiếng Việt';
   row[9]='Nghề đào tạo';row[17]='Địa chỉ học nghề';row[3]='NU';row[6]='2026-10-21';
   const bytes=Buffer.from(await buildXlsx([head,row]).arrayBuffer()).toString('utf8');
-  for(const col of ['B','J','O','R','S','V','W'])assert.match(bytes,new RegExp(`<c r="${col}3" s="2"`));
+  for(const col of ['B','J','O','R'])assert.match(bytes,new RegExp(`<c r="${col}3" s="2"`));
+  for(const col of ['S','V','W'])assert.match(bytes,new RegExp(`<c r="${col}3" s="0"`));
   assert.match(bytes,/horizontal="left" vertical="center" wrapText="1"/);
   assert.match(bytes,/horizontal="center" vertical="center" wrapText="1"/);
   assert.match(bytes,/<c r="G3" s="3"><v>\d+<\/v>/);
