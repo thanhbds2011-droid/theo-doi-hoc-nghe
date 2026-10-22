@@ -28,12 +28,12 @@ with zipfile.ZipFile(path) as z:
  rows=sheet.findall('x:sheetData/x:row',ns);assert len(rows)==2435
  assert len(rows[2].findall('x:c',ns))==25
  def cell(ref):return sheet.find(f'.//x:c[@r="{ref}"]',ns)
- assert cell('C3').attrib['s']=='3' and cell('C3').find('x:v',ns) is not None
- assert cell('G3').attrib['s']=='3'
+ assert cell('C3').attrib['s']=='4' and cell('C3').find('x:v',ns) is not None
+ assert cell('G3').attrib['s']=='4'
  assert cell('D3').find('x:is/x:t',ns).text=='Nữ'
  assert cell('E3').find('x:is/x:t',ns).text=='001234567890'
- assert cell('B3').attrib['s']=='2' and cell('O3').attrib['s']=='2'
+ assert cell('B3').attrib['s']=='3' and cell('O3').attrib['s']=='3' and cell('V3').attrib['s']=='3' and cell('W3').attrib['s']=='3' and cell('R3').attrib['s']=='1'
  assert float(rows[2].attrib['ht'])>31
  assert styles.find('x:numFmts/x:numFmt',ns).attrib['formatCode']=='dd/mm/yyyy'
- assert len(styles.findall('x:cellXfs/x:xf',ns))==5
- print('YC020_XLSX_CHROMIUM_OK: 2433 rows, 25 columns, numeric dates, styles, Unicode, leading zeros, row heights')
+ assert len(styles.findall('x:cellXfs/x:xf',ns))==6
+ print('YC020_XLSX_CHROMIUM_OK (chuẩn YC021 V5.2): 2433 rows, 25 columns, numeric dates, styles, Unicode, leading zeros, row heights')

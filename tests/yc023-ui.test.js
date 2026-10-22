@@ -12,7 +12,7 @@ test('YC023 lựa chọn lọc ảo ở Hồ sơ, không được đưa vào tr�
   assert.match(rec,/mode==='records'\?/);
   const repSection=rec.match(/\$\{mode==='reports'\?[\s\S]+?dateFilterControls/);
   assert.ok(repSection);
-  assert.doesNotMatch(repSection[0],/\[COURSE_END_FILTER,/);
+  assert.match(repSection[0],/\[COURSE_END_FILTER,'Ngày hoàn thành khóa học'\]/);
   assert.match(backend,/p\.source==='records'\?filteredRecords_\(listExportFilters_\(p\),user\):reportRecords_\(p,user\)/);
   assert.match(backend,/reportStatusValid_\(status\)/);
   assert.match(app,/exportReport\(\{\.\.\.state\.filters,source:'records'\}\)/);
@@ -33,6 +33,6 @@ test('YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc 
   assert.ok(xlsx.length>1000);
   assert.match(backend,/NGAY_KET_THUC_DU_KIEN/);
   assert.match(backend,/var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'/);
-  assert.match(backend,/version: '1\.2\.13-RC'/);
-  assert.match(app,/v1\.2\.13-RC/);
+  assert.match(backend,/version: '1\.2\.14-RC'/);
+  assert.match(app,/v1\.2\.14-RC/);
 });

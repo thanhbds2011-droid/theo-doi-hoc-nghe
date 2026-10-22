@@ -1,6 +1,8 @@
-# THEO DÕI HỌC NGHỀ — v1.2.13-RC / YC-HN-023 V1
+# THEO DÕI HỌC NGHỀ — v1.2.14-RC / YC-HN-024 V1
 
-**ĐÃ CHỐT mã nguồn, chưa deploy:** Bộ lọc trang Hồ sơ học nghề kết hợp khoảng Ngày QĐ với tình trạng thực tế; tùy chọn ảo **Ngày hoàn thành khóa học** lọc theo `NGAY_KET_THUC_DU_KIEN` (ngày kết thúc đào tạo dự kiến), không thay tình trạng đã học. Đồng bộ Xuất Excel theo cùng bộ lọc và giữ định dạng XLSX v1.2.11-RC, cùng cập nhật cục bộ v1.2.12-RC. Xem `docs/YC-HN-023_V1_v1.2.13-RC_CHANGELOG_TRIEN_KHAI.md`.
+**ĐÃ CHỐT mã nguồn, chưa deploy:** Trang Báo cáo hỗ trợ lọc ảo theo `NGAY_KET_THUC_DU_KIEN`, số liệu KPI và bốn kiểu xuất Excel dùng cùng bộ lọc, bản in hiển thị phạm vi ngày đã áp dụng. Giữ nguyên các tình trạng thực tế.
+
+**Lịch sử YC-HN-023:** Bộ lọc trang Hồ sơ học nghề kết hợp khoảng Ngày QĐ với tình trạng thực tế; tùy chọn ảo **Ngày hoàn thành khóa học** lọc theo `NGAY_KET_THUC_DU_KIEN` (ngày kết thúc đào tạo dự kiến), không thay tình trạng đã học. Đồng bộ Xuất Excel theo cùng bộ lọc và giữ định dạng XLSX v1.2.11-RC, cùng cập nhật cục bộ v1.2.12-RC. Xem `docs/YC-HN-023_V1_v1.2.13-RC_CHANGELOG_TRIEN_KHAI.md`.
 
 ---
 

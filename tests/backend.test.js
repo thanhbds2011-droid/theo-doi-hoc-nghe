@@ -989,9 +989,9 @@ test('YC023 lọc theo ngày QĐ đối với tình trạng thực tế và lọ
   assert.equal(exported.data.items[0][13],'2027-07-01','Excel cột N là ngày kết thúc đào tạo');
   assert.equal(c.send('report_export',{...course,source:'records',query:'101'}).data.items.length,1,'Excel giữ từ khóa');
   assert.equal(c.send('report_export',{...course,source:'records',year:'2027'}).data.items.length,0);
-  assert.equal(c.send('report_export',{...course}).error.code,'VALIDATION','Không làm thay đổi lựa chọn tình trạng trang Báo cáo');
-  assert.equal(c.send('overview',course).error.code,'VALIDATION','KPI không diễn giải sai ngày dự kiến thành tình trạng tham gia');
-  assert.equal(c.send('report_matrix',{...course,groupBy:'truong'}).error.code,'VALIDATION');
+  assert.equal(c.send('report_export',{...course}).data.items.length,3,'YC024 đồng bộ xuất Excel Báo cáo theo ngày kết thúc dự kiến');
+  assert.equal(c.send('overview',course).data.kpi.total,3,'YC024 tổng hợp đúng tập hồ sơ kết thúc dự kiến trong kỳ');
+  assert.equal(c.send('report_matrix',{...course,groupBy:'truong'}).data.total,3,'YC024 ma trận cùng tập kết thúc dự kiến');
   assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-07-32'}).error.code,'VALIDATION');
   assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-08-01',to:'2027-07-31'}).error.code,'VALIDATION');
   const rawRows=c.tables.get('Hồ sơ học nghề').rows;
@@ -1017,4 +1017,64 @@ test('YC023 phân trang, quyền trường và xuất Excel với lọc theo ng�
   assert.equal(scoped.data.total,12);
   assert.ok(scoped.data.items.every(r=>r.TRUONG_ID===c.school.TRUONG_ID));
   assert.equal(sendAs(c,user,'report_export',{...range,source:'records'}).error.code,'NO_PERMISSION');
+});
+
+// YC-HN-024: tổng hợp, ma trận và Excel báo cáo phải dùng cùng trường ngày kết thúc dự kiến.
+test('YC024 báo cáo lọc ngày kết thúc dự kiến, gồm cả hai đầu mút và mọi trạng thái học viên',()=>{
+ const c=setupLive();
+ const rows=[
+   ['801','2026-10-13','2027-07-01','DA_THAM_GIA'],
+   ['802','2026-10-14','2027-07-14','CHO_XAC_NHAN'],
+   ['803','2026-10-15','2027-07-31','KHONG_THAM_GIA'],
+   ['804','2026-07-12','2027-06-30','DA_THAM_GIA'],
+   ['805','2026-07-13','2027-08-01','DA_THAM_GIA'],
+   ['806','2026-07-14','','DA_THAM_GIA'],
+ ];
+ for(const [number,decision,end,status] of rows){
+   const result=c.send('record_save',record(c,number,decision,{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:end,TRANG_THAI_THAM_GIA:status}));
+   assert.equal(result.ok,true,JSON.stringify(result.error));
+ }
+ const params={status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-31'};
+ const overview=c.send('overview',params);assert.equal(overview.ok,true,JSON.stringify(overview.error));
+ assert.equal(overview.data.kpi.total,3);
+ assert.equal(overview.data.kpi.participated,1);
+ assert.equal(overview.data.kpi.pending,1);
+ assert.equal(overview.data.kpi.notParticipating,1);
+ const report=c.send('report_export',params);assert.equal(report.ok,true,JSON.stringify(report.error));
+ assert.equal(report.data.columns.length,25);
+ assert.deepEqual(Array.from(report.data.items,row=>row[5]),['801','802','803']);
+ assert.deepEqual(Array.from(report.data.items,row=>row[13]),['2027-07-01','2027-07-14','2027-07-31']);
+ for(const groupBy of ['truong','nghe']){
+   const matrix=c.send('report_matrix',{...params,groupBy});assert.equal(matrix.ok,true,JSON.stringify(matrix.error));
+   assert.equal(matrix.data.total,3);
+   assert.equal(matrix.data.items.reduce((sum,x)=>sum+x.total,0),3);
+ }
+ assert.equal(c.send('overview',{from:'2027-07-01',to:'2027-07-31'}).data.kpi.total,0,'Tất cả tình trạng tiếp tục dùng ngày QĐ');
+ assert.equal(c.send('overview',{status:'DA_THAM_GIA',from:'2026-07-01',to:'2026-07-31'}).data.kpi.total,3,'Tình trạng cũ tiếp tục dùng ngày QĐ');
+ assert.equal(c.send('overview',{...params,year:'2026'}).data.kpi.total,3,'Năm QĐ 2026 vẫn là năm QĐ');
+ assert.equal(c.send('overview',{...params,year:'2027'}).data.kpi.total,0);
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE'}).data.kpi.total,5,'Không ngày vẫn đòi ngày kết thúc hợp lệ');
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',to:'2027-07-01'}).data.kpi.total,2);
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',from:'2027-07-31'}).data.kpi.total,2);
+ assert.equal(c.send('overview',{...params,from:'2027-07-32'}).error.code,'VALIDATION');
+ assert.equal(c.send('overview',{...params,from:'2027-08-01'}).error.code,'VALIDATION');
+ const raw=c.tables.get('Hồ sơ học nghề').rows;for(const row of raw.slice(1))assert.ok(!row.includes('FILTER_COURSE_END_DATE'));
+});
+
+test('YC024 lọc trường và quyền khi thống kê, không cấp thêm quyền Excel',()=>{
+ const c=setupLive(),other=catalog(c,'truong','CS024','Trường 2');
+ for(const [number,school] of [['911',c.school.TRUONG_ID],['912',other.TRUONG_ID]]){
+   assert.equal(c.send('record_save',record(c,number,'2026-10-13',{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:'2027-07-14',TRUONG_ID:school})).ok,true);
+ }
+ const params={status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-31'};
+ assert.equal(c.send('overview',params).data.kpi.total,2);
+ assert.equal(c.send('overview',{...params,truong:other.TRUONG_ID}).data.kpi.total,1);
+ assert.equal(c.send('report_matrix',{...params,groupBy:'truong'}).data.items.length,2);
+ const acc=c.send('account_save',{email:'school024@example.com',name:'Trường kiểm thử',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+ assert.equal(acc.ok,true,JSON.stringify(acc.error));
+ const actor={sub:'82345678901234567890',aud:audience,email:'school024@example.com'};
+ assert.equal(sendAs(c,actor,'overview',params).data.kpi.total,1);
+ assert.equal(sendAs(c,actor,'overview',{...params,truong:other.TRUONG_ID}).data.kpi.total,0);
+ assert.equal(sendAs(c,actor,'report_export',params).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,actor,'report_matrix',{...params,groupBy:'truong'}).error.code,'NO_PERMISSION');
 });

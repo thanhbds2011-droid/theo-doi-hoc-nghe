@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.13-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.14-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.13-RC',
+  version: '1.2.14-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -623,13 +623,13 @@ function exactDecisionRecords_(filters,user){
 /** Lọc báo cáo: tham gia toàn bộ bao gồm bỏ học; trạng thái cập nhật không đổi. */
 function reportStatusValid_(status){
   if(!status)return true;
-  if(['REPORT_PARTICIPATED_ALL','DA_THAM_GIA','BO_HOC','KHONG_THAM_GIA','KHONG_NHAN_QUYET_DINH','CHO_XAC_NHAN'].indexOf(status)>=0)return true;
+  if(['REPORT_PARTICIPATED_ALL','DA_THAM_GIA','BO_HOC','KHONG_THAM_GIA','KHONG_NHAN_QUYET_DINH','CHO_XAC_NHAN',COURSE_END_FILTER_].indexOf(status)>=0)return true;
   return customStatusList_().some(function(x){return x.id===status;});
 }
 function reportFilters_(p){
   var status=str_(p.status,80);
   must_(reportStatusValid_(status),'VALIDATION','Tình trạng báo cáo không hợp lệ.');
-  var period=decisionRange_(p);
+  var period=decisionRange_(p,status===COURSE_END_FILTER_);
   return {year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:status,from:period.from,to:period.to};
 }
 function reportMatches_(r,p){
@@ -637,7 +637,7 @@ function reportMatches_(r,p){
   return recordMatches_(r,p);
 }
 function reportRecords_(p,user,sorted){
-  var f=reportFilters_(p),basic={year:f.year,truong:f.truong,nghe:f.nghe,from:f.from,to:f.to};
+  var f=reportFilters_(p),basic={year:f.year,truong:f.truong,nghe:f.nghe,from:f.from,to:f.to,status:f.status===COURSE_END_FILTER_?COURSE_END_FILTER_:''};
   // Aggregates do not need a 3,000-row sort. Exports retain the established sort.
   var source=sorted===false?visibleRecords_(user).filter(function(r){return recordMatches_(r,basic);}):filteredRecords_(basic,user);
   return source.filter(function(r){return reportMatches_(r,f);});
@@ -983,7 +983,7 @@ function listExportFilters_(p){
   return {year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:status,dropout:str_(p.dropout,4),query:str_(p.query,140),from:period.from,to:period.to};
 }
 function exportRecords_(user,p){
-  // Chỉ nguồn trang Hồ sơ được dùng tình trạng lọc ảo; Báo cáo/KPI không bị ảnh hưởng.
+  // Hồ sơ và Báo cáo cùng dùng chế độ lọc ngày kết thúc dự kiến; không ghi tình trạng ảo vào Sheet.
   var all=p.source==='records'?filteredRecords_(listExportFilters_(p),user):reportRecords_(p,user); must_(all.length<=5000,'EXPORT_TOO_LARGE','Tối đa 5.000 hồ sơ cho mỗi lần xuất. Hãy thu hẹp bộ lọc.');
   var schools={},trades={};catalogRows_('truong').forEach(function(x){schools[x.TRUONG_ID]=x.TEN_TRUONG;});catalogRows_('nghe').forEach(function(x){trades[x.NGHE_ID]=x.TEN_NGHE;});
   return {columns:['STT', 'Họ và tên', 'Năm sinh', 'Giới tính', 'Số sổ BHXH', 'Số QĐ HTHN', 'Ngày ban hành QĐHN', 'Số QĐ TCTN', 'Ngày ban hành QĐ TCTN', 'Nghề đăng ký', 'Số tháng hỗ trợ', 'Mức hỗ trợ/tháng', 'Thời gian đào tạo - Từ ngày', 'Thời gian đào tạo - Đến ngày', 'Cơ sở đào tạo nghề', 'Ngày kết thúc hưởng TCTN', 'Ngày kết thúc hỗ trợ học nghề', 'Địa chỉ tạm trú', 'Địa chỉ thường trú', 'Số CMND', 'Ngày cấp CMND', 'Nơi cấp CMND', 'Địa chỉ cơ sở đào tạo', 'Chi nhánh BHTN', 'Điện thoại'],items:all.map(function(x,i){return [i+1,x.HO_TEN,x.NGAY_SINH,x.GIOI_TINH,x.SO_SO_BHXH,x.SO_QUYET_DINH,x.NGAY_QUYET_DINH,x.SO_QD_TCTN,x.NGAY_QD_TCTN,trades[x.NGHE_ID]||x.NGHE_ID,supportMonthsVN_(x.SO_THANG_HO_TRO),supportAmountVN_(x.MUC_HO_TRO_THANG),x.NGAY_BAT_DAU,x.NGAY_KET_THUC_DU_KIEN,schools[x.TRUONG_ID]||x.TRUONG_ID,x.NGAY_KET_THUC_TCTN,x.NGAY_KET_THUC_HO_TRO,x.DIA_CHI_TAM_TRU,x.DIA_CHI_THUONG_TRU,x.SO_CMND,x.NGAY_CAP_CMND,x.NOI_CAP_CMND,x.DIA_CHI_CO_SO,x.CHI_NHANH_BHTN,x.DIEN_THOAI];})};

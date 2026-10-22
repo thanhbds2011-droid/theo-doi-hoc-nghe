@@ -1,0 +1,15 @@
+YC-HN-024 V1 — V1.2.14-RC — KẾT QUẢ KIỂM THỬ (22/10/2026)
+
+NODE.JS: 163/163 PASS (npm test)
+NODE SYNTAX: npm run check PASS
+CHROMIUM (mock):
+- YC019: PASS (lọc ngày cũ)
+- YC020: PASS (2433 hồ sơ giả lập, 25 cột, tiêu chí định dạng đã cập nhật đúng YC021 V5.2)
+- YC021 V5.2: PASS (căn lề/Wrap Text/chiều cao dòng Excel hiện hành)
+- YC022: PASS (cập nhật một dòng khi sửa hồ sơ)
+- YC023: PASS (lọc kết thúc dự kiến trang Hồ sơ, ba vai trò)
+- YC024: PASS (lọc kết thúc dự kiến trang Báo cáo, ba vai trò, 4 kiểu xuất, ghi chú bản in)
+PRESERVED xlsx-export.js SHA256: 244d494d2cc9535dc631a1544409816f0502ba0f8ee17e7052c5d6c9e7f180dc
+
+PHẠM VI: unit và Chromium giả lập, không có số liệu thật/không kiểm tra Vercel production.
+BACKEND: giữ nguyên 7 tab/94 cột, quyền, kiểm trùng, nhật ký, thuật toán ghi hồ sơ.
