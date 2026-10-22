@@ -951,3 +951,70 @@ test('YC019: tài khoản trường chỉ được xem thống kê và hồ sơ 
   assert.equal(sendAs(c,user,'records_list',{from:'2026-07-01',to:'2026-07-31',truong:xyz.TRUONG_ID}).data.total,0);
   assert.equal(sendAs(c,user,'report_export',{from:'2026-07-01',to:'2026-07-31'}).error.code,'NO_PERMISSION');
 });
+
+// YC-HN-023: ngày kết thúc đào tạo dự kiến là chế độ lọc ảo, không phải tình trạng được lưu.
+test('YC023 lọc theo ngày QĐ đối với tình trạng thực tế và lọc theo ngày kết thúc dự kiến khi chọn chế độ mới',()=>{
+  const c=setupLive();
+  const entries=[
+    ['101','2026-10-13','2027-07-14','DA_THAM_GIA'],
+    ['102','2026-07-01','2027-01-14','DA_THAM_GIA'],
+    ['103','2026-08-03','2027-07-01','CHO_XAC_NHAN'],
+    ['104','2026-09-10','2027-07-31','KHONG_THAM_GIA'],
+    ['105','2026-07-31','2027-08-01','DA_THAM_GIA'],
+    ['106','2026-08-15','','DA_THAM_GIA'],
+  ];
+  for(const [no,decision,end,status] of entries){
+    const res=c.send('record_save',record(c,no,decision,{NGAY_BAT_DAU:'2026-06-01',NGAY_KET_THUC_DU_KIEN:end,TRANG_THAI_THAM_GIA:status}));
+    assert.equal(res.ok,true,JSON.stringify(res.error));
+  }
+  const range={from:'2027-07-01',to:'2027-07-31'};
+  const course={...range,status:'FILTER_COURSE_END_DATE'};
+  assert.equal(c.send('records_list',range).data.total,0,'Các quyết định phát hành 2026 không thuộc tháng 7/2027');
+  const list=c.send('records_list',course);
+  assert.equal(list.ok,true,JSON.stringify(list.error));
+  assert.deepEqual(Array.from(list.data.items,x=>x.SO_QUYET_DINH),['103','101','104'],'Ngày dự kiến tăng dần, gồm hai đầu mút, không giới hạn tình trạng');
+  assert.equal(list.data.total,3);
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-07-14',to:'2027-07-14'}).data.total,1);
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',to:'2027-07-01'}).data.total,2,'Đến ngày một đầu mút, hồ sơ có ngày kết thúc hợp lệ');
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE'}).data.total,5,'Không có ngày chỉ lọc những hồ sơ có ngày kết thúc hợp lệ');
+  assert.equal(c.send('records_list',{...course,year:'2027'}).data.total,0,'Năm quyết định không đổi thành năm kết thúc');
+  assert.equal(c.send('records_list',{...course,year:'2026',query:'101'}).data.total,1);
+  assert.equal(c.send('records_list',{...course,status:'DA_THAM_GIA'}).data.total,0,'Trạng thái thực tế vẫn lọc theo ngày QĐ');
+  assert.equal(c.send('records_list',{from:'2026-07-01',to:'2026-07-31',status:'DA_THAM_GIA'}).data.total,2);
+  assert.equal(c.send('records_list',{from:'2026-07-01',to:'2026-07-31',status:'CHO_XAC_NHAN'}).data.total,0);
+  const exported=c.send('report_export',{...course,source:'records'});
+  assert.equal(exported.ok,true,JSON.stringify(exported.error));
+  assert.equal(exported.data.columns.length,25);
+  assert.deepEqual(Array.from(exported.data.items,x=>x[5]),['103','101','104'],'Excel lọc cùng tập hồ sơ, cùng thứ tự');
+  assert.equal(exported.data.items[0][13],'2027-07-01','Excel cột N là ngày kết thúc đào tạo');
+  assert.equal(c.send('report_export',{...course,source:'records',query:'101'}).data.items.length,1,'Excel giữ từ khóa');
+  assert.equal(c.send('report_export',{...course,source:'records',year:'2027'}).data.items.length,0);
+  assert.equal(c.send('report_export',{...course}).error.code,'VALIDATION','Không làm thay đổi lựa chọn tình trạng trang Báo cáo');
+  assert.equal(c.send('overview',course).error.code,'VALIDATION','KPI không diễn giải sai ngày dự kiến thành tình trạng tham gia');
+  assert.equal(c.send('report_matrix',{...course,groupBy:'truong'}).error.code,'VALIDATION');
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-07-32'}).error.code,'VALIDATION');
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-08-01',to:'2027-07-31'}).error.code,'VALIDATION');
+  const rawRows=c.tables.get('Hồ sơ học nghề').rows;
+  for(const row of rawRows.slice(1))assert.notEqual(row[13],'FILTER_COURSE_END_DATE','Không ghi tình trạng ảo vào Sheets');
+});
+
+test('YC023 phân trang, quyền trường và xuất Excel với lọc theo ngày kết thúc không rò dữ liệu',()=>{
+  const c=setupLive(),school2=catalog(c,'truong','CS023','Cơ sở thứ hai');
+  for(let n=1;n<=23;n++){
+    const day=String(n).padStart(2,'0');
+    const res=c.send('record_save',record(c,String(700+n),'2026-10-13',{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:'2027-07-'+day,TRUONG_ID:n%2?c.school.TRUONG_ID:school2.TRUONG_ID}));
+    assert.equal(res.ok,true,JSON.stringify(res.error));
+  }
+  const range={status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-31'};
+  assert.equal(c.send('records_list',{...range,pageSize:20,page:1}).data.items.length,20);
+  assert.equal(c.send('records_list',{...range,pageSize:20,page:2}).data.items.length,3);
+  assert.equal(c.send('report_export',{...range,source:'records'}).data.items.length,23);
+  const acc=c.send('account_save',{email:'yc023school@example.com',name:'Trường YC023',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+  assert.equal(acc.ok,true,JSON.stringify(acc.error));
+  const user={sub:'82345678901234567890',aud:audience,email:'yc023school@example.com'};
+  const scoped=sendAs(c,user,'records_list',range);
+  assert.equal(scoped.ok,true,JSON.stringify(scoped.error));
+  assert.equal(scoped.data.total,12);
+  assert.ok(scoped.data.items.every(r=>r.TRUONG_ID===c.school.TRUONG_ID));
+  assert.equal(sendAs(c,user,'report_export',{...range,source:'records'}).error.code,'NO_PERMISSION');
+});

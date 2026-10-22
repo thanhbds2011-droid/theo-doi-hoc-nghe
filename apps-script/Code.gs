@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.10-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.13-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.12-RC',
+  version: '1.2.13-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -538,10 +538,11 @@ function cachedRecordSnapshot_(){
 }
 function visibleRecords_(user){return cachedRecordSnapshot_().filter(function(r){return r.TRANG_THAI_HO_SO!=='DELETED' && ownsRecord_(user,r);});}
 // YC-HN-019: Chỉ chấp nhận ngày ISO hợp lệ, đầu mút có bao gồm ngày.
-function decisionRange_(p){
+var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'; // Chỉ là chế độ tra cứu, không phải tình trạng hồ sơ.
+function decisionRange_(p,courseEnd){
   var from=str_(p.from,40).trim(),to=str_(p.to,40).trim();
-  if(from)must_(validDate_(from),'VALIDATION','Từ ngày ban hành quyết định không hợp lệ.');
-  if(to)must_(validDate_(to),'VALIDATION','Đến ngày ban hành quyết định không hợp lệ.');
+  if(from)must_(validDate_(from),'VALIDATION','Từ ngày '+(courseEnd?'kết thúc đào tạo dự kiến':'ban hành quyết định')+' không hợp lệ.');
+  if(to)must_(validDate_(to),'VALIDATION','Đến ngày '+(courseEnd?'kết thúc đào tạo dự kiến':'ban hành quyết định')+' không hợp lệ.');
   must_(!from||!to||from<=to,'VALIDATION','Từ ngày không được sau Đến ngày.');
   return {from:from,to:to};
 }
@@ -551,16 +552,26 @@ function recordMatches_(r,p){
   if(p.nghe && r.NGHE_ID!==p.nghe)return false;
   if(p.status==='BO_HOC' && !bool_(r.DA_BO_HOC))return false;
   if(p.status==='DA_THAM_GIA' && (r.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||bool_(r.DA_BO_HOC)))return false;
-  if(p.status && p.status!=='BO_HOC' && p.status!=='DA_THAM_GIA' && r.TRANG_THAI_THAM_GIA!==p.status)return false;
+  if(p.status && p.status!=='BO_HOC' && p.status!=='DA_THAM_GIA' && p.status!==COURSE_END_FILTER_ && r.TRANG_THAI_THAM_GIA!==p.status)return false;
   if(p.dropout==='yes' && !bool_(r.DA_BO_HOC))return false;
   if(p.dropout==='no' && bool_(r.DA_BO_HOC))return false;
-  if(p.from||p.to){var issued=String(r.NGAY_QUYET_DINH||'').slice(0,10);if(!validDate_(issued))return false;if(p.from && issued<p.from)return false;if(p.to && issued>p.to)return false;}
+  if(p.status===COURSE_END_FILTER_ || p.from || p.to){
+    var compared=String(p.status===COURSE_END_FILTER_?r.NGAY_KET_THUC_DU_KIEN:r.NGAY_QUYET_DINH||'').slice(0,10);
+    if(!validDate_(compared))return false;
+    if(p.from && compared<p.from)return false;if(p.to && compared>p.to)return false;
+  }
   if(p.query){var query=str_(p.query,140);if(/^\d+$/.test(query)){if(String(r.SO_QUYET_DINH).replace(/^0+(?=\d)/,'')!==query.replace(/^0+(?=\d)/,''))return false;}else if(norm_([r.HO_TEN,r.SO_QUYET_DINH,r.NGUOI_HOC_ID,r.HO_SO_ID].join(' ')).indexOf(norm_(query))<0)return false;}
   return true;
 }
+function recordSort_(a,b,p){
+  if(p.status===COURSE_END_FILTER_){
+    return a.NGAY_KET_THUC_DU_KIEN.localeCompare(b.NGAY_KET_THUC_DU_KIEN)||b.NGAY_QUYET_DINH.localeCompare(a.NGAY_QUYET_DINH)||b.TAO_LUC.localeCompare(a.TAO_LUC);
+  }
+  return b.NGAY_QUYET_DINH.localeCompare(a.NGAY_QUYET_DINH)||b.TAO_LUC.localeCompare(a.TAO_LUC);
+}
 function filteredRecords_(p,user){
   must_(Boolean(user&&user.VAI_TRO),'NOT_AUTHORIZED','Thiếu thông tin tài khoản.');
-  return visibleRecords_(user).filter(function(r){return recordMatches_(r,p);}).sort(function(a,b){return b.NGAY_QUYET_DINH.localeCompare(a.NGAY_QUYET_DINH)||b.TAO_LUC.localeCompare(a.TAO_LUC);});
+  return visibleRecords_(user).filter(function(r){return recordMatches_(r,p);}).sort(function(a,b){return recordSort_(a,b,p);});
 }
 function safeRecord_(r){var x=Object.assign({},r);delete x.TEP_DRIVE_ID; x.HAS_FILE=Boolean(r.TEP_DRIVE_ID);return x;}
 /** Tra cứu QĐ chính xác chỉ đọc 1 cột số QĐ và các hàng trùng. CacheService không là nguồn sự thật. */
@@ -607,7 +618,7 @@ function exactDecisionRecords_(filters,user){
     checked=readHits(hits);
   }
   matching=checked.items;
-  return matching.sort(function(a,b){return b.NGAY_QUYET_DINH.localeCompare(a.NGAY_QUYET_DINH)||b.TAO_LUC.localeCompare(a.TAO_LUC);});
+  return matching.sort(function(a,b){return recordSort_(a,b,filters);});
 }
 /** Lọc báo cáo: tham gia toàn bộ bao gồm bỏ học; trạng thái cập nhật không đổi. */
 function reportStatusValid_(status){
@@ -632,8 +643,9 @@ function reportRecords_(p,user,sorted){
   return source.filter(function(r){return reportMatches_(r,f);});
 }
 function listRecords_(user,p){
-  var period=decisionRange_(p);
-  var filters={year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:str_(p.status,40),dropout:str_(p.dropout,4),from:period.from,to:period.to,query:str_(p.query,140)};
+  var courseEnd=p.status===COURSE_END_FILTER_;
+  var period=decisionRange_(p,courseEnd);
+  var filters={year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:str_(p.status,80),dropout:str_(p.dropout,4),from:period.from,to:period.to,query:str_(p.query,140)};
   var page=Math.min(Math.max(Number(p.page)||1,1),100000),size=Math.min(Math.max(Number(p.pageSize)||20,1),100);
   return cached_('RECORDS',[version_('DATA'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',version_('USERS'),filters,page,size],APP.cacheSeconds,function(){var all=/^\d+$/.test(filters.query)?exactDecisionRecords_(filters,user):filteredRecords_(filters,user);return {items:all.slice((page-1)*size,page*size).map(safeRecord_),total:all.length,page:page,pageSize:size};});
 }
@@ -964,8 +976,15 @@ function reportMatrix_(user,p){
   var items=Object.keys(groups).map(function(id){return Object.assign({name:names[id]||'Chưa xác định'},groups[id]);}).sort(function(a,b){return a.name.localeCompare(b.name,'vi');});
   return {groupBy:by,items:items,total:rows.length,filters:reportFilters_(p)};
 }
+function listExportFilters_(p){
+  var status=str_(p.status,80);
+  must_(!status||status===COURSE_END_FILTER_||status==='BO_HOC'||status==='DA_THAM_GIA'||status==='KHONG_THAM_GIA'||status==='KHONG_NHAN_QUYET_DINH'||status==='CHO_XAC_NHAN'||customStatusList_().some(function(x){return x.id===status;}),'VALIDATION','Tình trạng lọc hồ sơ không hợp lệ.');
+  var period=decisionRange_(p,status===COURSE_END_FILTER_);
+  return {year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:status,dropout:str_(p.dropout,4),query:str_(p.query,140),from:period.from,to:period.to};
+}
 function exportRecords_(user,p){
-  var all=reportRecords_(p,user); must_(all.length<=5000,'EXPORT_TOO_LARGE','Tối đa 5.000 hồ sơ cho mỗi lần xuất. Hãy thu hẹp bộ lọc.');
+  // Chỉ nguồn trang Hồ sơ được dùng tình trạng lọc ảo; Báo cáo/KPI không bị ảnh hưởng.
+  var all=p.source==='records'?filteredRecords_(listExportFilters_(p),user):reportRecords_(p,user); must_(all.length<=5000,'EXPORT_TOO_LARGE','Tối đa 5.000 hồ sơ cho mỗi lần xuất. Hãy thu hẹp bộ lọc.');
   var schools={},trades={};catalogRows_('truong').forEach(function(x){schools[x.TRUONG_ID]=x.TEN_TRUONG;});catalogRows_('nghe').forEach(function(x){trades[x.NGHE_ID]=x.TEN_NGHE;});
   return {columns:['STT', 'Họ và tên', 'Năm sinh', 'Giới tính', 'Số sổ BHXH', 'Số QĐ HTHN', 'Ngày ban hành QĐHN', 'Số QĐ TCTN', 'Ngày ban hành QĐ TCTN', 'Nghề đăng ký', 'Số tháng hỗ trợ', 'Mức hỗ trợ/tháng', 'Thời gian đào tạo - Từ ngày', 'Thời gian đào tạo - Đến ngày', 'Cơ sở đào tạo nghề', 'Ngày kết thúc hưởng TCTN', 'Ngày kết thúc hỗ trợ học nghề', 'Địa chỉ tạm trú', 'Địa chỉ thường trú', 'Số CMND', 'Ngày cấp CMND', 'Nơi cấp CMND', 'Địa chỉ cơ sở đào tạo', 'Chi nhánh BHTN', 'Điện thoại'],items:all.map(function(x,i){return [i+1,x.HO_TEN,x.NGAY_SINH,x.GIOI_TINH,x.SO_SO_BHXH,x.SO_QUYET_DINH,x.NGAY_QUYET_DINH,x.SO_QD_TCTN,x.NGAY_QD_TCTN,trades[x.NGHE_ID]||x.NGHE_ID,supportMonthsVN_(x.SO_THANG_HO_TRO),supportAmountVN_(x.MUC_HO_TRO_THANG),x.NGAY_BAT_DAU,x.NGAY_KET_THUC_DU_KIEN,schools[x.TRUONG_ID]||x.TRUONG_ID,x.NGAY_KET_THUC_TCTN,x.NGAY_KET_THUC_HO_TRO,x.DIA_CHI_TAM_TRU,x.DIA_CHI_THUONG_TRU,x.SO_CMND,x.NGAY_CAP_CMND,x.NOI_CAP_CMND,x.DIA_CHI_CO_SO,x.CHI_NHANH_BHTN,x.DIEN_THOAI];})};
 }

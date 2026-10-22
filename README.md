@@ -1,3 +1,9 @@
+# THEO DÕI HỌC NGHỀ — v1.2.13-RC / YC-HN-023 V1
+
+**ĐÃ CHỐT mã nguồn, chưa deploy:** Bộ lọc trang Hồ sơ học nghề kết hợp khoảng Ngày QĐ với tình trạng thực tế; tùy chọn ảo **Ngày hoàn thành khóa học** lọc theo `NGAY_KET_THUC_DU_KIEN` (ngày kết thúc đào tạo dự kiến), không thay tình trạng đã học. Đồng bộ Xuất Excel theo cùng bộ lọc và giữ định dạng XLSX v1.2.11-RC, cùng cập nhật cục bộ v1.2.12-RC. Xem `docs/YC-HN-023_V1_v1.2.13-RC_CHANGELOG_TRIEN_KHAI.md`.
+
+---
+
 > **HOTFIX v1.2.11-RC**: Đặt style 0 XLSX thành mặc định trung tính; tất cả ô dữ liệu có style riêng khác 0 để giữ căn ngang/dọc, Wrap Text, viền sau khi mở/lưu trên công cụ văn phòng. Có cache busting cho app.js và xlsx-export.js. Chỉ sửa frontend, không cần triển khai Apps Script. Xem `docs/YC-HN-021_V5_2_HOTFIX_XLSX_STYLE.md`.
 
 > **MỚI NHẤT — v1.2.10-RC / YC-HN-021 V5.2**: Xuất Excel danh sách 25 cột đúng theo file mẫu đã nghiệm thu: B/J/O/V/W căn trái, các cột khác căn giữa; chiều cao hàng gọn và tự tăng khi Wrap Text. Hướng dẫn tại `docs/YC-HN-021_V5_2_HUONG_DAN_VA_KIEM_THU.md`. Không thay đổi nghiệp vụ hoặc dữ liệu trên Google Sheets.
