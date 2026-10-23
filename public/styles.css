@@ -340,5 +340,6 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 #list-output th.record-action-header,#list-output td.record-action-cell{text-align:center;vertical-align:middle}
 
 /* YC-HN-024: ghi rõ phạm vi ngày kết thúc đã áp dụng, cả khi in. */
-.report-course-end-note{margin:7px 0 15px;padding:10px 13px;background:#eef7ff;color:#194b72;border:1px solid #d3e5f8;border-radius:8px;font-size:13px;line-height:1.5}
-@media print{body:has(#report-output) .report-course-end-note{display:block!important;background:#fff!important;border:0!important;padding:0!important;margin:5px 0 13px!important;color:#000!important;font-size:10pt!important;break-inside:avoid}}
+/* YC-HN-024 V2: không có banner xanh; chỉ ghi ngắn phạm vi ngày trong bản in. */
+.report-print-date-scope{display:none!important}
+@media print{body:has(#report-output) .report-print-date-scope{display:block!important;margin:4px 0 10px!important;color:#000!important;font-size:10pt!important;break-inside:avoid}}

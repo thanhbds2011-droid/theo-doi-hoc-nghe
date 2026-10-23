@@ -48,7 +48,7 @@ with sync_playwright() as pw:
       else if(req.action==='permission_check')data={user,permissionRevision:'P1',dataRevision:'D1',catalogRevision:'C1',statusRevision:'S1'};
       else if(req.action==='overview'){
         const rs=matches(p),participated=rs.filter(x=>x.status==='DA_THAM_GIA').length;
-        data={kpi:{total:rs.length,participated,learning:participated,dropout:0,notParticipating:rs.filter(x=>x.status==='KHONG_THAM_GIA').length,pending:rs.filter(x=>x.status==='CHO_XAC_NHAN').length},statusCounts:{notReceived:0,other:0},schoolCounts:{},tradeCounts:{}};
+        data={kpi:{total:rs.length,participated,learning:participated,dropout:0,notParticipating:rs.filter(x=>x.status==='KHONG_THAM_GIA').length,pending:rs.filter(x=>x.status==='CHO_XAC_NHAN').length,courseEndScheduled:rs.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(x.end)).length},statusCounts:{notReceived:0,other:0},schoolCounts:{},tradeCounts:{}};
       }else if(req.action==='report_export'){
         if(role!=='ADMIN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
         data={columns:Array.from({length:25},(_,i)=>'Cột '+(i+1)),items:matches(p).map((x,i)=>{const arr=Array(25).fill('');arr[0]=i+1;arr[5]=x.number;arr[13]=x.end;return arr;})};
@@ -77,19 +77,23 @@ with sync_playwright() as pw:
    page.locator('[data-calendar-year]').select_option('2027')
    page.locator('[data-calendar-month]').select_option('7')
    page.locator(f'[data-calendar-day="{day}"]').click()
-  assert page.locator('.report-course-end-note').count()==0,role+': draft should not modify prior report'
+  assert page.locator('.report-print-date-scope').count()==0,role+': draft should not modify prior report'
   page.locator('#reports-filters button[type="submit"]').click()
   page.wait_for_function('window.calls.some(x=>x.action==="overview"&&x.payload.status==="FILTER_COURSE_END_DATE")',timeout=12000)
-  page.wait_for_selector('.report-course-end-note',timeout=12000)
-  scope=page.locator('.report-course-end-note').inner_text()
+  page.wait_for_selector('.report-print-date-scope',state='attached',timeout=12000)
+  scope=page.locator('.report-print-date-scope').inner_text()
   assert '01/07/2027' in scope and '31/07/2027' in scope and 'dự kiến' in scope,(role,scope)
+  assert page.locator('.report-course-end-note').count()==0
+  assert page.locator('.report-print-date-scope').evaluate('(el)=>getComputedStyle(el).display')=='none',role
   expected=2 if role=='CO_SO_DAO_TAO' else 3
   assert page.locator('#report-output table tbody tr').first.locator('td').nth(1).inner_text()==str(expected),role
+  row=page.locator('#report-output table tbody tr').filter(has_text='Ngày hoàn thành khóa học')
+  assert row.count()==1 and row.locator('td').nth(1).inner_text()==str(expected),role
   if role=='ADMIN':
    page.locator('#print-report').click()
    assert page.evaluate('window.printCount')==1
    page.emulate_media(media='print')
-   assert page.locator('.report-course-end-note').evaluate('(el)=>getComputedStyle(el).display')!='none'
+   assert page.locator('.report-print-date-scope').evaluate('(el)=>getComputedStyle(el).display')!='none'
    page.emulate_media(media='screen')
    page.locator('#report-export').click()
    page.wait_for_selector('#report-export-form',timeout=12000)
@@ -107,13 +111,16 @@ with sync_playwright() as pw:
     action='overview' if mode=='summary' else 'report_matrix'
     assert page.evaluate(f'window.calls.filter(x=>x.action==="{action}").at(-1).payload.status')=='FILTER_COURSE_END_DATE'
    assert page.evaluate('window.exported.length')==4
+   lines=page.evaluate('window.exported[1].rows')
+   assert lines[-1][0]=='Ngày hoàn thành khóa học' and lines[-1][1]==expected,(role,lines)
   else:
    assert page.locator('#report-export').count()==0,role
   page.locator('#reports-filters [name="status"]').select_option('')
   page.locator('#reports-filters button[type="submit"]').click()
   page.wait_for_function('window.calls.filter(x=>x.action==="overview").at(-1).payload.status===""',timeout=12000)
-  page.wait_for_function('document.querySelector(".report-course-end-note")===null',timeout=12000)
+  page.wait_for_function('document.querySelector(".report-print-date-scope")===null',timeout=12000)
   assert page.locator('#report-output table tbody tr').first.locator('td').nth(1).inner_text()=='0',role
+  assert page.locator('#report-output table tbody tr').filter(has_text='Ngày hoàn thành khóa học').locator('td').nth(1).inner_text()=='0',role+' — cùng bộ lọc ngày QĐ tháng 7/2027 không có hồ sơ'
   page.close()
  browser.close()
 assert errors==[],errors

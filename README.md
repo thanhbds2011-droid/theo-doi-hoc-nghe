@@ -1,4 +1,4 @@
-# THEO DÕI HỌC NGHỀ — v1.2.14-RC / YC-HN-024 V1
+# THEO DÕI HỌC NGHỀ — v1.2.15-RC / YC-HN-024 V2
 
 **ĐÃ CHỐT mã nguồn, chưa deploy:** Trang Báo cáo hỗ trợ lọc ảo theo `NGAY_KET_THUC_DU_KIEN`, số liệu KPI và bốn kiểu xuất Excel dùng cùng bộ lọc, bản in hiển thị phạm vi ngày đã áp dụng. Giữ nguyên các tình trạng thực tế.
 
@@ -131,3 +131,7 @@ Chỉ Quản trị viên sử dụng nút **Cập nhật tình trạng từ Exce
 Giữ màn hình đã mở trong RAM khi chuyển menu 3–4 phút, nhưng kiểm tra lại quyền nếu hết thời hạn; bổ sung `permission_check` nhẹ của Apps Script. Snapshot Sheet được truy xuất theo lô qua CacheService `getAll`/`putAll`; tìm số quyết định dùng chỉ mục cache có kiểm chứng; đọc Nhật ký phân trang, và có tùy chọn `HN_PERF_TEST=1` để benchmark trên staging.
 
 **Bắt buộc cập nhật Apps Script trước khi triển khai frontend mới**, không triển khai trực tiếp lên dữ liệu thật khi chưa test. Xem `docs/YC-HN-017_V3_v1.2.4-RC_CHANGELOG_VA_HUONG_DAN.md`.
+
+
+## YC-HN-024 V2 (v1.2.15-RC)
+Báo cáo thêm chỉ tiêu ngày kết thúc đào tạo dự kiến hợp lệ; bỏ banner hướng dẫn màu xanh, giữ metadata phạm vi khi in. Xem `docs/HUONG_DAN_YC-HN-024_V2_v1.2.15-RC.md`.

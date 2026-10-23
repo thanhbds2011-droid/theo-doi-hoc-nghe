@@ -28,14 +28,23 @@ test('YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không 
  assert.match(gas,/function reportMatrix_\(user,p\)/);
  assert.match(gas,/function exportRecords_\(user,p\)/);
 });
-test('YC024 in đúng phạm vi ngày đã áp dụng và thống kê không thành tình trạng tốt nghiệp',()=>{
- assert.match(app,/function reportCourseEndScope\(filters\)/);
- assert.match(app,/Phạm vi ngày kết thúc dự kiến/);
- assert.match(app,/Đây không phải số người đã tốt nghiệp/);
- assert.match(app,/reportCourseEndScope\(state\.reportFilters\)/);
- assert.match(css,/@media print\{body:has\(#report-output\) \.report-course-end-note/);
- assert.match(app,/if\(node\.id==='print-report'\)\{window\.print\(\);return;\}/);
+test('YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới',()=>{
+ assert.match(app,/\['Ngày hoàn thành khóa học',k\.courseEndScheduled\?\?0\]/);
+ assert.match(gas,/courseEndScheduled:0/);
+ assert.match(gas,/validDate_\(String\(r\.NGAY_KET_THUC_DU_KIEN\|\|''\)\.slice\(0,10\)\)\)k\.courseEndScheduled\+\+/);
  assert.doesNotMatch(gas,/TRANG_THAI_THAM_GIA\s*=\s*COURSE_END_FILTER_/);
+ assert.match(app,/const lines=reportKpiRows\(d\.kpi,d\.statusCounts\)/);
+});
+test('YC024 V2 bỏ banner màu xanh ở thống kê, chỉ giữ metadata phạm vi ngày khi in',()=>{
+ assert.doesNotMatch(app,/reportCourseEndScope/);
+ assert.doesNotMatch(app,/report-course-end-note/);
+ assert.doesNotMatch(css,/report-course-end-note/);
+ assert.match(app,/function reportPrintDateScope\(filters\)/);
+ assert.match(app,/Ngày kết thúc đào tạo dự kiến: Từ /);
+ assert.match(app,/reportPrintDateScope\(state\.reportFilters\)/);
+ assert.match(css,/\.report-print-date-scope\{display:none!important\}/);
+ assert.match(css,/@media print\{body:has\(#report-output\) \.report-print-date-scope\{display:block!important/);
+ assert.match(app,/if\(node\.id==='print-report'\)\{window\.print\(\);return;\}/);
 });
 test('YC024 vẫn sử dụng 4 dạng Excel cũ, không sửa exporter',()=>{
  for(const mode of ['list','summary','truong','nghe'])assert.match(app,new RegExp('value="'+mode+'"'));

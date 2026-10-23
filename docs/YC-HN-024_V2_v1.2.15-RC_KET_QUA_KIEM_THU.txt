@@ -1,0 +1,95 @@
+YC-HN-024 V2 / v1.2.15-RC — KẾT QUẢ KIỂM THỬ TỰ ĐỘNG
+Ngày: 23/10/2026
+Phạm vi: mã nguồn thử nghiệm trên máy, không truy cập dữ liệu Google Sheets/Vercel production.
+
+npm run check: đạt
+npm test: 165/165 đạt (165 bài thực thi; 0 lỗi)
+Chromium: YC021, YC022, YC023, YC024 mock đạt; YC024 kiểm tra cả 3 vai trò.
+Các bài thử dùng dữ liệu giả lập, không đo hiệu năng production.
+
+SHA-256 giữ nguyên Excel exporter: 244d494d2cc9535dc631a1544409816f0502ba0f8ee17e7052c5d6c9e7f180dc
+
+CHI TIẾT:
+
+=== yc024_v2_check.log ===
+> theo-doi-hoc-nghe@1.2.15-rc.0 check
+> node --check api/rpc.js && node --check api/config.js && node --check public/app.js
+
+=== yc024_v2_npm.log ===
+  type: 'test'
+  ...
+# Subtest: YC022 đo tốc độ có điều kiện, không log dữ liệu cá nhân; không sửa kiểm quyền và trùng QĐ
+ok 157 - YC022 đo tốc độ có điều kiện, không log dữ liệu cá nhân; không sửa kiểm quyền và trùng QĐ
+  ---
+  duration_ms: 0.256267
+  type: 'test'
+  ...
+# Subtest: YC023 lựa chọn lọc ảo ở Hồ sơ, không được đưa vào trạng thái cập nhật hoặc lọc KPI
+ok 158 - YC023 lựa chọn lọc ảo ở Hồ sơ, không được đưa vào trạng thái cập nhật hoặc lọc KPI
+  ---
+  duration_ms: 1.215143
+  type: 'test'
+  ...
+# Subtest: YC023 cập nhật cục bộ khi đổi ngày kết thúc dự kiến bắt buộc refresh đúng vùng danh sách
+ok 159 - YC023 cập nhật cục bộ khi đổi ngày kết thúc dự kiến bắt buộc refresh đúng vùng danh sách
+  ---
+  duration_ms: 2.064024
+  type: 'test'
+  ...
+# Subtest: YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc bảng dữ liệu
+ok 160 - YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc bảng dữ liệu
+  ---
+  duration_ms: 0.871545
+  type: 'test'
+  ...
+# Subtest: YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ giúp lịch đúng nhãn
+ok 161 - YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ giúp lịch đúng nhãn
+  ---
+  duration_ms: 1.106078
+  type: 'test'
+  ...
+# Subtest: YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không ghi trạng thái ảo
+ok 162 - YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không ghi trạng thái ảo
+  ---
+  duration_ms: 0.389788
+  type: 'test'
+  ...
+# Subtest: YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới
+ok 163 - YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới
+  ---
+  duration_ms: 0.447596
+  type: 'test'
+  ...
+# Subtest: YC024 V2 bỏ banner màu xanh ở thống kê, chỉ giữ metadata phạm vi ngày khi in
+ok 164 - YC024 V2 bỏ banner màu xanh ở thống kê, chỉ giữ metadata phạm vi ngày khi in
+  ---
+  duration_ms: 0.384099
+  type: 'test'
+  ...
+# Subtest: YC024 vẫn sử dụng 4 dạng Excel cũ, không sửa exporter
+ok 165 - YC024 vẫn sử dụng 4 dạng Excel cũ, không sửa exporter
+  ---
+  duration_ms: 0.606394
+  type: 'test'
+  ...
+1..165
+# tests 165
+# suites 0
+# pass 165
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 2029.860146
+
+=== yc024_v2_browser021.log ===
+YC021_BROWSER_OK: 3 roles, icon permissions, keyboard query clear auto-filter, stale permission recheck
+
+=== yc024_v2_browser022.log ===
+YC022_BROWSER_OK: ADMIN & NHAN_VIEN local row update, stable filter DOM, no redundant list RPC; sort-change targeted refresh; version-conflict safe; CO_SO_DAO_TAO no edit
+
+=== yc024_v2_browser023.log ===
+YC023_BROWSER_OK: ADMIN/NHAN_VIEN/CO_SO_DAO_TAO, end-date calendar & status, 8-column dynamic table, Excel matching list, targeted refresh after end-date edit, report isolation
+
+=== yc024_v2_browser024.log ===
+YC024_BROWSER_OK: 3 roles, draft/applied dates, inclusive July course-end filters, dynamic KPI, print note, 4 export formats, old-status decision date

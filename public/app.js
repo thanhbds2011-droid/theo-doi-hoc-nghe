@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.11-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.14-RC (YC-HN-024 V1, giữ nguyên hotfix Excel). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.15-RC (YC-HN-024 V2, giữ nguyên hotfix Excel). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -538,11 +538,12 @@ async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.reco
   const totalPages=Math.max(1,Math.ceil(data.total/20));
   $('#list-pages').innerHTML=`<div class="pagination"><button class="btn" data-page="${data.page-1}" ${data.page<=1?'disabled':''}>← Trước</button>Trang ${data.page}/${totalPages}<button class="btn" data-page="${data.page+1}" ${data.page>=totalPages?'disabled':''}>Tiếp →</button></div>`;
 }
-function reportKpiRows(k,extra={}){return [['Tổng số Quyết định',k.total],['Đã tham gia',k.participated],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[])];}
-function reportCourseEndScope(filters){
+function reportKpiRows(k,extra={}){return [['Tổng số Quyết định',k.total],['Đã tham gia',k.participated],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[]),['Ngày hoàn thành khóa học',k.courseEndScheduled??0]];}
+// Thông tin phạm vi chỉ in trên giấy; không tạo lại banner giải thích trên màn hình.
+function reportPrintDateScope(filters){
   if(filters?.status!==COURSE_END_FILTER)return '';
   const from=dateFilterToInput(filters.from)||'Không giới hạn',to=dateFilterToInput(filters.to)||'Không giới hạn';
-  return `<p class="report-course-end-note" role="note"><strong>Thống kê các hồ sơ có ngày kết thúc đào tạo dự kiến trong khoảng đã chọn.</strong> Phạm vi ngày kết thúc dự kiến: Từ ${esc(from)} đến ${esc(to)}. Đây không phải số người đã tốt nghiệp.</p>`;
+  return `<p class="report-print-date-scope">Ngày kết thúc đào tạo dự kiến: Từ ${esc(from)} đến ${esc(to)}</p>`;
 }
 async function renderReports(v,keepOld=false){
   const markup=heading('Báo cáo học nghề','',`${state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-primary" id="report-export">Xuất Excel</button>':''}<button class="btn" id="print-report">In báo cáo</button>`)+filterFields(state.reportFilters,'reports')+'<div id="report-output" class="spinner">Đang tải thống kê…</div>';
@@ -550,7 +551,7 @@ async function renderReports(v,keepOld=false){
   const data=await rpc('overview',state.reportFilters,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
   $('#report-output').className='report-results';
-  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportCourseEndScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts).map(r=>`<tr><td>${r[0]}</td><td><b>${num(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts).map(r=>`<tr><td>${r[0]}</td><td><b>${num(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 async function renderCatalogs(v,keepOld=false){
   const canEdit=allowed('CATALOG_MANAGE');
