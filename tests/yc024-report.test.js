@@ -23,7 +23,7 @@ test('YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không 
  assert.match(gas,/decisionRange_\(p,status===COURSE_END_FILTER_\)/);
  assert.match(gas,/status:f\.status===COURSE_END_FILTER_\?COURSE_END_FILTER_:''/);
  assert.match(gas,/function reportMatches_\(r,p\)/);
- assert.match(gas,/function reportRecords_\(p,user,sorted\)/);
+ assert.match(gas,/function reportRecords_\(p,user,sorted,sourceRecords\)/);
  assert.match(gas,/function overview_\(user,p\)/);
  assert.match(gas,/function reportMatrix_\(user,p\)/);
  assert.match(gas,/function exportRecords_\(user,p\)/);

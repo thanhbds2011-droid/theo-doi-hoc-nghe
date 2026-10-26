@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.11-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.17-RC (YC-HN-025 V2, đếm theo Đã tham gia + không bỏ học + ngày kết thúc dự kiến). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.18-RC (YC-HN-025 V3, thống nhất chỉ tiêu Hoàn thành theo ngày kết thúc dự kiến). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -572,7 +572,7 @@ async function renderReports(v,keepOld=false){
   const data=await rpc('overview',state.reportFilters,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
   $('#report-output').className='report-results';
-  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts,state.reportFilters.status).map(r=>`<tr><td${r[0]==='Hoàn thành khóa học'?' title="Đã tham gia, không bỏ học và có ngày kết thúc đào tạo dự kiến hợp lệ; chưa phải xác nhận tốt nghiệp thực tế"':''}>${esc(r[0])}</td><td><b>${reportKpiCount(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts,state.reportFilters.status).map(r=>`<tr><td${r[0]==='Hoàn thành khóa học'?' title="Đếm theo Thời gian đào tạo – Đến ngày; chỉ Đã tham gia và không Bỏ học. Chưa phải xác nhận tốt nghiệp thực tế"':''}>${esc(r[0])}</td><td><b>${reportKpiCount(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 async function renderCatalogs(v,keepOld=false){
   const canEdit=allowed('CATALOG_MANAGE');

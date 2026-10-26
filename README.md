@@ -1,3 +1,9 @@
+# THEO DÕI HỌC NGHỀ — v1.2.18-RC / YC-HN-025 V3
+
+**Đã CHỐT:** Sửa sự không đồng nhất ngày trong chỉ tiêu `Hoàn thành khóa học` giữa chế độ `Tất cả tình trạng` và chế độ lọc riêng. Trong cả hai chế độ, hàng Hoàn thành đếm người Đã tham gia/không Bỏ học có `Thời gian đào tạo – Đến ngày` thuộc khoảng lọc; các chỉ tiêu khác của chế độ Tất cả vẫn theo Ngày ban hành QĐ. Một lần đọc tập hồ sơ có quyền, hai cách lọc trong bộ nhớ. Không đổi dữ liệu, quyền, lưu hồ sơ hoặc định dạng Excel. Xem `docs/YC-HN-025_V3_v1.2.18-RC_CHANGELOG_HUONG_DAN.md`. Cần cập nhật frontend và Apps Script; chưa triển khai production.
+
+---
+
 # THEO DÕI HỌC NGHỀ — v1.2.17-RC / YC-HN-025 V2
 
 **Bổ sung quy tắc được người dùng làm rõ:** Hoàn thành khóa học = `DA_THAM_GIA` + không `DA_BO_HOC` + có `NGAY_KET_THUC_DU_KIEN` hợp lệ và thuộc phạm vi lọc đã chọn. Đây là chỉ tiêu theo **ngày kết thúc đào tạo dự kiến**, không thay thế xác nhận tốt nghiệp thực tế. Các bộ lọc, thống kê và Xuất Excel dùng chung tiêu chí mới. Xem `docs/YC-HN-025_V2_v1.2.17-RC_HUONG_DAN.md`.

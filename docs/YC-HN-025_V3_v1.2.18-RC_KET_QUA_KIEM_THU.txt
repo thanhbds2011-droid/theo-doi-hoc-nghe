@@ -1,0 +1,13 @@
+YC-HN-025 V3 | v1.2.18-RC | KẾT QUẢ KIỂM THỬ CỤC BỘ
+
+Mã nguồn nền: v1.2.17-RC, cập nhật một cách có kiểm soát trên bản sao.
+- npm run check: ĐẠT (api/rpc.js, api/config.js, public/app.js).
+- npm test: 173 bài; ĐẠT 173; KHÔNG ĐẠT 0.
+- Playwright Chromium mô phỏng: tests/browser_yc022_mock.py — ĐẠT (sửa hồ sơ cục bộ, quyền).
+- Playwright Chromium mô phỏng: tests/browser_yc023_mock.py — ĐẠT (lọc ngày kết thúc, xuất Excel, ba vai trò).
+- Playwright Chromium mô phỏng: tests/browser_yc024_mock.py — ĐẠT (lọc Báo cáo, KPI, in, bốn dạng xuất Excel, ba vai trò).
+- Playwright Chromium: tests/browser_yc021_v5_2_excel.py — ĐẠT (định dạng 25 cột, căn lề, Wrap Text, chiều cao).
+- Bài tích hợp mới YC025 V3: cùng từ/đến ngày, Tất cả & Hoàn thành có courseEndParticipated bằng nhau; các KPI cũ theo ngày QĐ; QĐ ngoài kỳ/kết thúc trong kỳ; ngày 01/01 và 30/04; điều kiện bỏ học/chưa xác nhận; lọc năm/trường; không ngày hoặc một đầu mút; quyền cơ sở; chống xuất Excel ngoài quyền; một snapshot được chia sẻ.
+- Không có benchmark độ trễ Apps Script production, không tuyên bố tăng tốc thực tế.
+- Không trực tiếp truy cập hệ thống production; không sử dụng dữ liệu thật để kiểm thử.
+- public/xlsx-export.js SHA-256: 244d494d2cc9535dc631a1544409816f0502ba0f8ee17e7052c5d6c9e7f180dc (trùng bản v1.2.17-RC).

@@ -1177,3 +1177,62 @@ test('YC025 V2 mười QĐ chỉ một người Đã tham gia không bỏ học 
  assert.equal(raw.length,11,'Không thay đổi số lượng bản ghi/không thêm trạng thái vật lý');
  assert.equal(raw.slice(1).filter(row=>row.includes('FILTER_COURSE_END_DATE')).length,0);
 });
+
+
+// YC-HN-025 V3: ngày áp dụng cho một hàng Hoàn thành độc lập với ngày QĐ ở các KPI khác.
+test('YC025 V3 Tất cả và Hoàn thành luôn cùng số theo ngày kết thúc, dùng một snapshot theo quyền',()=>{
+ const c=setupLive(), other=catalog(c,'truong','C025V3','Cơ sở V3 thứ hai');
+ const entries=[
+  ['7101','2025-12-15','2026-01-01','DA_THAM_GIA',false,c.school.TRUONG_ID],
+  ['7102','2026-02-15','2026-06-15','DA_THAM_GIA',false,c.school.TRUONG_ID],
+  ['7103','2026-01-14','2026-04-30','DA_THAM_GIA',false,c.school.TRUONG_ID],
+  ['7104','2026-03-08','2026-03-20','DA_THAM_GIA',true,c.school.TRUONG_ID],
+  ['7105','2026-02-08','2026-03-10','CHO_XAC_NHAN',false,c.school.TRUONG_ID],
+  ['7106','2026-02-10','','DA_THAM_GIA',false,c.school.TRUONG_ID],
+  ['7107','2026-01-20','2026-03-25','DA_THAM_GIA',false,other.TRUONG_ID]
+ ];
+ for(const [number,decision,end,status,dropout,school] of entries){
+  const extras={TRUONG_ID:school,TRANG_THAI_THAM_GIA:status,
+   NGAY_BAT_DAU:end?(decision<'2026-01-01'?'2025-12-20':'2026-01-01'):'',NGAY_KET_THUC_DU_KIEN:end,
+   ...(dropout?{DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}:{})};
+  const result=c.send('record_save',record(c,number,decision,extras));
+  assert.equal(result.ok,true,JSON.stringify(result.error));
+ }
+ const range={from:'2026-01-01',to:'2026-04-30'};
+ const oldVisible=c.global.visibleRecords_;
+ let sourceReads=0;
+ c.global.visibleRecords_=function(u){sourceReads++;return oldVisible(u);};
+ const all=c.send('overview',range);assert.equal(all.ok,true,JSON.stringify(all.error));
+ assert.equal(sourceReads,1,'Một snapshot đã kiểm quyền cho hai kiểu lọc ngày');
+ assert.equal(all.data.kpi.total,6,'Chỉ tổng số quyết định trong khoảng Ngày QĐ');
+ assert.equal(all.data.kpi.participated,5,'Nhóm Đã tham gia gồm Bỏ học');
+ assert.equal(all.data.kpi.dropout,1);
+ assert.equal(all.data.kpi.pending,1);
+ assert.equal(all.data.kpi.courseEndParticipated,3,'Tính theo Ngày kết thúc, gồm cả hồ sơ QĐ 2025');
+ const completed=c.send('overview',{...range,status:'FILTER_COURSE_END_DATE'});
+ assert.equal(completed.ok,true,JSON.stringify(completed.error));
+ assert.equal(completed.data.kpi.total,3);
+ assert.equal(completed.data.kpi.courseEndParticipated,all.data.kpi.courseEndParticipated);
+ assert.deepEqual(Array.from(c.send('report_export',{...range,status:'FILTER_COURSE_END_DATE'}).data.items,r=>r[5]).sort(),['7101','7103','7107']);
+ const scopedRange={...range,truong:c.school.TRUONG_ID};
+ assert.equal(c.send('overview',scopedRange).data.kpi.courseEndParticipated,2);
+ assert.equal(c.send('overview',{...scopedRange,status:'FILTER_COURSE_END_DATE'}).data.kpi.courseEndParticipated,2);
+ assert.equal(c.send('overview',{...range,year:'2025'}).data.kpi.total,0);
+ assert.equal(c.send('overview',{...range,year:'2025'}).data.kpi.courseEndParticipated,1,'Năm QĐ giữ nghĩa của nó, độc lập kỳ kết thúc');
+ assert.equal(c.send('overview',{...range,year:'2026'}).data.kpi.courseEndParticipated,2);
+ for(const partial of [{from:'2026-01-01'}, {to:'2026-04-30'}, {}]){
+  const a=c.send('overview',partial).data.kpi.courseEndParticipated;
+  const b=c.send('overview',{...partial,status:'FILTER_COURSE_END_DATE'}).data.kpi.courseEndParticipated;
+  assert.equal(a,b,'Hai chế độ vẫn đồng nhất khi chỉ một hoặc không có đầu mút');
+ }
+ assert.equal(c.send('overview',{...range,from:'2026-02-30'}).error.code,'VALIDATION');
+ assert.equal(c.send('overview',{...range,from:'2026-05-01'}).error.code,'VALIDATION');
+ const acc=c.send('account_save',{email:'yc025v3school@example.com',name:'V3 trường 1',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+ assert.equal(acc.ok,true);
+ const actor={sub:'82345678901234567890',aud:audience,email:'yc025v3school@example.com'};
+ const schoolAll=sendAs(c,actor,'overview',range);assert.equal(schoolAll.ok,true);
+ const schoolEnd=sendAs(c,actor,'overview',{...range,status:'FILTER_COURSE_END_DATE'});assert.equal(schoolEnd.ok,true);
+ assert.equal(schoolAll.data.kpi.courseEndParticipated,2);
+ assert.equal(schoolEnd.data.kpi.courseEndParticipated,2);
+ assert.equal(sendAs(c,actor,'report_export',{...range,status:'FILTER_COURSE_END_DATE'}).error.code,'NO_PERMISSION');
+});

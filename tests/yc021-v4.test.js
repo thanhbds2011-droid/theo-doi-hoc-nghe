@@ -22,8 +22,8 @@ test('YC021: permission-gated navigation and safe aggregate without full sort',(
   assert.match(app,/await verifyPermission\(\);/);
   assert.match(app,/function safeRouteShell\(/);
   assert.match(app,/saved\.scope===permissionScope\(\)&&saved\.dataRevision===state\.dataRevision/);
-  assert.match(gas,/var source=sorted===false\?visibleRecords_\(user\)/);
-  assert.match(gas,/reportRecords_\(filters,user,false\)/);
+  assert.match(gas,/var source=sorted===false\?\(sourceRecords\|\|visibleRecords_\(user\)\)/);
+  assert.match(gas,/reportRecords_\(filters,user,false,visible\)/);
 });
 test('YC021 V5.2: final approved Excel sample overrides V5.1; B/J/O/V/W left, R/S centered',async()=>{
   const head=Array.from({length:25},(_,i)=>'Cột '+i);

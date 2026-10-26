@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.17-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.18-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.17-RC',
+  version: '1.2.18-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -644,10 +644,10 @@ function reportMatches_(r,p){
   if(p.status==='REPORT_PARTICIPATED_ALL')return r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA';
   return recordMatches_(r,p);
 }
-function reportRecords_(p,user,sorted){
+function reportRecords_(p,user,sorted,sourceRecords){
   var f=reportFilters_(p),basic={year:f.year,truong:f.truong,nghe:f.nghe,from:f.from,to:f.to,status:f.status===COURSE_END_FILTER_?COURSE_END_FILTER_:''};
   // Aggregates do not need a 3,000-row sort. Exports retain the established sort.
-  var source=sorted===false?visibleRecords_(user).filter(function(r){return recordMatches_(r,basic);}):filteredRecords_(basic,user);
+  var source=sorted===false?(sourceRecords||visibleRecords_(user)).filter(function(r){return recordMatches_(r,basic);}):filteredRecords_(basic,user);
   return source.filter(function(r){return reportMatches_(r,f);});
 }
 function listRecords_(user,p){
@@ -951,12 +951,17 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
 
 function overview_(user,p){
   var filters=reportFilters_(p),year=filters.year,truong=filters.truong,nghe=filters.nghe;
-  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V2_COMPLETION_ELIGIBILITY_V1'],90,function(){
-    var all=reportRecords_(filters,user,false);
-    var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0,courseEndScheduled:0,courseEndParticipated:0}, extras={notReceived:0,other:0}, schools={},trades={};
+  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V3_COURSE_END_DATE_INDEPENDENT_V1'],90,function(){
+    // Một lần lấy snapshot đã kiểm quyền, sau đó lọc hai tập độc lập trong RAM.
+    // Tình trạng thường: KPI gốc theo NGAY_QUYET_DINH; Hoàn thành: theo NGAY_KET_THUC_DU_KIEN.
+    // Không cộng chỉ tiêu hoàn thành vào các tổng tình trạng, không dùng ngày dự kiến như chứng nhận tốt nghiệp.
+    var visible=visibleRecords_(user);
+    var all=reportRecords_(filters,user,false,visible);
+    var courseEndFilters={year:year,truong:truong,nghe:nghe,status:COURSE_END_FILTER_,from:filters.from,to:filters.to};
+    var completed=filters.status===COURSE_END_FILTER_?all:reportRecords_(courseEndFilters,user,false,visible);
+    var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0,courseEndScheduled:0,courseEndParticipated:completed.length}, extras={notReceived:0,other:0}, schools={},trades={};
     all.forEach(function(r){
       if(validDate_(String(r.NGAY_KET_THUC_DU_KIEN||'').slice(0,10)))k.courseEndScheduled++;
-      if(courseEndEligible_(r))k.courseEndParticipated++;
       if(r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA'){k.participated++; if(bool_(r.DA_BO_HOC))k.dropout++;else k.learning++;}
       else if(r.TRANG_THAI_THAM_GIA==='KHONG_THAM_GIA')k.notParticipating++;
       else if(r.TRANG_THAI_THAM_GIA==='CHO_XAC_NHAN')k.pending++;
