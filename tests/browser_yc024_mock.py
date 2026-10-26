@@ -14,6 +14,7 @@ errors=[]
 with sync_playwright() as pw:
  browser=pw.chromium.launch(headless=True,executable_path='/usr/bin/chromium',args=['--no-sandbox','--disable-dev-shm-usage'])
  for role in ['ADMIN','NHAN_VIEN','CO_SO_DAO_TAO']:
+  print('ROLE',role,flush=True)
   page=browser.new_page(viewport={'width':1440,'height':900})
   page.on('pageerror',lambda err:errors.append(role+': '+str(err)))
   page.set_content(html,wait_until='domcontentloaded')
@@ -51,18 +52,18 @@ with sync_playwright() as pw:
         const rs=matches(p),participated=rs.filter(x=>x.status==='DA_THAM_GIA').length;
         data={kpi:{total:rs.length,participated,learning:participated,dropout:0,notParticipating:rs.filter(x=>x.status==='KHONG_THAM_GIA').length,pending:rs.filter(x=>x.status==='CHO_XAC_NHAN').length,courseEndScheduled:rs.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(x.end )).length,courseEndParticipated:rs.filter(x=>x.status==='DA_THAM_GIA'&&x.end).length},statusCounts:{notReceived:0,other:0},schoolCounts:{},tradeCounts:{}};
       }else if(req.action==='report_export'){
-        if(role!=='ADMIN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
+        if(role==='NHAN_VIEN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
         data={columns:Array.from({length:25},(_,i)=>'Cột '+(i+1)),items:matches(p).map((x,i)=>{const arr=Array(25).fill('');arr[0]=i+1;arr[5]=x.number;arr[13]=x.end;return arr;})};
       }else if(req.action==='report_matrix'){
-        if(role!=='ADMIN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
+        if(role==='NHAN_VIEN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
         const found=matches(p),groupBy=p.groupBy==='truong'?'school':'status';
         const groups=[...new Set(found.map(x=>x[groupBy]))];
-        data={total:found.length,items:groups.map(key=>{const sub=found.filter(x=>x[groupBy]===key);return {name:key,total:sub.length,learning:sub.filter(x=>x.status==='DA_THAM_GIA').length,dropout:0,notParticipating:sub.filter(x=>x.status==='KHONG_THAM_GIA').length,notReceived:0,pending:sub.filter(x=>x.status==='CHO_XAC_NHAN').length,other:0};})};
+        data={total:found.length,items:groups.map(key=>{const sub=found.filter(x=>x[groupBy]===key);return {name:key,total:sub.length,learning:sub.filter(x=>x.status==='DA_THAM_GIA').length,dropout:0,notParticipating:sub.filter(x=>x.status==='KHONG_THAM_GIA').length,notReceived:0,pending:sub.filter(x=>x.status==='CHO_XAC_NHAN').length,other:0,courseEndParticipated:sub.filter(x=>x.status==='DA_THAM_GIA'&&x.end).length,customStatusCounts:{}};})};
       }
       return new Response(JSON.stringify({ok:true,data}),{headers:{'Content-Type':'application/json'}});
     };
   }''',role)
-  page.evaluate('src=>{const s=document.createElement("script");s.textContent="const downloadReportXlsx=(name,cols,rows)=>window.exported.push({name,rows});const downloadXlsx=(name,rows)=>window.exported.push({name,rows});\\n"+src;document.body.append(s)}',source)
+  page.evaluate('src=>{const s=document.createElement("script");s.textContent="const downloadReportXlsx=(name,cols,rows)=>window.exported.push({name,cols,rows});const downloadXlsx=(name,rows)=>window.exported.push({name,rows});\\n"+src;document.body.append(s)}',source)
   page.wait_for_selector('.kpi',timeout=12000)
   page.locator('[data-nav="reports"]').click()
   page.wait_for_selector('#reports-filters [name="status"]',timeout=12000)
@@ -97,17 +98,24 @@ with sync_playwright() as pw:
   assert page.locator('#report-output table tbody tr').count()==1,role+' — chỉ hiển thị hàng đã lọc'
   row=page.locator('#report-output table tbody tr').filter(has_text='Hoàn thành khóa học')
   assert row.count()==1 and row.locator('td').nth(1).inner_text()=='1',role
-  if role=='ADMIN':
+  if role in ('ADMIN','CO_SO_DAO_TAO'):
    page.locator('#print-report').click()
    assert page.evaluate('window.printCount')==1
    page.emulate_media(media='print')
    assert page.locator('.report-print-date-scope').evaluate('(el)=>getComputedStyle(el).display')!='none'
+   if role=='CO_SO_DAO_TAO':
+    assert page.locator('.report-print-school').count()==1
+    assert 'Trường 1' in page.locator('.report-print-school').inner_text()
+    assert page.locator('.report-print-school').evaluate('(el)=>getComputedStyle(el).display')!='none'
    page.emulate_media(media='screen')
    page.locator('#report-export').click()
    page.wait_for_selector('#report-export-form',timeout=12000)
    page.locator('#report-export-form [name="mode"]').select_option('list')
    page.locator('#report-export-form [data-submit-btn]').click()
-   page.wait_for_function('window.exported.length===1',timeout=12000)
+   
+   try:page.wait_for_function('window.exported.length===1',timeout=3000)
+   except Exception:
+    print('DEBUG',role,page.evaluate('({exports:window.exported,calls:window.calls.slice(-4),toast:document.querySelector("#toast")?.textContent,modal:document.querySelector("#modal")?.textContent})'),errors);raise
    assert page.evaluate('window.exported[0].rows.length')==3
    assert page.evaluate('window.exported[0].rows[2][13]')=='2027-07-01'
    assert page.evaluate('window.calls.filter(x=>x.action==="report_export").at(-1).payload.status')=='FILTER_COURSE_END_DATE'
@@ -119,6 +127,8 @@ with sync_playwright() as pw:
     action='overview' if mode=='summary' else 'report_matrix'
     assert page.evaluate(f'window.calls.filter(x=>x.action==="{action}").at(-1).payload.status')=='FILTER_COURSE_END_DATE'
    assert page.evaluate('window.exported.length')==4
+   assert page.evaluate('window.exported[2].cols.includes("Hoàn thành khóa học")')
+   assert page.evaluate('window.exported[3].cols.includes("Tổng số Quyết định đã ban hành")')
    lines=page.evaluate('window.exported[1].rows')
    assert len(lines)==1 and lines[0]==['Hoàn thành khóa học',1],(role,lines)
   else:

@@ -543,7 +543,7 @@ test('YC013: một Gmail thuộc đúng một cơ sở, nhiều Gmail cùng mộ
     assert.equal(sendAs(c,user,'records_list',{}).data.total,1);
     assert.equal(sendAs(c,user,'records_list',{truong:xyz.TRUONG_ID}).data.total,0);
     assert.equal(sendAs(c,user,'overview',{}).data.kpi.total,1);
-    const deny=sendAs(c,user,'report_export',{});assert.equal(deny.error.code,'NO_PERMISSION');
+    const scopedExport=sendAs(c,user,'report_export',{});assert.equal(scopedExport.ok,true);assert.equal(scopedExport.data.items.length,1,'Xuất đúng một hồ sơ của trường');
     assert.equal(sendAs(c,user,'record_bulk_import',{rows:[{}]}).error.code,'NO_PERMISSION');
     assert.equal(sendAs(c,user,'record_delete',{HO_SO_ID:b.HO_SO_ID,PHIEN_BAN:b.PHIEN_BAN}).error.code,'NO_PERMISSION');
     assert.equal(sendAs(c,user,'record_status',{HO_SO_ID:b.HO_SO_ID,PHIEN_BAN:b.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'}).error.code,'NO_PERMISSION');
@@ -949,7 +949,7 @@ test('YC019: tài khoản trường chỉ được xem thống kê và hồ sơ 
   assert.equal(sendAs(c,user,'records_list',{from:'2026-07-01',to:'2026-07-31'}).data.total,1);
   assert.equal(sendAs(c,user,'overview',{from:'2026-07-01',to:'2026-07-31'}).data.kpi.total,1);
   assert.equal(sendAs(c,user,'records_list',{from:'2026-07-01',to:'2026-07-31',truong:xyz.TRUONG_ID}).data.total,0);
-  assert.equal(sendAs(c,user,'report_export',{from:'2026-07-01',to:'2026-07-31'}).error.code,'NO_PERMISSION');
+  assert.equal(sendAs(c,user,'report_export',{from:'2026-07-01',to:'2026-07-31'}).data.items.length,1);
 });
 
 // YC-HN-023: ngày kết thúc đào tạo dự kiến là chế độ lọc ảo, không phải tình trạng được lưu.
@@ -1016,7 +1016,7 @@ test('YC023 phân trang, quyền trường và xuất Excel với lọc theo ng�
   assert.equal(scoped.ok,true,JSON.stringify(scoped.error));
   assert.equal(scoped.data.total,12);
   assert.ok(scoped.data.items.every(r=>r.TRUONG_ID===c.school.TRUONG_ID));
-  assert.equal(sendAs(c,user,'report_export',{...range,source:'records'}).error.code,'NO_PERMISSION');
+  assert.equal(sendAs(c,user,'report_export',{...range,source:'records'}).data.items.length,12);
 });
 
 // YC-HN-024: tổng hợp, ma trận và Excel báo cáo phải dùng cùng trường ngày kết thúc dự kiến.
@@ -1085,8 +1085,8 @@ test('YC024 lọc trường và quyền khi thống kê, không cấp thêm quy�
  assert.equal(sendAs(c,actor,'overview',params).data.kpi.total,1);
  assert.equal(sendAs(c,actor,'overview',params).data.kpi.courseEndScheduled,1,'Không đếm dữ liệu của trường ngoài quyền');
  assert.equal(sendAs(c,actor,'overview',{...params,truong:other.TRUONG_ID}).data.kpi.total,0);
- assert.equal(sendAs(c,actor,'report_export',params).error.code,'NO_PERMISSION');
- assert.equal(sendAs(c,actor,'report_matrix',{...params,groupBy:'truong'}).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,actor,'report_export',params).data.items.length,1);
+ assert.equal(sendAs(c,actor,'report_matrix',{...params,groupBy:'truong'}).data.items.length,1);
 });
 
 test('YC024 V2 không tính ngày kết thúc dự kiến sai lịch trong thống kê thông thường',()=>{
@@ -1140,7 +1140,7 @@ test('YC025: bộ lọc tổng quyết định không rò dữ liệu sang cơ s
  assert.equal(list.ok,true,JSON.stringify(list.error));assert.equal(list.data.total,1);
  assert.equal(list.data.items[0].TRUONG_ID,c.school.TRUONG_ID);
  assert.equal(sendAs(c,actor,'overview',{...f,truong:other.TRUONG_ID}).data.kpi.total,0);
- assert.equal(sendAs(c,actor,'report_export',f).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,actor,'report_export',f).data.items.length,1);
 });
 
 // YC-HN-025 V2: ví dụ 10 quyết định và chỉ 1 đã tham gia còn học đến ngày kết thúc.
@@ -1234,5 +1234,69 @@ test('YC025 V3 Tất cả và Hoàn thành luôn cùng số theo ngày kết th�
  const schoolEnd=sendAs(c,actor,'overview',{...range,status:'FILTER_COURSE_END_DATE'});assert.equal(schoolEnd.ok,true);
  assert.equal(schoolAll.data.kpi.courseEndParticipated,2);
  assert.equal(schoolEnd.data.kpi.courseEndParticipated,2);
- assert.equal(sendAs(c,actor,'report_export',{...range,status:'FILTER_COURSE_END_DATE'}).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,actor,'report_export',{...range,status:'FILTER_COURSE_END_DATE'}).data.items.length,2);
+});
+
+// YC-HN-026: cấp quyền xuất chỉ cho dữ liệu thuộc trường; giữ quyền ghi không đổi.
+test('YC026 tài khoản trường xuất cả danh sách và ma trận, chỉ lấy dữ liệu thuộc trường dù giả mạo tham số',()=>{
+ const c=setupLive(),b=catalog(c,'truong','TR026','Trường khác');
+ for(const [n,tr] of [['2601',c.school.TRUONG_ID],['2602',b.TRUONG_ID]]){
+   assert.equal(c.send('record_save',record(c,n,'2026-10-01',{TRUONG_ID:tr})).ok,true);
+ }
+ const acc=c.send('account_save',{email:'export026@example.com',name:'Cơ sở xuất báo cáo',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+ assert.equal(acc.ok,true,JSON.stringify(acc.error));
+ const user={sub:'92345678901234567890',aud:audience,email:'export026@example.com'};
+ const boot=sendAs(c,user,'bootstrap');assert.equal(boot.ok,true,JSON.stringify(boot.error));
+ assert.match(boot.data.user.QUYEN,/REPORT_EXPORT/);
+ const file=sendAs(c,user,'report_export',{source:'records'});
+ assert.equal(file.ok,true,JSON.stringify(file.error));assert.equal(file.data.items.length,1);assert.equal(file.data.items[0][5],'2601');
+ assert.equal(sendAs(c,user,'report_export',{source:'records',truong:b.TRUONG_ID}).data.items.length,0);
+ for(const mode of ['truong','nghe']){
+  const matrix=sendAs(c,user,'report_matrix',{groupBy:mode});assert.equal(matrix.ok,true,JSON.stringify(matrix.error));
+  assert.equal(matrix.data.total,1);assert.equal(matrix.data.items.length,1);
+  assert.equal(matrix.data.items[0].total,1);
+  assert.equal(sendAs(c,user,'report_matrix',{groupBy:mode,truong:b.TRUONG_ID}).data.total,0);
+ }
+ const staff=c.send('report_matrix',{groupBy:'truong'});assert.equal(staff.data.total,2,'Admin không đổi quyền');
+ for(const [action,payload] of [['accounts_list',{}],['record_bulk_import',{rows:[]}],['record_delete',{}],['catalog_save',{type:'nghe'}],['record_save',record(c,'2603','2026-10-03')]]){
+  assert.equal(sendAs(c,user,action,payload).error.code,'NO_PERMISSION',action);
+ }
+});
+
+test('YC026 ma trận dùng hai căn cứ ngày, giữ trường/nghề chỉ có hoàn thành trong kỳ và tổng khớp overview',()=>{
+ const c=setupLive(),b=catalog(c,'truong','S026','Trường B'),ngheB=catalog(c,'nghe','N026','Nghề B');
+ const dataset=[
+  ['2701','2026-10-13','2027-07-15',c.school.TRUONG_ID,c.trade.NGHE_ID,'DA_THAM_GIA'],
+  ['2702','2027-07-02','2027-08-15',b.TRUONG_ID,ngheB.NGHE_ID,'CHO_XAC_NHAN'],
+  ['2703','2027-07-31','2027-08-15',b.TRUONG_ID,ngheB.NGHE_ID,'KHONG_THAM_GIA']
+ ];
+ for(const [n,decision,end,school,trade,status] of dataset){
+  const x=c.send('record_save',record(c,n,decision,{TRUONG_ID:school,NGHE_ID:trade,TRANG_THAI_THAM_GIA:status,NGAY_BAT_DAU:'2026-10-20',NGAY_KET_THUC_DU_KIEN:end}));
+  assert.equal(x.ok,true,JSON.stringify(x.error));
+ }
+ const f={from:'2027-07-01',to:'2027-07-31'};
+ const ov=c.send('overview',f).data.kpi;
+ assert.equal(ov.total,2);assert.equal(ov.courseEndParticipated,1);
+ for(const groupBy of ['truong','nghe']){
+   const response=c.send('report_matrix',{...f,groupBy});assert.equal(response.ok,true,JSON.stringify(response.error));
+   const m=response.data;assert.equal(m.total,2);assert.equal(m.items.length,2);
+   assert.equal(m.items.reduce((sum,r)=>sum+r.total,0),2);
+   assert.equal(m.items.reduce((sum,r)=>sum+r.courseEndParticipated,0),1);
+   const onlyCompleted=m.items.find(x=>x.courseEndParticipated===1);assert.equal(onlyCompleted.total,0,'Giữ dòng chỉ hoàn thành trong kỳ');
+   const selected=c.send('report_matrix',{...f,status:'FILTER_COURSE_END_DATE',groupBy}).data;
+   assert.equal(selected.total,1);assert.equal(selected.items[0].total,1);assert.equal(selected.items[0].courseEndParticipated,1);
+ }
+});
+
+test('YC026 ma trận tách các tình trạng tùy chỉnh, không cộng trùng vào cột Khác và giới hạn quyền',()=>{
+ const c=setupLive();
+ const a=c.send('record_save',{...record(c,'2801','2026-04-01'),customStatusName:'Tạm hoãn vì lý do riêng'});
+ const b=c.send('record_save',{...record(c,'2802','2026-04-02'),customStatusName:'Chờ bổ sung hồ sơ'});
+ assert.equal(a.ok,true,JSON.stringify(a.error));assert.equal(b.ok,true,JSON.stringify(b.error));
+ const m=c.send('report_matrix',{groupBy:'truong'});
+ assert.equal(m.ok,true,JSON.stringify(m.error));
+ assert.equal(m.data.items[0].other,2);assert.equal(m.data.customStatuses.length,2);
+ const stats=m.data.items[0].customStatusCounts;
+ assert.equal(Object.values(stats).reduce((sum,n)=>sum+n,0),2);
+ assert.equal(m.data.items[0].other-Object.values(stats).reduce((sum,n)=>sum+n,0),0);
 });

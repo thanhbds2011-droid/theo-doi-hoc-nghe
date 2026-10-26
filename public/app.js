@@ -1,5 +1,5 @@
-import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.11-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.18-RC (YC-HN-025 V3, thống nhất chỉ tiêu Hoàn thành theo ngày kết thúc dự kiến). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.19-RC';
+/** THEO DÕI HỌC NGHỀ — v1.2.19-RC (YC-HN-025 V3, thống nhất chỉ tiêu Hoàn thành theo ngày kết thúc dự kiến). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -42,8 +42,8 @@ function friendlyError(code,message){
   return 'Thao tác chưa hoàn tất. Vui lòng thử lại hoặc liên hệ quản trị viên.';
 }
 function failure(e){notify(e?.message||'Thao tác chưa hoàn tất. Vui lòng thử lại.',true);}
-const STAFF_RIGHTS=new Set(['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','FILE_UPLOAD']);
-function allowed(p){return state.user?.VAI_TRO==='ADMIN'||(state.user?.VAI_TRO==='NHAN_VIEN'&&STAFF_RIGHTS.has(p))||(state.user?.VAI_TRO==='CO_SO_DAO_TAO'&&['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW'].includes(p));}
+const STAFF_RIGHTS=new Set(['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','FILE_UPLOAD','REPORT_EXPORT']);
+function allowed(p){return state.user?.VAI_TRO==='ADMIN'||(state.user?.VAI_TRO==='NHAN_VIEN'&&STAFF_RIGHTS.has(p))||(state.user?.VAI_TRO==='CO_SO_DAO_TAO'&&['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','REPORT_EXPORT'].includes(p));}
 const allStatusOptions=()=>[...Object.entries(STATUS_FORM),...state.statuses.map(x=>[x.id,x.label])];
 const isSchoolAccount=()=>state.user?.VAI_TRO==='CO_SO_DAO_TAO';
 function rid(){return 'r_'+(crypto?.randomUUID?.() || (Date.now().toString(36)+Math.random().toString(36).slice(2)));}
@@ -459,7 +459,7 @@ async function renderDashboard(v,keepOld=false){
   $('#dashboard-output').innerHTML=`<div class="kpi-grid" aria-label="Sáu chỉ tiêu tổng quan">${tiles.map(([label,glyph,n])=>`<article class="kpi"><div class="kpi-icon">${iconSvg(glyph,26)}</div><div class="kpi-body"><div class="desc">${esc(label)}</div><div class="metric">${num(n)}</div></div></article>`).join('')}</div><div class="sub-grid">${schoolChart(data.schoolCounts)}${tradeChart(data.tradeCounts)}</div>`;
 }
 async function renderRecords(v,keepOld=false){
-  const markup=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',(state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-light" data-bulk-record="1">⇧ Nhập Excel</button><button class="btn btn-light" data-status-bulk="1">⇧ Cập nhật tình trạng từ Excel</button>':'')+(allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':''))+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${state.user?.VAI_TRO==='ADMIN'||state.user?.VAI_TRO==='NHAN_VIEN'?'<button class="btn btn-light" data-export-list="1">Xuất Excel</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
+  const markup=heading('Hồ sơ học nghề','Mỗi quyết định chỉ áp dụng cho một người; số quyết định được kiểm tra trùng trong cùng năm.',(state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-light" data-bulk-record="1">⇧ Nhập Excel</button><button class="btn btn-light" data-status-bulk="1">⇧ Cập nhật tình trạng từ Excel</button>':'')+(allowed('RECORD_CREATE')?'<button class="btn btn-primary" data-new-record="1">＋ Thêm hồ sơ</button>':''))+filterFields(state.filters,'records')+`<div class="panel-top"><span class="muted" id="record-count">Đang tải hồ sơ…</span><div class="page-actions">${allowed('REPORT_EXPORT')?'<button class="btn btn-light" data-export-list="1">Xuất Excel</button>':''}</div></div><div id="list-output" class="table-wrap"></div><div id="list-pages"></div>`;
   if(!keepOld)$('#main').innerHTML=markup;
   await loadRecordList(v,keepOld,markup);
 }
@@ -562,12 +562,13 @@ function reportKpiRows(k,extra={},appliedStatus=''){
 function reportKpiCount(value){return typeof value==='number'?num(value):esc(String(value));}
 // Thông tin phạm vi chỉ in trên giấy; không tạo lại banner giải thích trên màn hình.
 function reportPrintDateScope(filters){
-  if(filters?.status!==COURSE_END_FILTER)return '';
+  const scopedSchool=isSchoolAccount()?`<p class="report-print-school">Cơ sở đào tạo: ${esc(lookup('truong',state.user?.TRUONG_ID||''))}</p>`:'';
+  if(filters?.status!==COURSE_END_FILTER)return scopedSchool;
   const from=dateFilterToInput(filters.from)||'Không giới hạn',to=dateFilterToInput(filters.to)||'Không giới hạn';
-  return `<p class="report-print-date-scope">Ngày kết thúc đào tạo dự kiến: Từ ${esc(from)} đến ${esc(to)}</p>`;
+  return scopedSchool+`<p class="report-print-date-scope">Ngày kết thúc đào tạo dự kiến: Từ ${esc(from)} đến ${esc(to)}</p>`;
 }
 async function renderReports(v,keepOld=false){
-  const markup=heading('Báo cáo học nghề','',`${state.user?.VAI_TRO==='ADMIN'?'<button class="btn btn-primary" id="report-export">Xuất Excel</button>':''}<button class="btn" id="print-report">In báo cáo</button>`)+filterFields(state.reportFilters,'reports')+'<div id="report-output" class="spinner">Đang tải thống kê…</div>';
+  const markup=heading('Báo cáo học nghề','',`${allowed('REPORT_EXPORT')&&(state.user?.VAI_TRO==='ADMIN'||state.user?.VAI_TRO==='CO_SO_DAO_TAO')?'<button class="btn btn-primary" id="report-export">Xuất Excel</button>':''}<button class="btn" id="print-report">In báo cáo</button>`)+filterFields(state.reportFilters,'reports')+'<div id="report-output" class="spinner">Đang tải thống kê…</div>';
   if(!keepOld)$('#main').innerHTML=markup;
   const data=await rpc('overview',state.reportFilters,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
@@ -1062,11 +1063,21 @@ function exportModal(){showModal('Xuất Excel báo cáo học nghề',`<form id
 async function exportSummaryOrMatrix(mode){
   const stamp=new Date().toISOString().slice(0,10);
   if(mode==='summary'){const d=await rpc('overview',state.reportFilters,{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts,state.reportFilters.status);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề');}
-  else{const d=await rpc('report_matrix',{...state.reportFilters,groupBy:mode},{ttl:0}),label=mode==='truong'?'Tên cơ sở đào tạo':'Tên nghề',other=d.items.some(r=>r.other>0),columns=['STT',label,'Tổng số Quyết định','Đã tham gia học','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận',...(other?['Tình trạng khác']:[])];const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.learning,r.dropout,r.notParticipating,r.notReceived,r.pending,...(other?[r.other]:[])]);
+  else{
+    const d=await rpc('report_matrix',{...state.reportFilters,groupBy:mode},{ttl:0});
+    const label=mode==='truong'?'Tên cơ sở đào tạo':'Tên nghề';
+    // Các trạng thái tùy chỉnh có cột riêng khi xuất hiện; không đếm trùng vào "Khác".
+    const customs=(d.customStatuses||[]).filter(x=>x&&x.id&&x.label);
+    const customCount=r=>customs.reduce((sum,x)=>sum+Number(r.customStatusCounts?.[x.id]||0),0);
+    const other=d.items.some(r=>Number(r.other||0)>customCount(r));
+    const columns=['STT',label,'Tổng số Quyết định đã ban hành','Đã tham gia học','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận','Hoàn thành khóa học',...customs.map(x=>x.label),...(other?['Tình trạng khác']:[])];
+    const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.learning,r.dropout,r.notParticipating,r.notReceived,r.pending,r.courseEndParticipated||0,...customs.map(x=>r.customStatusCounts?.[x.id]||0),...(other?[Math.max(0,Number(r.other||0)-customCount(r))]:[])]);
     const total=[...Array(2).fill(''),...columns.slice(2).map((_,i)=>rows.reduce((sum,row)=>sum+Number(row[i+2]||0),0))];total[0]='Tổng cộng';
     if(total[2]!==d.total)throw Error('Số quyết định báo cáo chưa khớp; vui lòng thực hiện lại.');
+    if(total[8]!==d.items.reduce((sum,r)=>sum+Number(r.courseEndParticipated||0),0))throw Error('Số hồ sơ hoàn thành chưa khớp.');
     rows.push(total);
-    downloadReportXlsx('Bao-cao-theo-'+(mode==='truong'?'co-so-dao-tao':'nghe-dao-tao')+'-'+stamp+'.xlsx',columns,rows,'Báo cáo học nghề',{matrixTotals:true});}
+    downloadReportXlsx('Bao-cao-theo-'+(mode==='truong'?'co-so-dao-tao':'nghe-dao-tao')+'-'+stamp+'.xlsx',columns,rows,'Báo cáo học nghề',{matrixTotals:true});
+  }
   notify('Đã chuẩn bị Excel báo cáo học nghề.');
 }
 const FILE_LIMIT = 10485760;

@@ -94,7 +94,7 @@ export function downloadXlsx(filename,rows){const blob=buildXlsx(rows),url=URL.c
 
 /** YC-HN-013: bảng tham mưu nhóm theo cơ sở/nghề, ô số là số Excel thực. */
 export function buildReportXlsx(columns, rows, title='Báo cáo học nghề', opts={}){
-  if(!Array.isArray(columns)||columns.length<2||columns.length>12||!Array.isArray(rows))throw Error('Mẫu báo cáo không hợp lệ.');
+  if(!Array.isArray(columns)||columns.length<2||columns.length>64||!Array.isArray(rows))throw Error('Mẫu báo cáo không hợp lệ.');
   const n=columns.length;
   const cell=(value, r, c, style)=>{
     const a=address(c),at=`${a}${r}`;
@@ -103,7 +103,7 @@ export function buildReportXlsx(columns, rows, title='Báo cáo học nghề', o
     return `<c r="${at}" t="inlineStr" s="${style||0}"><is><t xml:space="preserve">${xml(valueText)}</t></is></c>`;
   };
   const lines=[`<row r="1" ht="35" customHeight="1">${cell(title.toUpperCase(),1,0,3)}</row>`,
-    `<row r="2" ht="38" customHeight="1">${columns.map((x,c)=>cell(x,2,c,1)).join('')}</row>`];
+    `<row r="2" ht="${Math.max(48,Math.min(110,Math.ceil(Math.max(...columns.map(x=>String(x??'').length))/25)*17+24))}" customHeight="1">${columns.map((x,c)=>cell(x,2,c,1)).join('')}</row>`];
   rows.forEach((r,i)=>{
     if(!Array.isArray(r)||r.length!==n)throw Error('Số cột báo cáo không khớp mẫu.');
     const total=opts.matrixTotals && i===rows.length-1;

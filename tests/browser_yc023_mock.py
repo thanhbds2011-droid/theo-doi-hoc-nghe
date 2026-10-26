@@ -50,7 +50,6 @@ with sync_playwright() as pw:
         }).sort((a,b)=>p.status==='FILTER_COURSE_END_DATE'?a.NGAY_KET_THUC_DU_KIEN.localeCompare(b.NGAY_KET_THUC_DU_KIEN):b.NGAY_QUYET_DINH.localeCompare(a.NGAY_QUYET_DINH));
         if(r.action==='records_list')data={items,total:items.length,page:Number(p.page)||1,pageSize:20};
         else{
-          if(role==='CO_SO_DAO_TAO')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
           data={columns:Array.from({length:25},(_,i)=>'Cột '+i),items:items.map((x,i)=>{const row=Array(25).fill('');row[0]=i+1;row[5]=x.SO_QUYET_DINH;row[13]=x.NGAY_KET_THUC_DU_KIEN;return row;})};
         }
       }else if(r.action==='record_save'){
@@ -80,7 +79,7 @@ with sync_playwright() as pw:
   assert page.locator('#list-output tbody tr[data-record-id]').count()==expected,role
   numbers=page.locator('#list-output tbody tr td:nth-child(3)').all_inner_texts()
   assert numbers==['101'],(role,numbers)
-  if role in ('ADMIN','NHAN_VIEN'):
+  if role in ('ADMIN','NHAN_VIEN','CO_SO_DAO_TAO'):
    page.locator('[data-export-list]').click()
    page.wait_for_function('window.excelPreview!==null',timeout=10000)
    x=page.evaluate('window.calls.filter(r=>r.action==="report_export").at(-1).payload')

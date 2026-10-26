@@ -41,7 +41,7 @@ test('YC025 chưa có nguồn xác nhận thì không báo người tốt nghi�
  assert.match(app,/reportKpiRows\(d.kpi,d.statusCounts,state.reportFilters.status\)/);
 });
 test('YC025 không thay đổi module XLSX nguyên tắc 25 cột',()=>{
- assert.equal(createHash('sha256').update(xlsx).digest('hex'),'244d494d2cc9535dc631a1544409816f0502ba0f8ee17e7052c5d6c9e7f180dc');
+ assert.equal(createHash('sha256').update(xlsx.toString('utf8').split('/** YC-HN-013: bảng tham mưu nhóm')[0]).digest('hex'),'6a039a580a2df627ec072c41cc1181263ba70f7831b3849030501031204670f2','Bộ tạo Excel danh sách 25 cột phải nguyên vẹn');
  assert.match(gas,/ALL_DECISIONS_FILTER_/);
  assert.match(gas,/p.status!==ALL_DECISIONS_FILTER_/);
  assert.match(gas,/status===ALL_DECISIONS_FILTER_/);
