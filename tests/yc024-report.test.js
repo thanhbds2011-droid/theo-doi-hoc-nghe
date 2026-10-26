@@ -10,7 +10,7 @@ const exportCurrent=readFileSync(new URL('../public/xlsx-export.js',import.meta.
 
 test('YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ giúp lịch đúng nhãn',()=>{
  const filters=app.slice(app.indexOf('function filterFields('),app.indexOf('function getFormFields('));
- const matches=filters.match(/\[COURSE_END_FILTER,'Ngày hoàn thành khóa học'\]/g)||[];
+ const matches=filters.match(/\[COURSE_END_FILTER,'Hoàn thành khóa học'\]/g)||[];
  assert.equal(matches.length,2);
  assert.match(app,/mode==='records'\|\|mode==='reports'/);
  assert.match(app,/closest\('#records-filters,#reports-filters'\)/);
@@ -19,7 +19,7 @@ test('YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ g
 });
 test('YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không ghi trạng thái ảo',()=>{
  assert.match(gas,/function reportStatusValid_\(status\)/);
- assert.match(gas,/COURSE_END_FILTER_\]\.indexOf\(status\)/);
+ assert.match(gas,/COURSE_END_FILTER_,ALL_DECISIONS_FILTER_\]\.indexOf\(status\)/);
  assert.match(gas,/decisionRange_\(p,status===COURSE_END_FILTER_\)/);
  assert.match(gas,/status:f\.status===COURSE_END_FILTER_\?COURSE_END_FILTER_:''/);
  assert.match(gas,/function reportMatches_\(r,p\)/);
@@ -29,11 +29,11 @@ test('YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không 
  assert.match(gas,/function exportRecords_\(user,p\)/);
 });
 test('YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới',()=>{
- assert.match(app,/\['Ngày hoàn thành khóa học',k\.courseEndScheduled\?\?0\]/);
+ assert.match(app,/\['Hoàn thành khóa học','Chưa có dữ liệu xác nhận hoàn thành'\]/);
  assert.match(gas,/courseEndScheduled:0/);
  assert.match(gas,/validDate_\(String\(r\.NGAY_KET_THUC_DU_KIEN\|\|''\)\.slice\(0,10\)\)\)k\.courseEndScheduled\+\+/);
  assert.doesNotMatch(gas,/TRANG_THAI_THAM_GIA\s*=\s*COURSE_END_FILTER_/);
- assert.match(app,/const lines=reportKpiRows\(d\.kpi,d\.statusCounts\)/);
+ assert.match(app,/const lines=reportKpiRows\(d\.kpi,d\.statusCounts,state\.reportFilters\.status\)/);
 });
 test('YC024 V2 bỏ banner màu xanh ở thống kê, chỉ giữ metadata phạm vi ngày khi in',()=>{
  assert.doesNotMatch(app,/reportCourseEndScope/);

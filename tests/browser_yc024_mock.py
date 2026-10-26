@@ -68,7 +68,14 @@ with sync_playwright() as pw:
   page.locator('#report-output table').wait_for(timeout=12000)
   assert page.locator('#reports-filters [name="status"] option[value="FILTER_COURSE_END_DATE"]').count()==1,role
   old=page.evaluate('window.calls.filter(x=>x.action==="overview").length')
+  assert page.locator('#reports-filters [name="status"] option[value="FILTER_ALL_DECISIONS"]').count()==1,role
+  assert page.locator('#reports-filters [name="status"] option[value="DA_THAM_GIA"]').count()==0,role
+  page.locator('#reports-filters [name="status"]').select_option('FILTER_ALL_DECISIONS')
+  page.locator('#reports-filters button[type="submit"]').click()
+  page.wait_for_function('document.querySelector("#report-output tbody")?.rows.length===1',timeout=12000)
+  assert 'Tổng số Quyết định đã ban hành' in page.locator('#report-output tbody').inner_text()
   page.locator('#reports-filters [name="status"]').select_option('FILTER_COURSE_END_DATE')
+  old=page.evaluate('window.calls.filter(x=>x.action==="overview").length')
   assert 'ngày kết thúc dự kiến' in page.locator('#filter-date-info').inner_text().lower(),role
   assert page.evaluate('window.calls.filter(x=>x.action==="overview").length')==old,role+': changing filter must not submit automatically'
   for name,day in [('from',1),('to',31)]:
@@ -86,9 +93,9 @@ with sync_playwright() as pw:
   assert page.locator('.report-course-end-note').count()==0
   assert page.locator('.report-print-date-scope').evaluate('(el)=>getComputedStyle(el).display')=='none',role
   expected=2 if role=='CO_SO_DAO_TAO' else 3
-  assert page.locator('#report-output table tbody tr').first.locator('td').nth(1).inner_text()==str(expected),role
-  row=page.locator('#report-output table tbody tr').filter(has_text='Ngày hoàn thành khóa học')
-  assert row.count()==1 and row.locator('td').nth(1).inner_text()==str(expected),role
+  assert page.locator('#report-output table tbody tr').count()==1,role+' — chỉ hiển thị hàng đã lọc'
+  row=page.locator('#report-output table tbody tr').filter(has_text='Hoàn thành khóa học')
+  assert row.count()==1 and row.locator('td').nth(1).inner_text()=='Chưa có dữ liệu xác nhận hoàn thành',role
   if role=='ADMIN':
    page.locator('#print-report').click()
    assert page.evaluate('window.printCount')==1
@@ -112,7 +119,7 @@ with sync_playwright() as pw:
     assert page.evaluate(f'window.calls.filter(x=>x.action==="{action}").at(-1).payload.status')=='FILTER_COURSE_END_DATE'
    assert page.evaluate('window.exported.length')==4
    lines=page.evaluate('window.exported[1].rows')
-   assert lines[-1][0]=='Ngày hoàn thành khóa học' and lines[-1][1]==expected,(role,lines)
+   assert len(lines)==1 and lines[0]==['Hoàn thành khóa học','Chưa có dữ liệu xác nhận hoàn thành'],(role,lines)
   else:
    assert page.locator('#report-export').count()==0,role
   page.locator('#reports-filters [name="status"]').select_option('')
@@ -120,7 +127,7 @@ with sync_playwright() as pw:
   page.wait_for_function('window.calls.filter(x=>x.action==="overview").at(-1).payload.status===""',timeout=12000)
   page.wait_for_function('document.querySelector(".report-print-date-scope")===null',timeout=12000)
   assert page.locator('#report-output table tbody tr').first.locator('td').nth(1).inner_text()=='0',role
-  assert page.locator('#report-output table tbody tr').filter(has_text='Ngày hoàn thành khóa học').locator('td').nth(1).inner_text()=='0',role+' — cùng bộ lọc ngày QĐ tháng 7/2027 không có hồ sơ'
+  assert page.locator('#report-output table tbody tr').filter(has_text='Hoàn thành khóa học').locator('td').nth(1).inner_text()=='Chưa có dữ liệu xác nhận hoàn thành',role
   page.close()
  browser.close()
 assert errors==[],errors

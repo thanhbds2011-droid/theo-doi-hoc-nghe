@@ -1103,3 +1103,40 @@ test('YC024 V2 không tính ngày kết thúc dự kiến sai lịch trong thố
  assert.equal(k.courseEndScheduled,1,'Chỉ một hồ sơ có ngày ISO hợp lệ');
  assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE'}).data.kpi.total,1,'Bộ lọc đặc biệt cũng loại ngày sai');
 });
+
+test('YC025: lọc ảo Tổng số Quyết định đã ban hành không phải trạng thái thật, giữ khoảng ngày/năm và xuất Excel',()=>{
+ const c=setupLive();
+ for(const [n,date] of [['201','2026-07-01'],['202','2026-07-31'],['203','2026-08-01']]){
+   const status=n==='202'?'DA_THAM_GIA':'CHO_XAC_NHAN';
+   const response=c.send('record_save',record(c,n,date,{TRANG_THAI_THAM_GIA:status}));
+   assert.equal(response.ok,true,JSON.stringify(response.error));
+ }
+ const range={status:'FILTER_ALL_DECISIONS',year:'2026',from:'2026-07-01',to:'2026-07-31'};
+ const over=c.send('overview',range);assert.equal(over.ok,true,JSON.stringify(over.error));
+ assert.equal(over.data.kpi.total,2);
+ assert.equal(c.send('records_list',{...range,page:1,pageSize:20}).data.total,2);
+ const excel=c.send('report_export',{...range,source:'records'});assert.equal(excel.ok,true,JSON.stringify(excel.error));
+ assert.equal(excel.data.items.length,2);
+ const matrix=c.send('report_matrix',{...range,groupBy:'nghe'});assert.equal(matrix.ok,true,JSON.stringify(matrix.error));assert.equal(matrix.data.total,2);
+ const reportExcel=c.send('report_export',range);assert.equal(reportExcel.ok,true,JSON.stringify(reportExcel.error));assert.equal(reportExcel.data.items.length,2);
+ assert.equal(c.send('overview',{status:'FILTER_ALL_DECISIONS',from:'2026-08-01',to:'2026-08-31'}).data.kpi.total,1);
+ const all=c.send('overview',{}).data.kpi;assert.equal(all.total,3);
+ assert.equal(c.send('overview',{status:'FILTER_ALL_DECISIONS',year:'2027'}).data.kpi.total,0);
+});
+
+test('YC025: bộ lọc tổng quyết định không rò dữ liệu sang cơ sở khác và không cấp quyền xuất Excel',()=>{
+ const c=setupLive(),other=catalog(c,'truong','SCHOOL25','Trường khác');
+ for(const [n,school] of [['301',c.school.TRUONG_ID],['302',other.TRUONG_ID]]){
+   assert.equal(c.send('record_save',record(c,n,'2026-07-14',{TRUONG_ID:school})).ok,true);
+ }
+ const a=c.send('account_save',{email:'yc025school@example.com',name:'Trường YC025',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+ assert.equal(a.ok,true,JSON.stringify(a.error));
+ const actor={sub:'96345678901234567890',aud:audience,email:'yc025school@example.com'};
+ const f={status:'FILTER_ALL_DECISIONS',from:'2026-07-01',to:'2026-07-31'};
+ assert.equal(sendAs(c,actor,'overview',f).data.kpi.total,1);
+ const list=sendAs(c,actor,'records_list',{...f,page:1,pageSize:20});
+ assert.equal(list.ok,true,JSON.stringify(list.error));assert.equal(list.data.total,1);
+ assert.equal(list.data.items[0].TRUONG_ID,c.school.TRUONG_ID);
+ assert.equal(sendAs(c,actor,'overview',{...f,truong:other.TRUONG_ID}).data.kpi.total,0);
+ assert.equal(sendAs(c,actor,'report_export',f).error.code,'NO_PERMISSION');
+});

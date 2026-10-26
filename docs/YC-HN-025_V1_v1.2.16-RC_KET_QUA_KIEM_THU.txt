@@ -1,0 +1,10 @@
+YC-HN-025 V1 / v1.2.16-RC — BÁO CÁO KIỂM THỬ CỤC BỘ
+
+- npm run check: PASS.
+- npm test: 171 tests, 171 pass, 0 fail, 0 skip.
+- python tests/browser_yc023_mock.py: PASS (ADMIN/NHAN_VIEN/CO_SO_DAO_TAO).
+- python tests/browser_yc024_mock.py: PASS (ADMIN/NHAN_VIEN/CO_SO_DAO_TAO).
+- Kiểm thử `FILTER_ALL_DECISIONS`: API records_list, overview, report_export 25 cột, report_matrix, cả hai đầu mút ngày, năm quyết định, quyền từng trường: PASS.
+- UI hiển thị bảng chỉ tiêu theo điều kiện áp dụng, Excel báo cáo tổng hợp cùng hàng, tình trạng tùy chỉnh, bỏ Đang học ở Báo cáo: PASS.
+- XLSX exporter nguyên SHA-256: 244d494d2cc9535dc631a1544409816f0502ba0f8ee17e7052c5d6c9e7f180dc.
+- KHÔNG kiểm thử trên production thật. KHÔNG nghiệm thu số người hoàn thành thực tế (thiếu nguồn xác nhận/định nghĩa A-B).

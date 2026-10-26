@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.15-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.16-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.15-RC',
+  version: '1.2.16-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -538,7 +538,8 @@ function cachedRecordSnapshot_(){
 }
 function visibleRecords_(user){return cachedRecordSnapshot_().filter(function(r){return r.TRANG_THAI_HO_SO!=='DELETED' && ownsRecord_(user,r);});}
 // YC-HN-019: Chỉ chấp nhận ngày ISO hợp lệ, đầu mút có bao gồm ngày.
-var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'; // Chỉ là chế độ tra cứu, không phải tình trạng hồ sơ.
+var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'; // Chỉ là chế độ tra cứu lịch dự kiến.
+var ALL_DECISIONS_FILTER_='FILTER_ALL_DECISIONS'; // Lọc ảo theo mọi tình trạng, không ghi vào Sheet.
 function decisionRange_(p,courseEnd){
   var from=str_(p.from,40).trim(),to=str_(p.to,40).trim();
   if(from)must_(validDate_(from),'VALIDATION','Từ ngày '+(courseEnd?'kết thúc đào tạo dự kiến':'ban hành quyết định')+' không hợp lệ.');
@@ -552,7 +553,7 @@ function recordMatches_(r,p){
   if(p.nghe && r.NGHE_ID!==p.nghe)return false;
   if(p.status==='BO_HOC' && !bool_(r.DA_BO_HOC))return false;
   if(p.status==='DA_THAM_GIA' && (r.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||bool_(r.DA_BO_HOC)))return false;
-  if(p.status && p.status!=='BO_HOC' && p.status!=='DA_THAM_GIA' && p.status!==COURSE_END_FILTER_ && r.TRANG_THAI_THAM_GIA!==p.status)return false;
+  if(p.status && p.status!=='BO_HOC' && p.status!=='DA_THAM_GIA' && p.status!==COURSE_END_FILTER_ && p.status!==ALL_DECISIONS_FILTER_ && r.TRANG_THAI_THAM_GIA!==p.status)return false;
   if(p.dropout==='yes' && !bool_(r.DA_BO_HOC))return false;
   if(p.dropout==='no' && bool_(r.DA_BO_HOC))return false;
   if(p.status===COURSE_END_FILTER_ || p.from || p.to){
@@ -623,7 +624,7 @@ function exactDecisionRecords_(filters,user){
 /** Lọc báo cáo: tham gia toàn bộ bao gồm bỏ học; trạng thái cập nhật không đổi. */
 function reportStatusValid_(status){
   if(!status)return true;
-  if(['REPORT_PARTICIPATED_ALL','DA_THAM_GIA','BO_HOC','KHONG_THAM_GIA','KHONG_NHAN_QUYET_DINH','CHO_XAC_NHAN',COURSE_END_FILTER_].indexOf(status)>=0)return true;
+  if(['REPORT_PARTICIPATED_ALL','DA_THAM_GIA','BO_HOC','KHONG_THAM_GIA','KHONG_NHAN_QUYET_DINH','CHO_XAC_NHAN',COURSE_END_FILTER_,ALL_DECISIONS_FILTER_].indexOf(status)>=0)return true;
   return customStatusList_().some(function(x){return x.id===status;});
 }
 function reportFilters_(p){
@@ -943,7 +944,7 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
 
 function overview_(user,p){
   var filters=reportFilters_(p),year=filters.year,truong=filters.truong,nghe=filters.nghe;
-  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'COURSE_END_KPI_V2'],90,function(){
+  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V1_DECISIONS_UI_V1'],90,function(){
     var all=reportRecords_(filters,user,false);
     var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0,courseEndScheduled:0}, extras={notReceived:0,other:0}, schools={},trades={};
     all.forEach(function(r){
@@ -979,7 +980,7 @@ function reportMatrix_(user,p){
 }
 function listExportFilters_(p){
   var status=str_(p.status,80);
-  must_(!status||status===COURSE_END_FILTER_||status==='BO_HOC'||status==='DA_THAM_GIA'||status==='KHONG_THAM_GIA'||status==='KHONG_NHAN_QUYET_DINH'||status==='CHO_XAC_NHAN'||customStatusList_().some(function(x){return x.id===status;}),'VALIDATION','Tình trạng lọc hồ sơ không hợp lệ.');
+  must_(!status||status===COURSE_END_FILTER_||status===ALL_DECISIONS_FILTER_||status==='BO_HOC'||status==='DA_THAM_GIA'||status==='KHONG_THAM_GIA'||status==='KHONG_NHAN_QUYET_DINH'||status==='CHO_XAC_NHAN'||customStatusList_().some(function(x){return x.id===status;}),'VALIDATION','Tình trạng lọc hồ sơ không hợp lệ.');
   var period=decisionRange_(p,status===COURSE_END_FILTER_);
   return {year:str_(p.year,4),truong:str_(p.truong,80),nghe:str_(p.nghe,80),status:status,dropout:str_(p.dropout,4),query:str_(p.query,140),from:period.from,to:period.to};
 }

@@ -9,7 +9,7 @@ vm.runInNewContext(slice,ctx);
 test('YC018: báo cáo và Excel tổng hợp không còn dòng Đang học, vẫn giữ nội bộ KPI',()=>{
  const part=src.slice(src.indexOf('function reportKpiRows('),src.indexOf('async function renderReports('));
  assert.doesNotMatch(part, /Đang học/);assert.match(part,/Bỏ học/);assert.match(part,/Đã tham gia/);
- assert.match(src,/\['DA_THAM_GIA','Đang học'\]/); // Bộ lọc Đang học nằm ngoài phạm vi báo cáo chỉ tiêu
+ assert.doesNotMatch(src,/\['DA_THAM_GIA','Đang học'\]/); // YC025 bỏ Đang học khỏi bộ lọc Báo cáo
 });
 test('YC018: N=3 vẫn có đủ 12 option, chỉ tháng 2-3 cho phép chọn',()=>{
  const html=ctx.dropoutPeriodOptions('3');

@@ -64,7 +64,7 @@ with sync_playwright() as pw:
   page.evaluate('src=>{const s=document.createElement("script");s.textContent="const downloadReportXlsx=()=>{};const downloadXlsx=(name,rows)=>{window.excelPreview={name,rows};};\\n"+src;document.body.append(s);}',source)
   page.wait_for_selector('.kpi',timeout=12000)
   page.locator('[data-nav="records"]').click();page.wait_for_selector('#list-output table',timeout=12000)
-  assert 'Ngày hoàn thành khóa học' in page.locator('#records-filters [name="status"]').inner_text(),role
+  assert 'Hoàn thành khóa học' in page.locator('#records-filters [name="status"]').inner_text(),role
   # YC024: Reports now uses the same virtual course-end filter; checked after navigating to Reports.
   page.locator('#records-filters [name="status"]').select_option('FILTER_COURSE_END_DATE')
   assert 'ngày kết thúc dự kiến' in page.locator('#filter-date-info').inner_text(),role
@@ -97,7 +97,7 @@ with sync_playwright() as pw:
   else:
    assert page.locator('[data-export-list]').count()==0
   page.locator('[data-nav="reports"]').click();page.wait_for_selector('#reports-filters [name="status"]',timeout=12000)
-  assert 'Ngày hoàn thành khóa học' in page.locator('#reports-filters [name="status"]').inner_text(),role
+  assert 'Hoàn thành khóa học' in page.locator('#reports-filters [name="status"]').inner_text(),role
   page.close()
  browser.close()
 assert not errors,errors

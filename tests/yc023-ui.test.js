@@ -7,12 +7,12 @@ const backend=fs.readFileSync(new URL('../apps-script/Code.gs',import.meta.url),
 const xlsx=fs.readFileSync(new URL('../public/xlsx-export.js',import.meta.url));
 
 test('YC023 lựa chọn lọc ảo ở Hồ sơ, không được đưa vào trạng thái cập nhật hoặc lọc KPI',()=>{
-  assert.match(app,/\[COURSE_END_FILTER,'Ngày hoàn thành khóa học'\]/);
+  assert.match(app,/\[COURSE_END_FILTER,'Hoàn thành khóa học'\]/);
   const rec=app.slice(app.indexOf('function filterFields('),app.indexOf('function getFormFields('));
   assert.match(rec,/mode==='records'\?/);
   const repSection=rec.match(/\$\{mode==='reports'\?[\s\S]+?dateFilterControls/);
   assert.ok(repSection);
-  assert.match(repSection[0],/\[COURSE_END_FILTER,'Ngày hoàn thành khóa học'\]/);
+  assert.match(repSection[0],/\[COURSE_END_FILTER,'Hoàn thành khóa học'\]/);
   assert.match(backend,/p\.source==='records'\?filteredRecords_\(listExportFilters_\(p\),user\):reportRecords_\(p,user\)/);
   assert.match(backend,/reportStatusValid_\(status\)/);
   assert.match(app,/exportReport\(\{\.\.\.state\.filters,source:'records'\}\)/);
@@ -33,6 +33,6 @@ test('YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc 
   assert.ok(xlsx.length>1000);
   assert.match(backend,/NGAY_KET_THUC_DU_KIEN/);
   assert.match(backend,/var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'/);
-  assert.match(backend,/version: '1\.2\.15-RC'/);
-  assert.match(app,/v1\.2\.15-RC/);
+  assert.match(backend,/version: '1\.2\.16-RC'/);
+  assert.match(app,/v1\.2\.16-RC/);
 });

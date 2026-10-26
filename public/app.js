@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.11-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.15-RC (YC-HN-024 V2, giữ nguyên hotfix Excel). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.16-RC (YC-HN-025 V1, UI only until graduation rule confirmed). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -15,7 +15,8 @@ const supportMoneyVN = value => {
 const option = (value, label, selected = '') => `<option value="${esc(value)}" ${String(value) === String(selected) ? 'selected' : ''}>${esc(label)}</option>`;
 const dateVN = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : (d || '—');
 const STATUS = { CHO_XAC_NHAN:'Chưa xác nhận', DA_THAM_GIA:'Đã tham gia học', KHONG_THAM_GIA:'Không tham gia', KHONG_NHAN_QUYET_DINH:'Không nhận quyết định' };
-const COURSE_END_FILTER='FILTER_COURSE_END_DATE'; // Virtual list filter; never a stored participation status.
+const COURSE_END_FILTER='FILTER_COURSE_END_DATE'; // Tra ngày kết thúc DỰ KIẾN, không xác nhận tốt nghiệp.
+const ALL_DECISIONS_FILTER='FILTER_ALL_DECISIONS'; // Bộ lọc ảo, không lưu vào dữ liệu nguồn.
 const STATUS_FORM = { DA_THAM_GIA:'Đã tham gia học', KHONG_THAM_GIA:'Không tham gia', BO_HOC:'Bỏ học', KHONG_NHAN_QUYET_DINH:'Không nhận quyết định', CHO_XAC_NHAN:'Chưa xác nhận' };
 const RIGHTS = { RECORD_VIEW:'Xem hồ sơ', RECORD_CREATE:'Thêm hồ sơ', RECORD_EDIT:'Sửa hồ sơ', RECORD_DELETE:'Xóa hồ sơ do mình tạo', RECORD_STATUS:'Cập nhật tình trạng', REPORT_VIEW:'Xem báo cáo', CATALOG_MANAGE:'Quản lý danh mục', ACCOUNT_MANAGE:'Quản lý tài khoản', AUDIT_VIEW:'Xem nhật ký', FILE_VIEW:'Xem tệp', FILE_UPLOAD:'Tải lên/xóa tệp' };
 const NAMES = { truong:'Cơ sở đào tạo', nghe:'Nghề đào tạo', lydo:'Lý do bỏ học' };
@@ -350,8 +351,8 @@ function filterFields(filters,mode){return `<form class="card filter-grid ${mode
   <div class="field"><label>Năm quyết định</label><input type="number" min="1900" max="2200" name="year" placeholder="Tất cả các năm" value="${esc(filters.year||'')}"></div>
   <div class="field"><label>Cơ sở đào tạo</label>${schoolOpts(filters.truong)}</div>
   <div class="field"><label>Nghề đào tạo</label>${tradeOpts(filters.nghe)}</div>
-  ${mode==='records'?`<div class="field"><label>Tình trạng</label><select name="status">${option('','Tất cả',filters.status)}${allStatusOptions().filter(([k])=>k!=='BO_HOC').concat([['BO_HOC','Bỏ học'],[COURSE_END_FILTER,'Ngày hoàn thành khóa học']]).map(([k,v])=>option(k,v,filters.status)).join('')}</select></div><div class="field"><label>Tìm người học / số QĐ</label><input name="query" value="${esc(filters.query||'')}" placeholder="Nhập từ khóa..."></div>`:''}
-  ${mode==='reports'?`<div class="field"><label>Tình trạng</label><select name="status">${[['','Tất cả tình trạng'],['REPORT_PARTICIPATED_ALL','Đã tham gia'],['DA_THAM_GIA','Đang học'],['BO_HOC','Bỏ học'],['KHONG_THAM_GIA','Không tham gia'],['KHONG_NHAN_QUYET_DINH','Không nhận Quyết định'],['CHO_XAC_NHAN','Chưa xác nhận'],...state.statuses.map(x=>[x.id,x.label]),[COURSE_END_FILTER,'Ngày hoàn thành khóa học']].map(([k,v])=>option(k,v,filters.status||'')).join('')}</select></div>`:''}
+  ${mode==='records'?`<div class="field"><label>Tình trạng</label><select name="status">${option('','Tất cả',filters.status)}${[[ALL_DECISIONS_FILTER,'Tổng số Quyết định đã ban hành'],...allStatusOptions().filter(([k])=>k!=='BO_HOC'),['BO_HOC','Bỏ học'],[COURSE_END_FILTER,'Hoàn thành khóa học']].map(([k,v])=>option(k,v,filters.status)).join('')}</select></div><div class="field"><label>Tìm người học / số QĐ</label><input name="query" value="${esc(filters.query||'')}" placeholder="Nhập từ khóa..."></div>`:''}
+  ${mode==='reports'?`<div class="field"><label>Tình trạng</label><select name="status">${[['','Tất cả tình trạng'],[ALL_DECISIONS_FILTER,'Tổng số Quyết định đã ban hành'],['REPORT_PARTICIPATED_ALL','Đã tham gia'],['BO_HOC','Bỏ học'],['KHONG_THAM_GIA','Không tham gia'],['KHONG_NHAN_QUYET_DINH','Không nhận Quyết định'],['CHO_XAC_NHAN','Chưa xác nhận'],...state.statuses.map(x=>[x.id,x.label]),[COURSE_END_FILTER,'Hoàn thành khóa học']].map(([k,v])=>option(k,v,filters.status||'')).join('')}</select></div>`:''}
   ${mode==='records'||mode==='reports'?dateFilterControls(filters,mode):''}
   <button class="btn btn-primary" type="submit">${iconSvg('filter',19)} Lọc dữ liệu</button></form>`;}
 function getFormFields(form){return Object.fromEntries(new FormData(form).entries());}
@@ -538,7 +539,25 @@ async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.reco
   const totalPages=Math.max(1,Math.ceil(data.total/20));
   $('#list-pages').innerHTML=`<div class="pagination"><button class="btn" data-page="${data.page-1}" ${data.page<=1?'disabled':''}>← Trước</button>Trang ${data.page}/${totalPages}<button class="btn" data-page="${data.page+1}" ${data.page>=totalPages?'disabled':''}>Tiếp →</button></div>`;
 }
-function reportKpiRows(k,extra={}){return [['Tổng số Quyết định',k.total],['Đã tham gia',k.participated],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[]),['Ngày hoàn thành khóa học',k.courseEndScheduled??0]];}
+/** Số tốt nghiệp thực tế chưa tồn tại trong schema 40 cột; không lấy courseEndScheduled gán nhãn đã hoàn thành.
+ * KPI lịch dự kiến vẫn giữ trong backend phục vụ chức năng lọc theo lịch đã chốt trước đây.
+ */
+function reportKpiRows(k,extra={},appliedStatus=''){
+  const completed=['Hoàn thành khóa học','Chưa có dữ liệu xác nhận hoàn thành'];
+  const rows=[['Tổng số Quyết định đã ban hành',k.total],['Đã tham gia',k.participated],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[]),completed];
+  if(!appliedStatus)return rows;
+  const byStatus={
+    [ALL_DECISIONS_FILTER]:rows[0], REPORT_PARTICIPATED_ALL:rows[1],
+    BO_HOC:rows[2],KHONG_THAM_GIA:rows[3],KHONG_NHAN_QUYET_DINH:rows[4],CHO_XAC_NHAN:rows[5],
+    [COURSE_END_FILTER]:completed
+  };
+  if(byStatus[appliedStatus])return [byStatus[appliedStatus]];
+  // Backend đã lọc chính xác một trạng thái tùy chỉnh: total chính là số của trạng thái đó.
+  const custom=state.statuses.find(x=>x.id===appliedStatus);
+  if(custom)return [[custom.label,k.total]];
+  return rows; // tương thích với giá trị tình trạng cũ khi người dùng đang chuyển phiên bản
+}
+function reportKpiCount(value){return typeof value==='number'?num(value):esc(String(value));}
 // Thông tin phạm vi chỉ in trên giấy; không tạo lại banner giải thích trên màn hình.
 function reportPrintDateScope(filters){
   if(filters?.status!==COURSE_END_FILTER)return '';
@@ -551,7 +570,7 @@ async function renderReports(v,keepOld=false){
   const data=await rpc('overview',state.reportFilters,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
   $('#report-output').className='report-results';
-  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts).map(r=>`<tr><td>${r[0]}</td><td><b>${num(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts,state.reportFilters.status).map(r=>`<tr><td>${esc(r[0])}</td><td><b>${reportKpiCount(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 async function renderCatalogs(v,keepOld=false){
   const canEdit=allowed('CATALOG_MANAGE');
@@ -1040,7 +1059,7 @@ async function exportReport(filters){const d=await rpc('report_export',filters,{
 function exportModal(){showModal('Xuất Excel báo cáo học nghề',`<form id="report-export-form" class="form-grid"><div class="field full"><label>Mẫu Excel cần xuất</label><select name="mode"><option value="list">Danh sách hồ sơ học nghề (25 cột)</option><option value="summary">Báo cáo tổng hợp (Chỉ tiêu / Số lượng)</option><option value="truong">Báo cáo theo cơ sở đào tạo</option><option value="nghe">Báo cáo theo nghề đào tạo</option></select></div>${modalFoot('Xuất Excel')}</form>`);}
 async function exportSummaryOrMatrix(mode){
   const stamp=new Date().toISOString().slice(0,10);
-  if(mode==='summary'){const d=await rpc('overview',state.reportFilters,{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề');}
+  if(mode==='summary'){const d=await rpc('overview',state.reportFilters,{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts,state.reportFilters.status);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề');}
   else{const d=await rpc('report_matrix',{...state.reportFilters,groupBy:mode},{ttl:0}),label=mode==='truong'?'Tên cơ sở đào tạo':'Tên nghề',other=d.items.some(r=>r.other>0),columns=['STT',label,'Tổng số Quyết định','Đã tham gia học','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận',...(other?['Tình trạng khác']:[])];const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.learning,r.dropout,r.notParticipating,r.notReceived,r.pending,...(other?[r.other]:[])]);
     const total=[...Array(2).fill(''),...columns.slice(2).map((_,i)=>rows.reduce((sum,row)=>sum+Number(row[i+2]||0),0))];total[0]='Tổng cộng';
     if(total[2]!==d.total)throw Error('Số quyết định báo cáo chưa khớp; vui lòng thực hiện lại.');

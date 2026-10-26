@@ -1,3 +1,13 @@
+# THEO DÕI HỌC NGHỀ — v1.2.16-RC / YC-HN-025 V1 (PHẦN GIAO DIỆN ĐÃ HOÀN THÀNH)
+
+**Bản thử nghiệm, chưa tự deploy.** Đã đổi nhãn tình trạng, thêm bộ lọc ảo Tổng số Quyết định đã ban hành, bỏ Đang học ở bộ lọc Báo cáo, chọn một tình trạng thì chỉ hiện một chỉ tiêu tương ứng, xuất Báo cáo tổng hợp/In đồng bộ hàng chỉ tiêu. Mã backend chấp nhận bộ lọc mới, vẫn xác minh quyền theo trường.
+
+**RANH GIỚI NGHIỆP VỤ CHƯA ĐƯỢC CHỐT:** Nhãn `Hoàn thành khóa học` chưa thể có số đếm thực tế vì chưa có dữ liệu xác nhận tốt nghiệp; thay vì dùng ngày kết thúc dự kiến như số hoàn thành, UI/Excel tổng hợp hiện ghi `Chưa có dữ liệu xác nhận hoàn thành`. Mã lọc `FILTER_COURSE_END_DATE` tiếp tục tra lịch kết thúc DỰ KIẾN như YC-HN-023/024 (có chú thích ngay dưới lịch). Cần chốt riêng phương án A (DỰ KIẾN hoàn thành, kèm định nghĩa) hoặc B (xác nhận hoàn thành thực tế) trước khi bổ sung một con số thống kê. Không thêm trường hoặc suy luận số hoàn thành từ lịch dự kiến.
+
+Xem `docs/YC-HN-025_V1_v1.2.16-RC_PHAM_VI_GIOI_HAN.md` để triển khai thử nghiệm, kiểm thử và hoàn tác. Phải triển khai **cả** Apps Script và GitHub/Vercel để dùng bộ lọc ảo mới.
+
+---
+
 # THEO DÕI HỌC NGHỀ — v1.2.15-RC / YC-HN-024 V2
 
 **ĐÃ CHỐT mã nguồn, chưa deploy:** Trang Báo cáo hỗ trợ lọc ảo theo `NGAY_KET_THUC_DU_KIEN`, số liệu KPI và bốn kiểu xuất Excel dùng cùng bộ lọc, bản in hiển thị phạm vi ngày đã áp dụng. Giữ nguyên các tình trạng thực tế.

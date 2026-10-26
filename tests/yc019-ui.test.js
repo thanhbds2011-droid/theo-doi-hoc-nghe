@@ -6,7 +6,7 @@ const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
 const css=fs.readFileSync(new URL('../public/styles.css',import.meta.url),'utf8');
 const fragment=app.slice(app.indexOf('// YC-HN-019: Nhập ngày'),app.indexOf('function getFormFields('));
 const ctx={esc:v=>String(v),iconSvg:()=>'',schoolOpts:()=>'',tradeOpts:()=>'',allStatusOptions:()=>[],option:()=>'',state:{statuses:[]},getFormFields:()=>({})};
-vm.createContext(ctx);vm.runInContext("const COURSE_END_FILTER='FILTER_COURSE_END_DATE';"+fragment,ctx);
+vm.createContext(ctx);vm.runInContext("const COURSE_END_FILTER='FILTER_COURSE_END_DATE';const ALL_DECISIONS_FILTER='FILTER_ALL_DECISIONS';"+fragment,ctx);
 
 test('YC019: hiển thị trường ngày trong Hồ sơ và Báo cáo, không ở Tổng quan',()=>{
   const rec=ctx.filterFields({from:'2026-07-01',to:'2026-07-31'},'records');
