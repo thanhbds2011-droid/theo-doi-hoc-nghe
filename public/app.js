@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.11-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.16-RC (YC-HN-025 V1, UI only until graduation rule confirmed). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.17-RC (YC-HN-025 V2, đếm theo Đã tham gia + không bỏ học + ngày kết thúc dự kiến). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -474,6 +474,8 @@ function recordNeedsListRefresh(before,after,filters){
   if(!before||!after||before.HO_SO_ID!==after.HO_SO_ID)return true;
   if(before.TRUONG_ID!==after.TRUONG_ID || before.NGAY_QUYET_DINH!==after.NGAY_QUYET_DINH || before.TAO_LUC!==after.TAO_LUC)return true;
   if(filters.status===COURSE_END_FILTER && before.NGAY_KET_THUC_DU_KIEN!==after.NGAY_KET_THUC_DU_KIEN)return true;
+  // Trong chế độ Hoàn thành, thay đổi tình trạng/bỏ học cũng có thể làm hồ sơ rời hoặc vào danh sách.
+  if(filters.status===COURSE_END_FILTER && (before.TRANG_THAI_THAM_GIA!==after.TRANG_THAI_THAM_GIA||before.DA_BO_HOC!==after.DA_BO_HOC))return true;
   if(filters.year && before.NAM_QUYET_DINH!==after.NAM_QUYET_DINH)return true;
   if(filters.nghe && before.NGHE_ID!==after.NGHE_ID)return true;
   if(filters.status && filters.status!==COURSE_END_FILTER && (before.TRANG_THAI_THAM_GIA!==after.TRANG_THAI_THAM_GIA || before.DA_BO_HOC!==after.DA_BO_HOC))return true;
@@ -539,11 +541,11 @@ async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.reco
   const totalPages=Math.max(1,Math.ceil(data.total/20));
   $('#list-pages').innerHTML=`<div class="pagination"><button class="btn" data-page="${data.page-1}" ${data.page<=1?'disabled':''}>← Trước</button>Trang ${data.page}/${totalPages}<button class="btn" data-page="${data.page+1}" ${data.page>=totalPages?'disabled':''}>Tiếp →</button></div>`;
 }
-/** Số tốt nghiệp thực tế chưa tồn tại trong schema 40 cột; không lấy courseEndScheduled gán nhãn đã hoàn thành.
- * KPI lịch dự kiến vẫn giữ trong backend phục vụ chức năng lọc theo lịch đã chốt trước đây.
+/** YC-HN-025 V2: Hoàn thành khóa học = đã tham gia + không bỏ học + có ngày kết thúc dự kiến hợp lệ.
+ * Không đồng nghĩa có giấy xác nhận tốt nghiệp thực tế.
  */
 function reportKpiRows(k,extra={},appliedStatus=''){
-  const completed=['Hoàn thành khóa học','Chưa có dữ liệu xác nhận hoàn thành'];
+  const completed=['Hoàn thành khóa học',k.courseEndParticipated??0];
   const rows=[['Tổng số Quyết định đã ban hành',k.total],['Đã tham gia',k.participated],['Bỏ học',k.dropout],['Không tham gia',k.notParticipating],['Không nhận Quyết định',extra.notReceived||0],['Chưa xác nhận',k.pending],...(extra.other?[['Tình trạng khác',extra.other]]:[]),completed];
   if(!appliedStatus)return rows;
   const byStatus={
@@ -570,7 +572,7 @@ async function renderReports(v,keepOld=false){
   const data=await rpc('overview',state.reportFilters,{ttl:90000});if(v!==state.routeVersion)return;
   const k=data.kpi;
   $('#report-output').className='report-results';
-  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts,state.reportFilters.status).map(r=>`<tr><td>${esc(r[0])}</td><td><b>${reportKpiCount(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
+  $('#report-output').innerHTML=`<div class="card report-card"><h3>Tổng hợp kết quả</h3>${reportPrintDateScope(state.reportFilters)}<div class="table-wrap"><table><thead><tr><th>Chỉ tiêu</th><th>Số lượng</th></tr></thead><tbody>${reportKpiRows(k,data.statusCounts,state.reportFilters.status).map(r=>`<tr><td${r[0]==='Hoàn thành khóa học'?' title="Đã tham gia, không bỏ học và có ngày kết thúc đào tạo dự kiến hợp lệ; chưa phải xác nhận tốt nghiệp thực tế"':''}>${esc(r[0])}</td><td><b>${reportKpiCount(r[1])}</b></td></tr>`).join('')}</tbody></table></div></div>`;
 }
 async function renderCatalogs(v,keepOld=false){
   const canEdit=allowed('CATALOG_MANAGE');

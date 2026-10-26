@@ -39,7 +39,7 @@ with sync_playwright() as pw:
         const items=source.filter(x=>{
           if(p.year&&x.NAM_QUYET_DINH!==p.year)return false;
           if(p.status==='FILTER_COURSE_END_DATE'){
-            const end=x.NGAY_KET_THUC_DU_KIEN;if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(end))return false;
+            const end=x.NGAY_KET_THUC_DU_KIEN;if(x.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||x.DA_BO_HOC==='TRUE')return false;if(!/^\\d{4}-\\d{2}-\\d{2}$/.test(end))return false;
             if(p.from&&end<p.from)return false;if(p.to&&end>p.to)return false;
           }else{
             if(p.status&&x.TRANG_THAI_THAM_GIA!==p.status)return false;
@@ -76,23 +76,23 @@ with sync_playwright() as pw:
   page.wait_for_function('window.calls.some(x=>x.action==="records_list"&&x.payload.status==="FILTER_COURSE_END_DATE")',timeout=10000)
   page.wait_for_function('document.querySelector("#list-output thead")?.innerText.includes("Ngày kết thúc đào tạo")',timeout=10000)
   assert page.locator('#list-output thead th').count()==8,role
-  expected=3
+  expected=1
   assert page.locator('#list-output tbody tr[data-record-id]').count()==expected,role
   numbers=page.locator('#list-output tbody tr td:nth-child(3)').all_inner_texts()
-  assert numbers==['103','101','104'],(role,numbers)
+  assert numbers==['101'],(role,numbers)
   if role in ('ADMIN','NHAN_VIEN'):
    page.locator('[data-export-list]').click()
    page.wait_for_function('window.excelPreview!==null',timeout=10000)
    x=page.evaluate('window.calls.filter(r=>r.action==="report_export").at(-1).payload')
    assert x['source']=='records' and x['status']=='FILTER_COURSE_END_DATE' and x['from']=='2027-07-01' and x['to']=='2027-07-31',x
-   assert page.evaluate('window.excelPreview.rows.length')==5,'2 tiêu đề + 3 dữ liệu'
+   assert page.evaluate('window.excelPreview.rows.length')==3,'2 tiêu đề + 1 dữ liệu'
    if role=='ADMIN':
     page.evaluate('window.originalFilters=document.querySelector("#records-filters")')
     page.locator('[data-edit-record="HS_A"]').click()
     page.locator('#record-form [name="NGAY_KET_THUC_DU_KIEN"]').fill('2027-08-01')
     page.locator('#record-form [data-submit-btn]').click()
     page.wait_for_function('window.mockRows.find(r=>r.HO_SO_ID==="HS_A").NGAY_KET_THUC_DU_KIEN==="2027-08-01"',timeout=10000)
-    page.wait_for_function('document.querySelectorAll("#list-output tbody tr[data-record-id]").length===2',timeout=10000)
+    page.wait_for_function('document.querySelectorAll("#list-output tbody tr[data-record-id]").length===0',timeout=10000)
     assert page.evaluate('window.originalFilters===document.querySelector("#records-filters")'),role
   else:
    assert page.locator('[data-export-list]').count()==0

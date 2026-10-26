@@ -29,7 +29,7 @@ test('YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không 
  assert.match(gas,/function exportRecords_\(user,p\)/);
 });
 test('YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới',()=>{
- assert.match(app,/\['Hoàn thành khóa học','Chưa có dữ liệu xác nhận hoàn thành'\]/);
+ assert.match(app,/\['Hoàn thành khóa học',k\.courseEndParticipated\?\?0\]/);
  assert.match(gas,/courseEndScheduled:0/);
  assert.match(gas,/validDate_\(String\(r\.NGAY_KET_THUC_DU_KIEN\|\|''\)\.slice\(0,10\)\)\)k\.courseEndScheduled\+\+/);
  assert.doesNotMatch(gas,/TRANG_THAI_THAM_GIA\s*=\s*COURSE_END_FILTER_/);

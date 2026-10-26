@@ -1,0 +1,17 @@
+YC-HN-025 V2 / v1.2.17-RC — KẾT QUẢ KIỂM THỬ CỤC BỘ
+Ngày: 26/10/2026
+Nền: v1.2.16-RC. Chưa triển khai production.
+
+1. npm run check: ĐẠT (JavaScript syntax api/rpc.js, api/config.js, public/app.js).
+2. npm test: 172/172 bài đạt, 0 thất bại.
+3. Chromium mô phỏng backend, 3 vai trò:
+  - tests/browser_yc023_mock.py: ĐẠT; lọc ngày kết thúc, danh sách và Excel đồng nhất, sửa ngày kết thúc làm mới vùng kết quả.
+  - tests/browser_yc024_mock.py: ĐẠT; lọc tại Báo cáo, một hàng chỉ tiêu Hoàn thành, 4 mẫu xuất Excel, in và phân quyền.
+  - tests/browser_yc022_mock.py: ĐẠT; lưu sửa một dòng không tải cả danh sách, xung đột phiên bản an toàn.
+4. Kiểm thử backend thêm mới:
+  - 10 quyết định có ngày kết thúc dự kiến 10/06/2026, 1 hồ sơ Đã tham gia không Bỏ học, 1 đã tham gia nhưng Bỏ học, còn lại chưa xác nhận/không tham gia: lọc Hoàn thành tháng 6/2026 = 1.
+  - Bỏ học và Chưa xác nhận bị loại khỏi lọc Hoàn thành; ngày đầu mút được tính; cùng tập hồ sơ với export/ma trận; phạm vi quyền trường không bị mở rộng.
+  - Tổng đã tham gia cũ vẫn gồm cả người bỏ học; trường courseEndParticipated chỉ đếm đã tham gia không bỏ học, có ngày kết thúc dự kiến hợp lệ.
+5. SHA-256 public/xlsx-export.js trước và sau = 244d494d2cc9535dc631a1544409816f0502ba0f8ee17e7052c5d6c9e7f180dc (giữ nguyên từng byte).
+
+GIỚI HẠN: Các phép thử dùng mock/staging giả lập, không xác minh mạng Vercel / Google Apps Script production và không xác nhận học viên thực tế đã tốt nghiệp. Chưa thay dữ liệu thật.

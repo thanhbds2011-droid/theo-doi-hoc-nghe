@@ -27,12 +27,14 @@ test('YC023 cập nhật cục bộ khi đổi ngày kết thúc dự kiến b�
   assert.equal(ctx.recordNeedsListRefresh(before,next,{status:'FILTER_COURSE_END_DATE'}),true);
   assert.equal(ctx.recordNeedsListRefresh(before,next,{status:'DA_THAM_GIA'}),false);
   assert.equal(ctx.recordNeedsListRefresh(before,{...before,HO_TEN:'Tên khác'},{status:'FILTER_COURSE_END_DATE'}),false);
+  assert.equal(ctx.recordNeedsListRefresh(before,{...before,DA_BO_HOC:'TRUE'},{status:'FILTER_COURSE_END_DATE'}),true,'Đổi Bỏ học làm mất điều kiện hoàn thành');
+  assert.equal(ctx.recordNeedsListRefresh(before,{...before,TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN'},{status:'FILTER_COURSE_END_DATE'}),true,'Đổi tình trạng làm mất điều kiện hoàn thành');
 });
 
 test('YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc bảng dữ liệu',()=>{
   assert.ok(xlsx.length>1000);
   assert.match(backend,/NGAY_KET_THUC_DU_KIEN/);
   assert.match(backend,/var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'/);
-  assert.match(backend,/version: '1\.2\.16-RC'/);
-  assert.match(app,/v1\.2\.16-RC/);
+  assert.match(backend,/version: '1\.2\.17-RC'/);
+  assert.match(app,/v1\.2\.17-RC/);
 });

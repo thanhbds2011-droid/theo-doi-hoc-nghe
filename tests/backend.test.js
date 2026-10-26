@@ -78,7 +78,7 @@ test('Không được liên kết NGUOI_HOC_ID với họ tên không trùng',()
 test('Bỏ học cần đã tham gia, kỳ học và lý do',()=>{const c=setupLive();const r=c.send('record_save',record(c,'01','2026-01-01',{DA_BO_HOC:true}));assert.equal(r.ok,false);const yes=c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));assert.equal(yes.ok,true);});
 test('VERSION_CONFLICT ngăn ghi đè sửa từ phiên cũ',()=>{const c=setupLive();const a=c.send('record_save',record(c,'01','2026-01-01')).data.record;const b=c.send('record_save',{...record(c,'01','2026-01-01'),HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:'1',GHI_CHU:'Thay đổi'});assert.equal(b.ok,true);const stale=c.send('record_save',{...record(c,'01','2026-01-01'),HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:'1',GHI_CHU:'Ghi đè'});assert.equal(stale.ok,false);assert.equal(stale.error.code,'VERSION_CONFLICT');});
 test('Dedupe theo requestId giúp chống ghi trùng cùng giao dịch',()=>{const c=setupLive();const payload=record(c,'01','2026-01-01');const first=c.send('record_save',payload,'same_transaction_00001');const second=c.send('record_save',payload,'same_transaction_00001');assert.equal(first.ok,true);assert.equal(second.ok,true);assert.equal(first.data.record.HO_SO_ID,second.data.record.HO_SO_ID);assert.equal(c.tables.get('Hồ sơ học nghề').getLastRow(),2);});
-test('Dashboard sáu KPI nhất quán với bỏ học và không tham gia',()=>{const c=setupLive();c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));c.send('record_save',record(c,'02','2026-01-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));c.send('record_save',record(c,'03','2026-01-03',{TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'}));c.send('record_save',record(c,'04','2027-01-03',{TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN'}));const all=c.send('overview',{}).data.kpi;assert.deepEqual(JSON.parse(JSON.stringify(all)),{total:4,participated:2,learning:1,dropout:1,notParticipating:1,pending:1,courseEndScheduled:0});const y=c.send('overview',{year:'2026'}).data.kpi;assert.equal(y.total,3);});
+test('Dashboard sáu KPI nhất quán với bỏ học và không tham gia',()=>{const c=setupLive();c.send('record_save',record(c,'01','2026-01-01',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));c.send('record_save',record(c,'02','2026-01-02',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}));c.send('record_save',record(c,'03','2026-01-03',{TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'}));c.send('record_save',record(c,'04','2027-01-03',{TRANG_THAI_THAM_GIA:'CHO_XAC_NHAN'}));const all=c.send('overview',{}).data.kpi;assert.deepEqual(JSON.parse(JSON.stringify(all)),{total:4,participated:2,learning:1,dropout:1,notParticipating:1,pending:1,courseEndScheduled:0,courseEndParticipated:0});const y=c.send('overview',{year:'2026'}).data.kpi;assert.equal(y.total,3);});
 test('Chặn chữ ký sai và audience sai ngay tại doPost',()=>{const c=setupLive();const x=c.signed('bootstrap');x.signature='fake_signature';let v=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(x)}}).getContent());assert.equal(v.error.code,'NOT_AUTHORIZED');const bad=c.signed('bootstrap',{},'aud_bad_00000001',{sub:'12345678901234567890',aud:'other-id',email:'admin@example.com'});v=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(bad)}}).getContent());assert.equal(v.error.code,'NOT_AUTHORIZED');});
 test('Từ chối người chưa cấp quyền',()=>{const c=setupLive();let input=c.signed('bootstrap',{},'unlisted_user_0001',{sub:'12345678901234567890',aud:audience,email:'unlisted@example.com'});const x=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(input)}}).getContent());assert.equal(x.error.code,'NOT_AUTHORIZED');});
 test('Nhân viên không được quản lý danh mục hoặc tài khoản khi không cấp quyền',()=>{const c=setupLive();const acc=c.send('account_save',{email:'staff@example.com',name:'Staff',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW'});assert.equal(acc.ok,true);const identity={sub:'82345678901234567890',aud:audience,email:'staff@example.com'};const raw=c.signed('catalog_save',{type:'nghe',code:'N003',title:'Điện'},'staff_denied_00001',identity);const d=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(raw)}}).getContent());assert.equal(d.error.code,'NO_PERMISSION');});
@@ -972,11 +972,11 @@ test('YC023 lọc theo ngày QĐ đối với tình trạng thực tế và lọ
   assert.equal(c.send('records_list',range).data.total,0,'Các quyết định phát hành 2026 không thuộc tháng 7/2027');
   const list=c.send('records_list',course);
   assert.equal(list.ok,true,JSON.stringify(list.error));
-  assert.deepEqual(Array.from(list.data.items,x=>x.SO_QUYET_DINH),['103','101','104'],'Ngày dự kiến tăng dần, gồm hai đầu mút, không giới hạn tình trạng');
-  assert.equal(list.data.total,3);
+  assert.deepEqual(Array.from(list.data.items,x=>x.SO_QUYET_DINH),['101'],'Chỉ Đã tham gia, không bỏ học, có ngày kết thúc trong kỳ');
+  assert.equal(list.data.total,1);
   assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-07-14',to:'2027-07-14'}).data.total,1);
-  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',to:'2027-07-01'}).data.total,2,'Đến ngày một đầu mút, hồ sơ có ngày kết thúc hợp lệ');
-  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE'}).data.total,5,'Không có ngày chỉ lọc những hồ sơ có ngày kết thúc hợp lệ');
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',to:'2027-07-01'}).data.total,1,'Đến ngày một đầu mút, chỉ đếm hồ sơ DA_THAM_GIA đủ điều kiện');
+  assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE'}).data.total,3,'Không có ngày chỉ lọc những hồ sơ có ngày kết thúc hợp lệ');
   assert.equal(c.send('records_list',{...course,year:'2027'}).data.total,0,'Năm quyết định không đổi thành năm kết thúc');
   assert.equal(c.send('records_list',{...course,year:'2026',query:'101'}).data.total,1);
   assert.equal(c.send('records_list',{...course,status:'DA_THAM_GIA'}).data.total,0,'Trạng thái thực tế vẫn lọc theo ngày QĐ');
@@ -985,13 +985,13 @@ test('YC023 lọc theo ngày QĐ đối với tình trạng thực tế và lọ
   const exported=c.send('report_export',{...course,source:'records'});
   assert.equal(exported.ok,true,JSON.stringify(exported.error));
   assert.equal(exported.data.columns.length,25);
-  assert.deepEqual(Array.from(exported.data.items,x=>x[5]),['103','101','104'],'Excel lọc cùng tập hồ sơ, cùng thứ tự');
-  assert.equal(exported.data.items[0][13],'2027-07-01','Excel cột N là ngày kết thúc đào tạo');
+  assert.deepEqual(Array.from(exported.data.items,x=>x[5]),['101'],'Excel lọc cùng tập hồ sơ, cùng thứ tự');
+  assert.equal(exported.data.items[0][13],'2027-07-14','Excel cột N là ngày kết thúc đào tạo');
   assert.equal(c.send('report_export',{...course,source:'records',query:'101'}).data.items.length,1,'Excel giữ từ khóa');
   assert.equal(c.send('report_export',{...course,source:'records',year:'2027'}).data.items.length,0);
-  assert.equal(c.send('report_export',{...course}).data.items.length,3,'YC024 đồng bộ xuất Excel Báo cáo theo ngày kết thúc dự kiến');
-  assert.equal(c.send('overview',course).data.kpi.total,3,'YC024 tổng hợp đúng tập hồ sơ kết thúc dự kiến trong kỳ');
-  assert.equal(c.send('report_matrix',{...course,groupBy:'truong'}).data.total,3,'YC024 ma trận cùng tập kết thúc dự kiến');
+  assert.equal(c.send('report_export',{...course}).data.items.length,1,'YC024 đồng bộ xuất Excel Báo cáo theo ngày kết thúc dự kiến');
+  assert.equal(c.send('overview',course).data.kpi.total,1,'YC024 tổng hợp đúng tập hồ sơ kết thúc dự kiến trong kỳ');
+  assert.equal(c.send('report_matrix',{...course,groupBy:'truong'}).data.total,1,'YC024 ma trận cùng tập kết thúc dự kiến');
   assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-07-32'}).error.code,'VALIDATION');
   assert.equal(c.send('records_list',{status:'FILTER_COURSE_END_DATE',from:'2027-08-01',to:'2027-07-31'}).error.code,'VALIDATION');
   const rawRows=c.tables.get('Hồ sơ học nghề').rows;
@@ -1002,7 +1002,7 @@ test('YC023 phân trang, quyền trường và xuất Excel với lọc theo ng�
   const c=setupLive(),school2=catalog(c,'truong','CS023','Cơ sở thứ hai');
   for(let n=1;n<=23;n++){
     const day=String(n).padStart(2,'0');
-    const res=c.send('record_save',record(c,String(700+n),'2026-10-13',{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:'2027-07-'+day,TRUONG_ID:n%2?c.school.TRUONG_ID:school2.TRUONG_ID}));
+    const res=c.send('record_save',record(c,String(700+n),'2026-10-13',{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:'2027-07-'+day,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',TRUONG_ID:n%2?c.school.TRUONG_ID:school2.TRUONG_ID}));
     assert.equal(res.ok,true,JSON.stringify(res.error));
   }
   const range={status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-31'};
@@ -1036,33 +1036,35 @@ test('YC024 báo cáo lọc ngày kết thúc dự kiến, gồm cả hai đầu
  }
  const params={status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-31'};
  const overview=c.send('overview',params);assert.equal(overview.ok,true,JSON.stringify(overview.error));
- assert.equal(overview.data.kpi.total,3);
- assert.equal(overview.data.kpi.courseEndScheduled,3,'YC024 V2: lọc theo lịch kết thúc: số lịch kết thúc bằng tập hồ sơ');
+ assert.equal(overview.data.kpi.total,1);
+ assert.equal(overview.data.kpi.courseEndScheduled,1,'YC024 V2: lọc theo lịch kết thúc: số lịch kết thúc bằng tập hồ sơ');
  assert.equal(overview.data.kpi.participated,1);
- assert.equal(overview.data.kpi.pending,1);
- assert.equal(overview.data.kpi.notParticipating,1);
+ assert.equal(overview.data.kpi.courseEndParticipated,1,'Chỉ người Đã tham gia, không bỏ học được tính Hoàn thành');
+ assert.equal(overview.data.kpi.pending,0);
+ assert.equal(overview.data.kpi.notParticipating,0);
  const report=c.send('report_export',params);assert.equal(report.ok,true,JSON.stringify(report.error));
  assert.equal(report.data.columns.length,25);
- assert.deepEqual(Array.from(report.data.items,row=>row[5]),['801','802','803']);
- assert.deepEqual(Array.from(report.data.items,row=>row[13]),['2027-07-01','2027-07-14','2027-07-31']);
+ assert.deepEqual(Array.from(report.data.items,row=>row[5]),['801']);
+ assert.deepEqual(Array.from(report.data.items,row=>row[13]),['2027-07-01']);
  for(const groupBy of ['truong','nghe']){
    const matrix=c.send('report_matrix',{...params,groupBy});assert.equal(matrix.ok,true,JSON.stringify(matrix.error));
-   assert.equal(matrix.data.total,3);
-   assert.equal(matrix.data.items.reduce((sum,x)=>sum+x.total,0),3);
+   assert.equal(matrix.data.total,1);
+   assert.equal(matrix.data.items.reduce((sum,x)=>sum+x.total,0),1);
  }
  const allOverview=c.send('overview',{}).data.kpi;
  assert.equal(allOverview.total,6);
  assert.equal(allOverview.courseEndScheduled,5,'Ngày kết thúc rỗng không tính, không cộng trùng vào tổng quyết định');
+ assert.equal(allOverview.courseEndParticipated,3,'Tập con người đã tham gia: 801, 804, 805');
  assert.equal(c.send('overview',{status:'DA_THAM_GIA',from:'2026-07-01',to:'2026-07-31'}).data.kpi.courseEndScheduled,2,'Bộ lọc cũ lấy ngày QĐ nhưng hàng lịch kết thúc chỉ đếm ngày dự kiến hợp lệ trong tập');
  assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-01'}).data.kpi.courseEndScheduled,1,'Đầu mút ngày 01 được tính');
- assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',from:'2027-07-31',to:'2027-07-31'}).data.kpi.courseEndScheduled,1,'Đầu mút ngày 31 được tính');
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',from:'2027-07-31',to:'2027-07-31'}).data.kpi.courseEndScheduled,0,'Đầu mút ngày 31 được tính');
  assert.equal(c.send('overview',{from:'2027-07-01',to:'2027-07-31'}).data.kpi.total,0,'Tất cả tình trạng tiếp tục dùng ngày QĐ');
  assert.equal(c.send('overview',{status:'DA_THAM_GIA',from:'2026-07-01',to:'2026-07-31'}).data.kpi.total,3,'Tình trạng cũ tiếp tục dùng ngày QĐ');
- assert.equal(c.send('overview',{...params,year:'2026'}).data.kpi.total,3,'Năm QĐ 2026 vẫn là năm QĐ');
+ assert.equal(c.send('overview',{...params,year:'2026'}).data.kpi.total,1,'Năm QĐ 2026 vẫn là năm QĐ');
  assert.equal(c.send('overview',{...params,year:'2027'}).data.kpi.total,0);
- assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE'}).data.kpi.total,5,'Không ngày vẫn đòi ngày kết thúc hợp lệ');
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE'}).data.kpi.total,3,'Không ngày vẫn đòi ngày kết thúc hợp lệ');
  assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',to:'2027-07-01'}).data.kpi.total,2);
- assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',from:'2027-07-31'}).data.kpi.total,2);
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE',from:'2027-07-31'}).data.kpi.total,1);
  assert.equal(c.send('overview',{...params,from:'2027-07-32'}).error.code,'VALIDATION');
  assert.equal(c.send('overview',{...params,from:'2027-08-01'}).error.code,'VALIDATION');
  const raw=c.tables.get('Hồ sơ học nghề').rows;for(const row of raw.slice(1))assert.ok(!row.includes('FILTER_COURSE_END_DATE'));
@@ -1071,7 +1073,7 @@ test('YC024 báo cáo lọc ngày kết thúc dự kiến, gồm cả hai đầu
 test('YC024 lọc trường và quyền khi thống kê, không cấp thêm quyền Excel',()=>{
  const c=setupLive(),other=catalog(c,'truong','CS024','Trường 2');
  for(const [number,school] of [['911',c.school.TRUONG_ID],['912',other.TRUONG_ID]]){
-   assert.equal(c.send('record_save',record(c,number,'2026-10-13',{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:'2027-07-14',TRUONG_ID:school})).ok,true);
+   assert.equal(c.send('record_save',record(c,number,'2026-10-13',{NGAY_BAT_DAU:'2026-12-01',NGAY_KET_THUC_DU_KIEN:'2027-07-14',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',TRUONG_ID:school})).ok,true);
  }
  const params={status:'FILTER_COURSE_END_DATE',from:'2027-07-01',to:'2027-07-31'};
  assert.equal(c.send('overview',params).data.kpi.total,2);
@@ -1090,7 +1092,7 @@ test('YC024 lọc trường và quyền khi thống kê, không cấp thêm quy�
 test('YC024 V2 không tính ngày kết thúc dự kiến sai lịch trong thống kê thông thường',()=>{
  const c=setupLive();
  for(const [number,end] of [['2101','2027-07-15'],['2102','2027-02-30'],['2103','']]){
-   const res=c.send('record_save',record(c,number,'2026-10-23',{NGAY_BAT_DAU:'2026-10-25',NGAY_KET_THUC_DU_KIEN:end==='2027-02-30'?'2027-02-28':end}));
+   const res=c.send('record_save',record(c,number,'2026-10-23',{NGAY_BAT_DAU:'2026-10-25',NGAY_KET_THUC_DU_KIEN:end==='2027-02-30'?'2027-02-28':end,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));
    assert.equal(res.ok,true,JSON.stringify(res.error));
  }
  // Mô phỏng một hàng bị sửa thủ công ngoài ứng dụng thành ngày lịch không tồn tại.
@@ -1139,4 +1141,39 @@ test('YC025: bộ lọc tổng quyết định không rò dữ liệu sang cơ s
  assert.equal(list.data.items[0].TRUONG_ID,c.school.TRUONG_ID);
  assert.equal(sendAs(c,actor,'overview',{...f,truong:other.TRUONG_ID}).data.kpi.total,0);
  assert.equal(sendAs(c,actor,'report_export',f).error.code,'NO_PERMISSION');
+});
+
+// YC-HN-025 V2: ví dụ 10 quyết định và chỉ 1 đã tham gia còn học đến ngày kết thúc.
+test('YC025 V2 mười QĐ chỉ một người Đã tham gia không bỏ học được tính Hoàn thành khóa học',()=>{
+ const c=setupLive();
+ for(let i=1;i<=10;i++){
+   const status=i===1||i===2?'DA_THAM_GIA':i===3?'KHONG_THAM_GIA':i===4?'KHONG_NHAN_QUYET_DINH':'CHO_XAC_NHAN';
+   const dropout=i===2;
+   const payload={NGAY_BAT_DAU:'2026-04-01',NGAY_KET_THUC_DU_KIEN:'2026-06-10',TRANG_THAI_THAM_GIA:status,
+    ...(dropout?{DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',SO_THANG_HO_TRO:'3',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}:{})};
+   const result=c.send('record_save',record(c,String(5000+i),'2026-02-02',payload));
+   assert.equal(result.ok,true,JSON.stringify(result.error));
+ }
+ const range={status:'FILTER_COURSE_END_DATE',from:'2026-06-01',to:'2026-06-30'};
+ const list=c.send('records_list',range).data;
+ assert.equal(list.total,1,'Chỉ một người đủ điều kiện');
+ assert.equal(list.items[0].SO_QUYET_DINH,'5001');
+ assert.equal(c.send('records_list',{...range,to:'2026-06-09'}).data.total,0,'Trước ngày kết thúc không tính');
+ assert.equal(c.send('records_list',{...range,from:'2026-06-10',to:'2026-06-10'}).data.total,1,'Tính ngày kết thúc gồm đầu mút');
+ const report=c.send('overview',range).data.kpi;
+ assert.equal(report.total,1);assert.equal(report.courseEndParticipated,1);assert.equal(report.participated,1);
+ assert.equal(c.send('report_export',range).data.items.length,1);
+ assert.equal(c.send('report_export',{...range,source:'records'}).data.items.length,1);
+ assert.equal(c.send('report_matrix',{...range,groupBy:'truong'}).data.total,1);
+ const overall=c.send('overview',{}).data.kpi;
+ assert.equal(overall.total,10);
+ assert.equal(overall.participated,2,'Đã tham gia cũ bao gồm 1 hồ sơ bỏ học');
+ assert.equal(overall.dropout,1);
+ assert.equal(overall.courseEndScheduled,10,'Giữ metric cũ cho tương thích');
+ assert.equal(overall.courseEndParticipated,1,'Metric hoàn thành mới không tính bỏ học/chưa xác nhận');
+ assert.equal(c.send('overview',{status:'FILTER_COURSE_END_DATE'}).data.kpi.courseEndParticipated,1);
+ assert.equal(c.send('records_list',{status:'FILTER_ALL_DECISIONS'}).data.total,10);
+ const raw=c.tables.get('Hồ sơ học nghề').rows;
+ assert.equal(raw.length,11,'Không thay đổi số lượng bản ghi/không thêm trạng thái vật lý');
+ assert.equal(raw.slice(1).filter(row=>row.includes('FILTER_COURSE_END_DATE')).length,0);
 });

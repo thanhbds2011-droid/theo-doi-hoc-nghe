@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.16-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.17-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.16-RC',
+  version: '1.2.17-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -547,12 +547,19 @@ function decisionRange_(p,courseEnd){
   must_(!from||!to||from<=to,'VALIDATION','Từ ngày không được sau Đến ngày.');
   return {from:from,to:to};
 }
+/** YC-HN-025 V2: Chỉ tính hồ sơ đã tham gia, chưa bỏ học và có ngày kết thúc đào tạo dự kiến hợp lệ.
+ * Đây là chỉ tiêu dựa trên kế hoạch đào tạo, KHÔNG phải xác nhận đã tốt nghiệp thực tế.
+ */
+function courseEndEligible_(r){
+  return r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA'&&!bool_(r.DA_BO_HOC)&&validDate_(String(r.NGAY_KET_THUC_DU_KIEN||'').slice(0,10));
+}
 function recordMatches_(r,p){
   if(p.year && String(r.NAM_QUYET_DINH)!==String(p.year))return false;
   if(p.truong && r.TRUONG_ID!==p.truong)return false;
   if(p.nghe && r.NGHE_ID!==p.nghe)return false;
   if(p.status==='BO_HOC' && !bool_(r.DA_BO_HOC))return false;
   if(p.status==='DA_THAM_GIA' && (r.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||bool_(r.DA_BO_HOC)))return false;
+  if(p.status===COURSE_END_FILTER_&&!courseEndEligible_(r))return false;
   if(p.status && p.status!=='BO_HOC' && p.status!=='DA_THAM_GIA' && p.status!==COURSE_END_FILTER_ && p.status!==ALL_DECISIONS_FILTER_ && r.TRANG_THAI_THAM_GIA!==p.status)return false;
   if(p.dropout==='yes' && !bool_(r.DA_BO_HOC))return false;
   if(p.dropout==='no' && bool_(r.DA_BO_HOC))return false;
@@ -944,11 +951,12 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
 
 function overview_(user,p){
   var filters=reportFilters_(p),year=filters.year,truong=filters.truong,nghe=filters.nghe;
-  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V1_DECISIONS_UI_V1'],90,function(){
+  return cached_('OVERVIEW',[version_('DATA'),version_('USERS'),user.TAI_KHOAN_ID,user.EMAIL,user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V2_COMPLETION_ELIGIBILITY_V1'],90,function(){
     var all=reportRecords_(filters,user,false);
-    var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0,courseEndScheduled:0}, extras={notReceived:0,other:0}, schools={},trades={};
+    var k={total:all.length,participated:0,learning:0,dropout:0,notParticipating:0,pending:0,courseEndScheduled:0,courseEndParticipated:0}, extras={notReceived:0,other:0}, schools={},trades={};
     all.forEach(function(r){
       if(validDate_(String(r.NGAY_KET_THUC_DU_KIEN||'').slice(0,10)))k.courseEndScheduled++;
+      if(courseEndEligible_(r))k.courseEndParticipated++;
       if(r.TRANG_THAI_THAM_GIA==='DA_THAM_GIA'){k.participated++; if(bool_(r.DA_BO_HOC))k.dropout++;else k.learning++;}
       else if(r.TRANG_THAI_THAM_GIA==='KHONG_THAM_GIA')k.notParticipating++;
       else if(r.TRANG_THAI_THAM_GIA==='CHO_XAC_NHAN')k.pending++;

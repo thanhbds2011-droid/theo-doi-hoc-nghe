@@ -1,3 +1,11 @@
+# THEO DÕI HỌC NGHỀ — v1.2.17-RC / YC-HN-025 V2
+
+**Bổ sung quy tắc được người dùng làm rõ:** Hoàn thành khóa học = `DA_THAM_GIA` + không `DA_BO_HOC` + có `NGAY_KET_THUC_DU_KIEN` hợp lệ và thuộc phạm vi lọc đã chọn. Đây là chỉ tiêu theo **ngày kết thúc đào tạo dự kiến**, không thay thế xác nhận tốt nghiệp thực tế. Các bộ lọc, thống kê và Xuất Excel dùng chung tiêu chí mới. Xem `docs/YC-HN-025_V2_v1.2.17-RC_HUONG_DAN.md`.
+
+**Phiên bản nền được bảo toàn:** v1.2.16-RC, đặc biệt xuất XLSX 25 cột và cập nhật cục bộ sau lưu. Cần triển khai đồng bộ **Apps Script + GitHub/Vercel**. Chưa triển khai vào hệ thống thật.
+
+---
+
 # THEO DÕI HỌC NGHỀ — v1.2.16-RC / YC-HN-025 V1 (PHẦN GIAO DIỆN ĐÃ HOÀN THÀNH)
 
 **Bản thử nghiệm, chưa tự deploy.** Đã đổi nhãn tình trạng, thêm bộ lọc ảo Tổng số Quyết định đã ban hành, bỏ Đang học ở bộ lọc Báo cáo, chọn một tình trạng thì chỉ hiện một chỉ tiêu tương ứng, xuất Báo cáo tổng hợp/In đồng bộ hàng chỉ tiêu. Mã backend chấp nhận bộ lọc mới, vẫn xác minh quyền theo trường.
