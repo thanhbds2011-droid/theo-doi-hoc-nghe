@@ -3,7 +3,7 @@ export function GET() {
   return Response.json({
     ok: Boolean(clientId && clientId.endsWith('.apps.googleusercontent.com')),
     appName: 'Theo dõi học nghề',
-    version: '1.1.4-RC',
+    version: '1.2.21-RC',
     clientId: clientId || '',
   }, { headers: { 'Cache-Control': 'no-store' }});
 }

@@ -163,39 +163,38 @@ test('Nhập danh mục hàng loạt kiểm tra trước, bỏ qua trùng và c�
 
 function sendAs(c,identity,action,payload={},id){const env=c.signed(action,payload,id||'as_'+crypto.randomUUID().replace(/-/g,''),identity);return JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(env)}}).getContent());}
 
-test('Xóa mềm Phương án A: nhân viên xóa đúng hồ sơ mình tạo, Admin xóa mọi hồ sơ',()=>{
+// YC-HN-027 V2 replaces old staff-owned create/delete policy with view-all, status-only.
+test('YC027: Nhân viên không tạo, sửa hoặc xóa kể cả hồ sơ từng do mình tạo; ADMIN vẫn giữ quyền',()=>{
  const c=setupLive();
- c.send('account_save',{email:'staff1@example.com',name:'Staff 1',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW,RECORD_CREATE,RECORD_EDIT,RECORD_DELETE'});
- c.send('account_save',{email:'staff2@example.com',name:'Staff 2',role:'NHAN_VIEN',status:'ACTIVE',permissions:'RECORD_VIEW,RECORD_CREATE,RECORD_DELETE'});
- const staff1={sub:'22345678901234567890',aud:audience,email:'staff1@example.com'};
- const staff2={sub:'32345678901234567890',aud:audience,email:'staff2@example.com'};
- const a=sendAs(c,staff1,'record_save',record(c,'22','2026-05-01'));
- assert.equal(a.ok,true,JSON.stringify(a.error));
- const id=a.data.record.HO_SO_ID;
- const bad=sendAs(c,staff2,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'1'});
- assert.equal(bad.error.code,'NO_PERMISSION');
- const mine=sendAs(c,staff1,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'1'});
- assert.equal(mine.ok,true,JSON.stringify(mine.error));
+ for(const email of ['staff1@example.com','staff2@example.com'])assert.equal(c.send('account_save',{email,name:email,role:'NHAN_VIEN',status:'ACTIVE',permissions:'*'}).ok,true);
+ const B={sub:'22345678901234567890',aud:audience,email:'staff1@example.com'};
+ const D={sub:'32345678901234567890',aud:audience,email:'staff2@example.com'};
+ const row=c.send('record_save',record(c,'22','2026-05-01')).data.record;
+ for(const staff of [B,D]){
+  const create=sendAs(c,staff,'record_save',record(c,'25','2026-06-01'));
+  const edit=sendAs(c,staff,'record_save',{...record(c,'22','2026-05-01'),HO_SO_ID:row.HO_SO_ID,PHIEN_BAN:1,HO_TEN:'Trái phép'});
+  const del=sendAs(c,staff,'record_delete',{HO_SO_ID:row.HO_SO_ID,PHIEN_BAN:1});
+  for(const res of [create,edit,del])assert.equal(res.error.code,'NO_PERMISSION');
+ }
+ assert.equal(c.send('records_list',{}).data.total,1);
+ assert.equal(c.send('record_delete',{HO_SO_ID:row.HO_SO_ID,PHIEN_BAN:1}).ok,true);
  assert.equal(c.send('records_list',{}).data.total,0);
- assert.equal(c.send('overview',{}).data.kpi.total,0);
- assert.equal(c.send('report_export',{}).data.items.length,0);
- assert.equal(c.send('record_save',record(c,'0022','2026-07-01')).error.code,'DECISION_DUPLICATE');
- const redo=sendAs(c,staff1,'record_delete',{HO_SO_ID:id,PHIEN_BAN:'2'});
- assert.equal(redo.error.code,'ALREADY_DELETED');
- const b=sendAs(c,staff2,'record_save',record(c,'23','2026-05-02'));
- assert.equal(c.send('record_delete',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:'1'}).ok,true);
 });
 
-test('YC007: nhân viên được xóa hồ sơ tự tạo bất kể quyền cũ trong Sheets',()=>{
- const c=setupLive();
- c.send('account_save',{email:'viewer@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE',permissions:''});
+test('YC027: Nhân viên mang cột QUYEN lịch sử=* vẫn chỉ được xem và cập nhật tình trạng',()=>{
+ const c=setupLive(),user=c.send('account_save',{email:'viewer@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE'}).data.item;
  const staff={sub:'42345678901234567890',aud:audience,email:'viewer@example.com'};
- const a=sendAs(c,staff,'record_save',record(c,'25','2026-05-03'));
- assert.equal(a.ok,true,JSON.stringify(a.error));
- const del=sendAs(c,staff,'record_delete',{HO_SO_ID:a.data.record.HO_SO_ID,PHIEN_BAN:'1'});
- assert.equal(del.ok,true,JSON.stringify(del.error));
+ const sh=c.tables.get('Tài khoản người dùng'),row=sh.rows.find(x=>x[1]==='viewer@example.com');row[5]='*';c.global.bump_('USERS');
+ const source=c.send('record_save',record(c,'25','2026-05-03')).data.record;
+ assert.equal(sendAs(c,staff,'records_list',{}).data.total,1);
+ assert.equal(sendAs(c,staff,'record_save',record(c,'26','2026-05-05')).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,staff,'record_delete',{HO_SO_ID:source.HO_SO_ID,PHIEN_BAN:1}).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,staff,'file_remove',{HO_SO_ID:source.HO_SO_ID,PHIEN_BAN:1}).error.code,'NO_PERMISSION');
+ const status=sendAs(c,staff,'record_status',{HO_SO_ID:source.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ assert.equal(status.ok,true,JSON.stringify(status.error));assert.equal(status.data.record.CAP_NHAT_BOI,staff.email);
  const fresh=c.send('accounts_list').data.items.find(x=>x.EMAIL==='viewer@example.com');
- assert.match(fresh.QUYEN,/RECORD_DELETE/);
+ assert.match(fresh.QUYEN,/RECORD_STATUS/);assert.doesNotMatch(fresh.QUYEN,/RECORD_(CREATE|EDIT|DELETE)|FILE_UPLOAD/);
+ assert.equal(user.VAI_TRO,'NHAN_VIEN');
 });
 
 test('Kiểm tra tải tệp tối đa 10 MB; truyền nhiều phần và đọc theo Range',()=>{
@@ -299,36 +298,32 @@ test('YC007: tài khoản nhân viên mới tự nhận ma trận quyền cố �
  const out=c.send('account_save',{email:'personnew@example.com',name:'Mới',role:'NHAN_VIEN',status:'ACTIVE'});
  assert.equal(out.ok,true,JSON.stringify(out.error));
  const u=c.send('accounts_list').data.items.find(x=>x.EMAIL==='personnew@example.com');
- assert.match(u.QUYEN,/RECORD_DELETE/);assert.doesNotMatch(u.QUYEN,/ACCOUNT_MANAGE|CATALOG_MANAGE/);
+ assert.match(u.QUYEN,/RECORD_STATUS/);assert.doesNotMatch(u.QUYEN,/RECORD_(CREATE|EDIT|DELETE)|FILE_UPLOAD|ACCOUNT_MANAGE|CATALOG_MANAGE/);
 });
 
-test('YC008: hồ sơ, Tổng quan, xuất CSV và tra cứu giới hạn theo người tạo ở backend',()=>{
- const c=setupLive();
+test('YC027: Nhân viên xem toàn Trung tâm (người tạo khác), tra cứu, báo cáo; chỉ cập nhật tình trạng',()=>{
+ const c=setupLive(),school2=catalog(c,'truong','CS002','Trung tâm nghề số 2');
  for(const email of ['a@example.com','b@example.com'])assert.equal(c.send('account_save',{email,name:email,role:'NHAN_VIEN',status:'ACTIVE'}).ok,true);
  const A={sub:'22345678901234567890',aud:audience,email:'a@example.com'};
  const B={sub:'32345678901234567890',aud:audience,email:'b@example.com'};
- const a=sendAs(c,A,'record_save',record(c,'18','2026-03-15',{HO_TEN:'Người học của A'}));
- const b=sendAs(c,B,'record_save',record(c,'19','2026-03-16',{HO_TEN:'Người học của B'}));
- assert.equal(a.ok,true);assert.equal(b.ok,true);
- assert.equal(c.send('records_list',{}).data.total,2);
- assert.equal(sendAs(c,A,'records_list',{}).data.total,1);
- assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
- assert.equal(sendAs(c,A,'overview',{}).data.kpi.total,1);
- assert.equal(sendAs(c,B,'overview',{}).data.kpi.total,1);
- assert.equal(c.send('overview',{}).data.kpi.total,2);
- assert.equal(sendAs(c,A,'report_export',{}).data.items.length,1);
- assert.equal(sendAs(c,B,'report_export',{}).data.items.length,1);
- assert.equal(sendAs(c,A,'person_lookup',{query:'Người học của B'}).data.items.length,0);
- assert.equal(sendAs(c,A,'person_lookup',{query:'Người học của A'}).data.items.length,1);
- let other=sendAs(c,A,'record_status',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
- assert.equal(other.error.code,'NO_PERMISSION');
- other=sendAs(c,A,'record_delete',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1});assert.equal(other.error.code,'NO_PERMISSION');
- other=sendAs(c,A,'record_save',{...record(c,'19','2026-03-16'),HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1});assert.equal(other.error.code,'NO_PERMISSION');
- other=sendAs(c,A,'file_info',{HO_SO_ID:b.data.record.HO_SO_ID});assert.equal(other.error.code,'NO_PERMISSION');
- other=sendAs(c,A,'file_remove',{HO_SO_ID:b.data.record.HO_SO_ID,PHIEN_BAN:1});assert.equal(other.error.code,'NO_PERMISSION');
- other=sendAs(c,A,'record_save',{...record(c,'20','2026-03-17'),NGUOI_HOC_ID:b.data.record.NGUOI_HOC_ID});assert.equal(other.error.code,'VALIDATION');
- assert.equal(sendAs(c,A,'catalog_list',{type:'truong'}).error.code,'NO_PERMISSION');
- assert.equal(sendAs(c,A,'accounts_list',{}).error.code,'NO_PERMISSION');
+ const one=c.send('record_save',record(c,'18','2026-03-15',{HO_TEN:'Người học trường C'})).data.record;
+ const two=c.send('record_save',record(c,'19','2026-03-16',{TRUONG_ID:school2.TRUONG_ID,HO_TEN:'Người học trường D'})).data.record;
+ for(const who of [A,B]){
+  assert.equal(sendAs(c,who,'records_list',{}).data.total,2);
+  assert.equal(sendAs(c,who,'overview',{}).data.kpi.total,2);
+  assert.equal(sendAs(c,who,'report_export',{}).data.items.length,2);
+  assert.equal(sendAs(c,who,'report_matrix',{groupBy:'truong'}).data.total,2);
+  assert.equal(sendAs(c,who,'person_lookup',{query:'Người học trường D'}).data.items.length,1);
+  for(const action of ['catalog_list','accounts_list','audit_list'])assert.equal(sendAs(c,who,action,{type:'truong'}).error.code,'NO_PERMISSION');
+ }
+ const s1=sendAs(c,B,'record_status',{HO_SO_ID:one.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ const s2=sendAs(c,B,'record_status',{HO_SO_ID:two.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ for(const res of [s1,s2]){assert.equal(res.ok,true,JSON.stringify(res.error));assert.equal(res.data.record.CAP_NHAT_BOI,B.email);}
+ const logs=c.send('audit_list',{page:1,pageSize:100}).data.items;
+ assert.equal(logs.filter(x=>x.HANH_DONG==='CAP_NHAT_TRANG_THAI'&&x.EMAIL===B.email).length,2);
+ for(const who of [A,B])for(const action of ['record_bulk_check','record_bulk_import','record_delete','file_upload_begin','file_upload_cancel','file_remove','catalog_save','account_save']){
+   const res=sendAs(c,who,action,{});assert.equal(res.error.code,'NO_PERMISSION',action);
+ }
 });
 
 test('YC008: xóa mềm tài khoản, không mất hồ sơ và không xóa Admin cuối cùng',()=>{
@@ -1299,4 +1294,114 @@ test('YC026 ma trận tách các tình trạng tùy chỉnh, không cộng trùn
  const stats=m.data.items[0].customStatusCounts;
  assert.equal(Object.values(stats).reduce((sum,n)=>sum+n,0),2);
  assert.equal(m.data.items[0].other-Object.values(stats).reduce((sum,n)=>sum+n,0),0);
+});
+
+
+// YC-HN-026 V2 — không được dùng learning (chưa bỏ học) thay cho participated (gồm bỏ học).
+test('YC026 V2 ma trận trường/nghề Đã tham gia gồm Bỏ học và khớp overview trong mọi bộ lọc',()=>{
+ const c=setupLive(),other=catalog(c,'truong','SCHOOL026V2','Trường thứ hai'),otherTrade=catalog(c,'nghe','TRADE026V2','Nghề thứ hai');
+ const schoolA=c.school.TRUONG_ID,schoolB=other.TRUONG_ID,tradeA=c.trade.NGHE_ID,tradeB=otherTrade.NGHE_ID;
+ const lines=[
+  ['DA_THAM_GIA',false,schoolA,tradeA],
+  ['DA_THAM_GIA',false,schoolA,tradeA],
+  ['DA_THAM_GIA',true,schoolA,tradeB],
+  ['CHO_XAC_NHAN',false,schoolA,tradeB],
+  ['KHONG_THAM_GIA',false,schoolA,tradeA],
+  ['DA_THAM_GIA',false,schoolB,tradeA],
+  ['DA_THAM_GIA',true,schoolB,tradeA],
+  ['CHO_XAC_NHAN',false,schoolB,tradeB],
+  ['DA_THAM_GIA',false,schoolB,tradeB],
+  ['KHONG_NHAN_QUYET_DINH',false,schoolB,tradeB]
+ ];
+ lines.forEach(([st,dropout,school,trade],i)=>{
+  const payload=record(c,String(8501+i),'2026-03-'+String(i+1).padStart(2,'0'),{
+   TRUONG_ID:school,NGHE_ID:trade,TRANG_THAI_THAM_GIA:st,
+   NGAY_BAT_DAU:'2026-04-01',NGAY_KET_THUC_DU_KIEN:'2026-06-30',
+   ...(dropout?{DA_BO_HOC:true,SO_THANG_HO_TRO:'3',NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}:{})
+  });
+  const result=c.send('record_save',payload);
+  assert.equal(result.ok,true,JSON.stringify(result.error));
+ });
+ const f={from:'2026-03-01',to:'2026-03-31'},overview=c.send('overview',f).data.kpi;
+ assert.deepEqual([overview.total,overview.participated,overview.dropout,overview.learning],[10,6,2,4]);
+ for(const groupBy of ['truong','nghe']){
+  const r=c.send('report_matrix',{...f,groupBy});assert.equal(r.ok,true,JSON.stringify(r.error));
+  const groups=r.data.items;
+  assert.equal(groups.length,2);
+  assert.equal(groups.reduce((sum,g)=>sum+g.participated,0),overview.participated);
+  assert.equal(groups.reduce((sum,g)=>sum+g.dropout,0),overview.dropout);
+  assert.equal(groups.reduce((sum,g)=>sum+g.learning,0),overview.learning);
+  assert.ok(groups.every(g=>g.participated===g.learning+g.dropout));
+  const dropoutOnly=c.send('report_matrix',{...f,status:'BO_HOC',groupBy});
+  assert.equal(dropoutOnly.ok,true);
+  assert.equal(dropoutOnly.data.items.reduce((sum,g)=>sum+g.participated,0),2);
+  assert.equal(dropoutOnly.data.items.reduce((sum,g)=>sum+g.dropout,0),2);
+  const partOnly=c.send('report_matrix',{...f,status:'REPORT_PARTICIPATED_ALL',groupBy});
+  assert.equal(partOnly.ok,true);
+  assert.equal(partOnly.data.items.reduce((sum,g)=>sum+g.participated,0),6);
+  assert.equal(partOnly.data.items.reduce((sum,g)=>sum+g.dropout,0),2);
+ }
+ for(const [key,expected] of [[schoolA,3],[schoolB,3]]){
+  const r=c.send('report_matrix',{...f,truong:key,groupBy:'truong'}).data.items;
+  assert.equal(r.length,1);assert.equal(r[0].participated,expected);assert.equal(r[0].dropout,1);
+  assert.equal(c.send('overview',{...f,truong:key}).data.kpi.participated,expected);
+ }
+ const created=c.send('account_save',{email:'school026v2@example.com',name:'Trường thử nghiệm',role:'CO_SO_DAO_TAO',schoolId:schoolA,status:'ACTIVE'});
+ assert.equal(created.ok,true,JSON.stringify(created.error));
+ const actor={sub:'99645678901234567890',aud:audience,email:'school026v2@example.com'};
+ for(const groupBy of ['truong','nghe']){
+  const scoped=sendAs(c,actor,'report_matrix',{...f,groupBy});assert.equal(scoped.ok,true,JSON.stringify(scoped.error));
+  assert.equal(scoped.data.items.reduce((sum,g)=>sum+g.participated,0),3);
+  assert.equal(scoped.data.items.reduce((sum,g)=>sum+g.dropout,0),1);
+  const forged=sendAs(c,actor,'report_matrix',{...f,groupBy,truong:schoolB});
+  assert.equal(forged.ok,true);assert.equal(forged.data.items.length,0);
+ }
+ assert.equal(sendAs(c,actor,'overview',f).data.kpi.participated,3);
+});
+
+// YC-HN-027 V2 — kiểm thử quyền nhiều cơ sở, role change và cạnh tranh phiên bản.
+test('YC027: A/B/C, hai cơ sở, B cập nhật mọi cơ sở; C chỉ trường mình; nhật ký đúng người',()=>{
+ const c=setupLive(),school2=catalog(c,'truong','CS002','Trường thứ hai');
+ const A=c.send('record_save',record(c,'271','2026-09-01')).data.record;
+ const D=c.send('record_save',record(c,'272','2026-09-02',{TRUONG_ID:school2.TRUONG_ID})).data.record;
+ c.send('account_save',{email:'staff027@example.com',name:'Nhân viên B',role:'NHAN_VIEN',status:'ACTIVE'});
+ c.send('account_save',{email:'school027@example.com',name:'Trường C',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+ const B={sub:'72345678901234567890',aud:audience,email:'staff027@example.com'};
+ const C={sub:'82345678901234567890',aud:audience,email:'school027@example.com'};
+ assert.equal(sendAs(c,B,'records_list',{}).data.total,2);
+ assert.equal(sendAs(c,B,'records_list',{truong:school2.TRUONG_ID}).data.total,1);
+ assert.equal(sendAs(c,B,'records_list',{query:'272'}).data.total,1);
+ assert.equal(sendAs(c,C,'records_list',{truong:school2.TRUONG_ID}).data.total,0);
+ assert.equal(sendAs(c,C,'records_list',{}).data.total,1);
+ assert.equal(sendAs(c,C,'report_export',{truong:school2.TRUONG_ID}).data.items.length,0);
+ assert.equal(sendAs(c,C,'report_matrix',{groupBy:'truong'}).data.total,1);
+ assert.equal(sendAs(c,C,'record_status',{HO_SO_ID:D.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}).error.code,'NO_PERMISSION');
+ const bSave=sendAs(c,B,'record_status',{HO_SO_ID:A.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ assert.equal(bSave.ok,true,JSON.stringify(bSave.error));
+ assert.equal(bSave.data.record.CAP_NHAT_BOI,B.email);
+ // C dùng bản PHIEN_BAN cũ phải thất bại, không ghi đè thay đổi của B.
+ const stale=sendAs(c,C,'record_status',{HO_SO_ID:A.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'});
+ assert.equal(stale.error.code,'VERSION_CONFLICT');
+ const cSave=sendAs(c,C,'record_status',{HO_SO_ID:A.HO_SO_ID,PHIEN_BAN:2,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'});
+ assert.equal(cSave.ok,true,JSON.stringify(cSave.error));assert.equal(cSave.data.record.CAP_NHAT_BOI,C.email);
+ const bOther=sendAs(c,B,'record_status',{HO_SO_ID:D.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ assert.equal(bOther.ok,true,JSON.stringify(bOther.error));
+ const log=c.send('audit_list',{page:1,pageSize:100}).data.items.filter(x=>x.HANH_DONG==='CAP_NHAT_TRANG_THAI');
+ assert.equal(log.filter(x=>x.EMAIL===B.email).length,2);
+ assert.equal(log.filter(x=>x.EMAIL===C.email).length,1);
+});
+
+test('YC027: khóa/chuyển vai trò B thu hồi quyền ở yêu cầu kế tiếp, không tin QUYEN lịch sử',()=>{
+ const c=setupLive(),row=c.send('record_save',record(c,'280','2026-09-15')).data.record;
+ const created=c.send('account_save',{email:'staff280@example.com',name:'B',role:'NHAN_VIEN',status:'ACTIVE'}).data.item;
+ const B={sub:'92345678901234567890',aud:audience,email:'staff280@example.com'};
+ assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
+ assert.equal(c.send('account_save',{id:created.TAI_KHOAN_ID,email:B.email,name:'B',role:'NHAN_VIEN',status:'DISABLED'}).ok,true);
+ assert.equal(sendAs(c,B,'record_status',{HO_SO_ID:row.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}).error.code,'NOT_AUTHORIZED');
+ assert.equal(c.send('account_save',{id:created.TAI_KHOAN_ID,email:B.email,name:'B',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'}).ok,true);
+ assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
+ const secondSchool=catalog(c,'truong','CS002','Trường 2');
+ const outside=c.send('record_save',record(c,'281','2026-09-15',{TRUONG_ID:secondSchool.TRUONG_ID})).data.record;
+ assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
+ assert.equal(sendAs(c,B,'record_status',{HO_SO_ID:outside.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}).error.code,'NO_PERMISSION');
 });

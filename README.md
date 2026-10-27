@@ -159,3 +159,7 @@ Giữ màn hình đã mở trong RAM khi chuyển menu 3–4 phút, nhưng kiể
 
 ## YC-HN-024 V2 (v1.2.15-RC)
 Báo cáo thêm chỉ tiêu ngày kết thúc đào tạo dự kiến hợp lệ; bỏ banner hướng dẫn màu xanh, giữ metadata phạm vi khi in. Xem `docs/HUONG_DAN_YC-HN-024_V2_v1.2.15-RC.md`.
+
+
+## YC-HN-027 V2 / v1.2.21-RC
+Nhân viên xem toàn bộ hồ sơ và cập nhật tình trạng mọi trường, nhưng không có quyền thêm/sửa/xóa hoặc quản lý tệp. Xem `docs/HUONG_DAN_YC-HN-027_V2_v1.2.21-RC.md`.

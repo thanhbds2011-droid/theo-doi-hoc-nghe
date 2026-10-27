@@ -13,24 +13,29 @@ test('YC026 xuất cho trường: có nút Hồ sơ và Báo cáo, backend kiể
  assert.match(gas,/var visible=visibleRecords_\(user\)/);
 });
 test('YC026 xuất ma trận cột hoàn thành, QĐ đầy đủ, trạng thái tùy chỉnh và tổng',()=>{
- assert.match(app,/Tổng số Quyết định đã ban hành','Đã tham gia học'/);
+ assert.match(app,/Tổng số Quyết định đã ban hành','Đã tham gia'/);
  assert.match(app,/Hoàn thành khóa học',\.\.\.customs\.map/);
  assert.match(app,/r\.courseEndParticipated\|\|0/);
+ assert.match(app,/r\.participated/);
+ assert.match(gas,/g\.participated\+\+/);
  assert.match(app,/rows\.push\(total\)/);
  assert.match(gas,/completed\.forEach\(function\(r\)\{group\(r\)\.courseEndParticipated\+\+;/);
  assert.match(gas,/customStatusCounts/);
 });
 test('YC026 XLSX 9+ cột và 32 cột: giữ đủ tiêu đề wrap, cột số và dòng tổng',async()=>{
  for(const n of [9,16,32]){
-  const cols=['STT','Tên cơ sở đào tạo','Tổng số Quyết định đã ban hành','Đã tham gia học','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận','Hoàn thành khóa học',...Array.from({length:n-9},(_,i)=>'Tình trạng phát sinh '+i)];
-  const row=[1,'Cơ sở A',4,2,1,0,1,0,1,...Array(n-9).fill(0)];
+  const cols=['STT','Tên cơ sở đào tạo','Tổng số Quyết định đã ban hành','Đã tham gia','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận','Hoàn thành khóa học',...Array.from({length:n-9},(_,i)=>'Tình trạng phát sinh '+i)];
+  const row=[1,'Cơ sở A',10,6,2,1,1,2,3,...Array(n-9).fill(0)];
   const total=['Tổng cộng','',...row.slice(2)];
   const blob=buildReportXlsx(cols,[row,total],'Báo cáo học nghề',{matrixTotals:true});
   const content=Buffer.from(await blob.arrayBuffer()).toString('utf8');
   assert.match(content,/Tổng số Quyết định đã ban hành/);
+  assert.match(content,/Đã tham gia/);
   assert.match(content,/Hoàn thành khóa học/);
   assert.match(content,/wrapText="1"/);
-  assert.match(content,/<c r="I3" s="2"><v>1<\/v><\/c>/);
+  assert.match(content,/<c r="D3" s="2"><v>6<\/v><\/c>/);
+  assert.match(content,/<c r="E3" s="2"><v>2<\/v><\/c>/);
+  assert.match(content,/<c r="I3" s="2"><v>3<\/v><\/c>/);
   assert.match(content,/FFFFFF00/);
   assert.match(content,new RegExp('mergeCell ref="A4:B4"'));
  }

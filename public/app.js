@@ -1,5 +1,5 @@
-import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.19-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.19-RC (YC-HN-025 V3, thống nhất chỉ tiêu Hoàn thành theo ngày kết thúc dự kiến). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.21-RC';
+/** THEO DÕI HỌC NGHỀ — v1.2.21-RC (YC-HN-027 V2, Nhân viên chỉ xem và cập nhật tình trạng toàn Trung tâm). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -18,7 +18,7 @@ const STATUS = { CHO_XAC_NHAN:'Chưa xác nhận', DA_THAM_GIA:'Đã tham gia h�
 const COURSE_END_FILTER='FILTER_COURSE_END_DATE'; // Tra ngày kết thúc DỰ KIẾN, không xác nhận tốt nghiệp.
 const ALL_DECISIONS_FILTER='FILTER_ALL_DECISIONS'; // Bộ lọc ảo, không lưu vào dữ liệu nguồn.
 const STATUS_FORM = { DA_THAM_GIA:'Đã tham gia học', KHONG_THAM_GIA:'Không tham gia', BO_HOC:'Bỏ học', KHONG_NHAN_QUYET_DINH:'Không nhận quyết định', CHO_XAC_NHAN:'Chưa xác nhận' };
-const RIGHTS = { RECORD_VIEW:'Xem hồ sơ', RECORD_CREATE:'Thêm hồ sơ', RECORD_EDIT:'Sửa hồ sơ', RECORD_DELETE:'Xóa hồ sơ do mình tạo', RECORD_STATUS:'Cập nhật tình trạng', REPORT_VIEW:'Xem báo cáo', CATALOG_MANAGE:'Quản lý danh mục', ACCOUNT_MANAGE:'Quản lý tài khoản', AUDIT_VIEW:'Xem nhật ký', FILE_VIEW:'Xem tệp', FILE_UPLOAD:'Tải lên/xóa tệp' };
+const RIGHTS = { RECORD_VIEW:'Xem hồ sơ', RECORD_CREATE:'Thêm hồ sơ', RECORD_EDIT:'Sửa hồ sơ', RECORD_DELETE:'Xóa hồ sơ', RECORD_STATUS:'Cập nhật tình trạng', REPORT_VIEW:'Xem báo cáo', CATALOG_MANAGE:'Quản lý danh mục', ACCOUNT_MANAGE:'Quản lý tài khoản', AUDIT_VIEW:'Xem nhật ký', FILE_VIEW:'Xem tệp', FILE_UPLOAD:'Tải lên/xóa tệp' };
 const NAMES = { truong:'Cơ sở đào tạo', nghe:'Nghề đào tạo', lydo:'Lý do bỏ học' };
 const state = {
   token:'', session:false, clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, statuses:[], page:'dashboard', routeVersion:0,
@@ -42,7 +42,7 @@ function friendlyError(code,message){
   return 'Thao tác chưa hoàn tất. Vui lòng thử lại hoặc liên hệ quản trị viên.';
 }
 function failure(e){notify(e?.message||'Thao tác chưa hoàn tất. Vui lòng thử lại.',true);}
-const STAFF_RIGHTS=new Set(['RECORD_VIEW','RECORD_CREATE','RECORD_EDIT','RECORD_DELETE','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','FILE_UPLOAD','REPORT_EXPORT']);
+const STAFF_RIGHTS=new Set(['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','REPORT_EXPORT']);
 function allowed(p){return state.user?.VAI_TRO==='ADMIN'||(state.user?.VAI_TRO==='NHAN_VIEN'&&STAFF_RIGHTS.has(p))||(state.user?.VAI_TRO==='CO_SO_DAO_TAO'&&['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','REPORT_EXPORT'].includes(p));}
 const allStatusOptions=()=>[...Object.entries(STATUS_FORM),...state.statuses.map(x=>[x.id,x.label])];
 const isSchoolAccount=()=>state.user?.VAI_TRO==='CO_SO_DAO_TAO';
@@ -1070,8 +1070,14 @@ async function exportSummaryOrMatrix(mode){
     const customs=(d.customStatuses||[]).filter(x=>x&&x.id&&x.label);
     const customCount=r=>customs.reduce((sum,x)=>sum+Number(r.customStatusCounts?.[x.id]||0),0);
     const other=d.items.some(r=>Number(r.other||0)>customCount(r));
-    const columns=['STT',label,'Tổng số Quyết định đã ban hành','Đã tham gia học','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận','Hoàn thành khóa học',...customs.map(x=>x.label),...(other?['Tình trạng khác']:[])];
-    const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.learning,r.dropout,r.notParticipating,r.notReceived,r.pending,r.courseEndParticipated||0,...customs.map(x=>r.customStatusCounts?.[x.id]||0),...(other?[Math.max(0,Number(r.other||0)-customCount(r))]:[])]);
+    const columns=['STT',label,'Tổng số Quyết định đã ban hành','Đã tham gia','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận','Hoàn thành khóa học',...customs.map(x=>x.label),...(other?['Tình trạng khác']:[])];
+    // Frontend mới yêu cầu backend mới: không tự chuyển undefined thành 0 khi lệch bản triển khai.
+    if(d.items.some(r=>!Number.isSafeInteger(r.participated)||r.participated<0)){
+      throw Error('Apps Script chưa đồng bộ phiên bản báo cáo. Vui lòng cập nhật Code.gs rồi xuất lại Excel.');
+    }
+    const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.participated,r.dropout,r.notParticipating,r.notReceived,r.pending,r.courseEndParticipated||0,...customs.map(x=>r.customStatusCounts?.[x.id]||0),...(other?[Math.max(0,Number(r.other||0)-customCount(r))]:[])]);
+    // Đã tham gia bao gồm Bỏ học; không được cộng chồng cột Bỏ học vào tổng QĐ.
+    if(d.items.some(r=>r.participated<Number(r.dropout||0)))throw Error('Số liệu Đã tham gia/Bỏ học chưa nhất quán. Vui lòng thử lại.');
     const total=[...Array(2).fill(''),...columns.slice(2).map((_,i)=>rows.reduce((sum,row)=>sum+Number(row[i+2]||0),0))];total[0]='Tổng cộng';
     if(total[2]!==d.total)throw Error('Số quyết định báo cáo chưa khớp; vui lòng thực hiện lại.');
     if(total[8]!==d.items.reduce((sum,r)=>sum+Number(r.courseEndParticipated||0),0))throw Error('Số hồ sơ hoàn thành chưa khớp.');

@@ -50,8 +50,9 @@ with sync_playwright() as pw:
   page.wait_for_selector('.kpi',timeout=12000)
   page.locator('[data-nav="records"]').click()
   page.wait_for_selector('#list-output tbody tr[data-record-id="HS_2"]',timeout=12000)
-  if role=='CO_SO_DAO_TAO':
+  if role in ('CO_SO_DAO_TAO','NHAN_VIEN'):
    assert page.locator('[data-edit-record]').count()==0
+   assert page.locator('[data-status-record]').count()==2
    page.close();continue
   initial=page.evaluate('''() => ({other:document.querySelector('tr[data-record-id="HS_2"]'),records:window.calls.filter(x=>x.action==='records_list').length,filters:document.querySelector('#records-filters')})''')
   # Element references are compared inside the page, not serialized to Python.
@@ -83,4 +84,4 @@ with sync_playwright() as pw:
   page.close()
  browser.close()
 assert not errors,errors
-print('YC022_BROWSER_OK: ADMIN & NHAN_VIEN local row update, stable filter DOM, no redundant list RPC; sort-change targeted refresh; version-conflict safe; CO_SO_DAO_TAO no edit')
+print('YC022_BROWSER_OK: ADMIN local row edit/refresh; NHAN_VIEN and CO_SO_DAO_TAO only status editing; row updates version-conflict safe')

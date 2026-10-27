@@ -58,7 +58,7 @@ with sync_playwright() as pw:
         if(role==='NHAN_VIEN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
         const found=matches(p),groupBy=p.groupBy==='truong'?'school':'status';
         const groups=[...new Set(found.map(x=>x[groupBy]))];
-        data={total:found.length,items:groups.map(key=>{const sub=found.filter(x=>x[groupBy]===key);return {name:key,total:sub.length,learning:sub.filter(x=>x.status==='DA_THAM_GIA').length,dropout:0,notParticipating:sub.filter(x=>x.status==='KHONG_THAM_GIA').length,notReceived:0,pending:sub.filter(x=>x.status==='CHO_XAC_NHAN').length,other:0,courseEndParticipated:sub.filter(x=>x.status==='DA_THAM_GIA'&&x.end).length,customStatusCounts:{}};})};
+        data={total:found.length,items:groups.map(key=>{const sub=found.filter(x=>x[groupBy]===key);return {name:key,total:sub.length,participated:sub.filter(x=>x.status==='DA_THAM_GIA').length,learning:sub.filter(x=>x.status==='DA_THAM_GIA').length,dropout:0,notParticipating:sub.filter(x=>x.status==='KHONG_THAM_GIA').length,notReceived:0,pending:sub.filter(x=>x.status==='CHO_XAC_NHAN').length,other:0,courseEndParticipated:sub.filter(x=>x.status==='DA_THAM_GIA'&&x.end).length,customStatusCounts:{}};})};
       }
       return new Response(JSON.stringify({ok:true,data}),{headers:{'Content-Type':'application/json'}});
     };
@@ -129,6 +129,7 @@ with sync_playwright() as pw:
    assert page.evaluate('window.exported.length')==4
    assert page.evaluate('window.exported[2].cols.includes("Hoàn thành khóa học")')
    assert page.evaluate('window.exported[3].cols.includes("Tổng số Quyết định đã ban hành")')
+   assert page.evaluate('window.exported[2].cols.includes("Đã tham gia")'),role
    lines=page.evaluate('window.exported[1].rows')
    assert len(lines)==1 and lines[0]==['Hoàn thành khóa học',1],(role,lines)
   else:
