@@ -31,7 +31,7 @@ test('YC006 giữ font hệ thống và footer không lộ backend',()=>{
  assert.doesNotMatch(js,/Google Sheets/);
 });
 test('YC006 bản nguồn có phiên bản đồng bộ',()=>{
- assert.match(html,/v1\.2\.21-RC/);
+ assert.match(html,/v1\.2\.22-RC/);
  const pkg=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
- assert.equal(pkg.version,'1.2.21-rc.0');
+ assert.equal(pkg.version,'1.2.22-rc.0');
 });

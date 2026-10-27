@@ -52,10 +52,8 @@ with sync_playwright() as pw:
         const rs=matches(p),participated=rs.filter(x=>x.status==='DA_THAM_GIA').length;
         data={kpi:{total:rs.length,participated,learning:participated,dropout:0,notParticipating:rs.filter(x=>x.status==='KHONG_THAM_GIA').length,pending:rs.filter(x=>x.status==='CHO_XAC_NHAN').length,courseEndScheduled:rs.filter(x=>/^\\d{4}-\\d{2}-\\d{2}$/.test(x.end )).length,courseEndParticipated:rs.filter(x=>x.status==='DA_THAM_GIA'&&x.end).length},statusCounts:{notReceived:0,other:0},schoolCounts:{},tradeCounts:{}};
       }else if(req.action==='report_export'){
-        if(role==='NHAN_VIEN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
         data={columns:Array.from({length:25},(_,i)=>'Cột '+(i+1)),items:matches(p).map((x,i)=>{const arr=Array(25).fill('');arr[0]=i+1;arr[5]=x.number;arr[13]=x.end;return arr;})};
       }else if(req.action==='report_matrix'){
-        if(role==='NHAN_VIEN')return new Response(JSON.stringify({ok:false,error:{code:'NO_PERMISSION'}}));
         const found=matches(p),groupBy=p.groupBy==='truong'?'school':'status';
         const groups=[...new Set(found.map(x=>x[groupBy]))];
         data={total:found.length,items:groups.map(key=>{const sub=found.filter(x=>x[groupBy]===key);return {name:key,total:sub.length,participated:sub.filter(x=>x.status==='DA_THAM_GIA').length,learning:sub.filter(x=>x.status==='DA_THAM_GIA').length,dropout:0,notParticipating:sub.filter(x=>x.status==='KHONG_THAM_GIA').length,notReceived:0,pending:sub.filter(x=>x.status==='CHO_XAC_NHAN').length,other:0,courseEndParticipated:sub.filter(x=>x.status==='DA_THAM_GIA'&&x.end).length,customStatusCounts:{}};})};
@@ -98,7 +96,7 @@ with sync_playwright() as pw:
   assert page.locator('#report-output table tbody tr').count()==1,role+' — chỉ hiển thị hàng đã lọc'
   row=page.locator('#report-output table tbody tr').filter(has_text='Hoàn thành khóa học')
   assert row.count()==1 and row.locator('td').nth(1).inner_text()=='1',role
-  if role in ('ADMIN','CO_SO_DAO_TAO'):
+  if role in ('ADMIN','NHAN_VIEN','CO_SO_DAO_TAO'):
    page.locator('#print-report').click()
    assert page.evaluate('window.printCount')==1
    page.emulate_media(media='print')
@@ -132,8 +130,6 @@ with sync_playwright() as pw:
    assert page.evaluate('window.exported[2].cols.includes("Đã tham gia")'),role
    lines=page.evaluate('window.exported[1].rows')
    assert len(lines)==1 and lines[0]==['Hoàn thành khóa học',1],(role,lines)
-  else:
-   assert page.locator('#report-export').count()==0,role
   page.locator('#reports-filters [name="status"]').select_option('')
   page.locator('#reports-filters button[type="submit"]').click()
   page.wait_for_function('window.calls.filter(x=>x.action==="overview").at(-1).payload.status===""',timeout=12000)

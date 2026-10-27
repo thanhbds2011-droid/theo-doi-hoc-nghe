@@ -23,8 +23,8 @@ test('YC027: backend chặn ghi ngoài tình trạng, tách check xem/cập nh�
  assert.match(backend,/must_\(canManageRecordFile_\(user,r\)/);
  assert.match(backend,/TRANG_THAI_HO_SO!=='DELETED'/);
 });
-test('YC027: chỉ cập nhật nhãn phiên bản, không thay API gateway / script Excel',()=>{
- assert.match(html,/v1\.2\.21-RC/);
- assert.match(backend,/version: '1\.2\.21-RC'/);
- assert.match(app,/xlsx-export\.js\?v=1\.2\.21-RC/);
+test('YC027+028: bản tiếp theo chỉ đổi metadata hiển thị, bảo toàn API gateway / Excel',()=>{
+ assert.match(html,/v1\.2\.22-RC/);
+ assert.match(backend,/version: '1\.2\.22-RC'/);
+ assert.match(app,/xlsx-export\.js\?v=1\.2\.21-RC/); // Keep the approved Excel module unchanged
 });

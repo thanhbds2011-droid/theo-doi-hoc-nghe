@@ -1,0 +1,1350 @@
+TAP version 13
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# 7 tab và 79 tiêu đề đã là tiếng Việt, không cần chuyển đổi.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# 7 tab và 79 tiêu đề đã là tiếng Việt, không cần chuyển đổi.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Bản sao lưu: https://example.test/backup/1
+# Đã Việt hóa 7 tab; dữ liệu hồ sơ/tài khoản đã được giữ nguyên. Đã sao lưu trên Drive.
+# Subtest: 7 tab, 94 cột, khởi tạo idempotent và không xóa dữ liệu
+ok 1 - 7 tab, 94 cột, khởi tạo idempotent và không xóa dữ liệu
+  ---
+  duration_ms: 10.219739
+  type: 'test'
+  ...
+# Subtest: Dừng khi schema hiện có sai, không tự ghi đè
+ok 2 - Dừng khi schema hiện có sai, không tự ghi đè
+  ---
+  duration_ms: 2.244864
+  type: 'test'
+  ...
+# Subtest: Khóa quyết định: 2, 02, 002 cùng năm là một; khác năm hợp lệ
+ok 3 - Khóa quyết định: 2, 02, 002 cùng năm là một; khác năm hợp lệ
+  ---
+  duration_ms: 2.869444
+  type: 'test'
+  ...
+# Subtest: Không nhận số 0 hoặc ngày không hợp lệ
+ok 4 - Không nhận số 0 hoặc ngày không hợp lệ
+  ---
+  duration_ms: 1.515173
+  type: 'test'
+  ...
+# Subtest: Tạo hồ sơ theo quyết định; từ chối quyết định trùng cùng năm
+ok 5 - Tạo hồ sơ theo quyết định; từ chối quyết định trùng cùng năm
+  ---
+  duration_ms: 8.802816
+  type: 'test'
+  ...
+# Subtest: Cùng số quyết định được dùng ở năm tiếp theo, không tái sử dụng cùng năm
+ok 6 - Cùng số quyết định được dùng ở năm tiếp theo, không tái sử dụng cùng năm
+  ---
+  duration_ms: 3.413561
+  type: 'test'
+  ...
+# Subtest: Một người có nhiều hồ sơ nếu dùng cùng NGUOI_HOC_ID
+ok 7 - Một người có nhiều hồ sơ nếu dùng cùng NGUOI_HOC_ID
+  ---
+  duration_ms: 3.831942
+  type: 'test'
+  ...
+# Subtest: Không được liên kết NGUOI_HOC_ID với họ tên không trùng
+ok 8 - Không được liên kết NGUOI_HOC_ID với họ tên không trùng
+  ---
+  duration_ms: 3.303586
+  type: 'test'
+  ...
+# Subtest: Bỏ học cần đã tham gia, kỳ học và lý do
+ok 9 - Bỏ học cần đã tham gia, kỳ học và lý do
+  ---
+  duration_ms: 13.128018
+  type: 'test'
+  ...
+# Subtest: VERSION_CONFLICT ngăn ghi đè sửa từ phiên cũ
+ok 10 - VERSION_CONFLICT ngăn ghi đè sửa từ phiên cũ
+  ---
+  duration_ms: 21.297961
+  type: 'test'
+  ...
+# Subtest: Dedupe theo requestId giúp chống ghi trùng cùng giao dịch
+ok 11 - Dedupe theo requestId giúp chống ghi trùng cùng giao dịch
+  ---
+  duration_ms: 3.87297
+  type: 'test'
+  ...
+# Subtest: Dashboard sáu KPI nhất quán với bỏ học và không tham gia
+ok 12 - Dashboard sáu KPI nhất quán với bỏ học và không tham gia
+  ---
+  duration_ms: 6.359783
+  type: 'test'
+  ...
+# Subtest: Chặn chữ ký sai và audience sai ngay tại doPost
+ok 13 - Chặn chữ ký sai và audience sai ngay tại doPost
+  ---
+  duration_ms: 2.762546
+  type: 'test'
+  ...
+# Subtest: Từ chối người chưa cấp quyền
+ok 14 - Từ chối người chưa cấp quyền
+  ---
+  duration_ms: 5.391633
+  type: 'test'
+  ...
+# Subtest: Nhân viên không được quản lý danh mục hoặc tài khoản khi không cấp quyền
+ok 15 - Nhân viên không được quản lý danh mục hoặc tài khoản khi không cấp quyền
+  ---
+  duration_ms: 3.67348
+  type: 'test'
+  ...
+# Subtest: Lọc & xuất báo cáo không làm thay đổi dữ liệu
+ok 16 - Lọc & xuất báo cáo không làm thay đổi dữ liệu
+  ---
+  duration_ms: 5.144221
+  type: 'test'
+  ...
+# Subtest: Chuyển 7 tab cũ sang tiếng Việt, giữ toàn bộ dữ liệu và đúng thứ tự 79 cột
+ok 17 - Chuyển 7 tab cũ sang tiếng Việt, giữ toàn bộ dữ liệu và đúng thứ tự 79 cột
+  ---
+  duration_ms: 4.862459
+  type: 'test'
+  ...
+# Subtest: Nếu trùng 2 tên tab cũ/mới, dừng TRƯỚC khi sao lưu/sửa bất kỳ tab nào
+ok 18 - Nếu trùng 2 tên tab cũ/mới, dừng TRƯỚC khi sao lưu/sửa bất kỳ tab nào
+  ---
+  duration_ms: 3.868823
+  type: 'test'
+  ...
+# Subtest: Từ chối schema bất thường trước khi sửa/đổi tên tab, bảo toàn hàng dữ liệu
+ok 19 - Từ chối schema bất thường trước khi sửa/đổi tên tab, bảo toàn hàng dữ liệu
+  ---
+  duration_ms: 1.928534
+  type: 'test'
+  ...
+# Subtest: Vẫn truy cập được tab tiếng Anh khi deployment mới chưa kịp chuyển đổi
+ok 20 - Vẫn truy cập được tab tiếng Anh khi deployment mới chưa kịp chuyển đổi
+  ---
+  duration_ms: 2.439992
+  type: 'test'
+  ...
+# Subtest: Sheet mới sử dụng toàn bộ tên tiếng Việt và 94 tiêu đề đúng vị trí
+ok 21 - Sheet mới sử dụng toàn bộ tên tiếng Việt và 94 tiêu đề đúng vị trí
+  ---
+  duration_ms: 3.07701
+  type: 'test'
+  ...
+# Subtest: Danh mục tạo trên web tự sinh mã, bảo vệ mã cũ và chặn trùng tên
+ok 22 - Danh mục tạo trên web tự sinh mã, bảo vệ mã cũ và chặn trùng tên
+  ---
+  duration_ms: 4.196071
+  type: 'test'
+  ...
+# Subtest: Nhập danh mục hàng loạt kiểm tra trước, bỏ qua trùng và có thể chạy lại an toàn
+ok 23 - Nhập danh mục hàng loạt kiểm tra trước, bỏ qua trùng và có thể chạy lại an toàn
+  ---
+  duration_ms: 10.064657
+  type: 'test'
+  ...
+# Subtest: YC027: Nhân viên không tạo, sửa hoặc xóa kể cả hồ sơ từng do mình tạo; ADMIN vẫn giữ quyền
+ok 24 - YC027: Nhân viên không tạo, sửa hoặc xóa kể cả hồ sơ từng do mình tạo; ADMIN vẫn giữ quyền
+  ---
+  duration_ms: 6.984444
+  type: 'test'
+  ...
+# Subtest: YC027: Nhân viên mang cột QUYEN lịch sử=* vẫn chỉ được xem và cập nhật tình trạng
+ok 25 - YC027: Nhân viên mang cột QUYEN lịch sử=* vẫn chỉ được xem và cập nhật tình trạng
+  ---
+  duration_ms: 8.244829
+  type: 'test'
+  ...
+# Subtest: Kiểm tra tải tệp tối đa 10 MB; truyền nhiều phần và đọc theo Range
+ok 26 - Kiểm tra tải tệp tối đa 10 MB; truyền nhiều phần và đọc theo Range
+  ---
+  duration_ms: 1591.693878
+  type: 'test'
+  ...
+# Subtest: YC007: 3 trạng thái nghiệp vụ tách bạch Bỏ học và Không tham gia
+ok 27 - YC007: 3 trạng thái nghiệp vụ tách bạch Bỏ học và Không tham gia
+  ---
+  duration_ms: 4.247989
+  type: 'test'
+  ...
+# Subtest: YC013: không được khai báo kỳ bỏ học bằng ngày lịch sử trên hồ sơ mới
+ok 28 - YC013: không được khai báo kỳ bỏ học bằng ngày lịch sử trên hồ sơ mới
+  ---
+  duration_ms: 2.920092
+  type: 'test'
+  ...
+# Subtest: YC007: nhập CSV nhiều cột giữ địa chỉ và tên viết tắt trường
+ok 29 - YC007: nhập CSV nhiều cột giữ địa chỉ và tên viết tắt trường
+  ---
+  duration_ms: 3.378762
+  type: 'test'
+  ...
+# Subtest: YC007: import nghề giữ thứ tự và kiểm tra tên trùng
+ok 30 - YC007: import nghề giữ thứ tự và kiểm tra tên trùng
+  ---
+  duration_ms: 3.306977
+  type: 'test'
+  ...
+# Subtest: YC007: không nhận thứ tự sai hoặc số cột nhiều làm ghi trùng
+ok 31 - YC007: không nhận thứ tự sai hoặc số cột nhiều làm ghi trùng
+  ---
+  duration_ms: 3.549233
+  type: 'test'
+  ...
+# Subtest: YC007: nhân viên không thể tự thêm tài khoản hoặc quản lý danh mục dù cột QUYEN cũ có quyền
+ok 32 - YC007: nhân viên không thể tự thêm tài khoản hoặc quản lý danh mục dù cột QUYEN cũ có quyền
+  ---
+  duration_ms: 3.495412
+  type: 'test'
+  ...
+# Subtest: YC007: tài khoản nhân viên mới tự nhận ma trận quyền cố định
+ok 33 - YC007: tài khoản nhân viên mới tự nhận ma trận quyền cố định
+  ---
+  duration_ms: 3.387991
+  type: 'test'
+  ...
+# Subtest: YC027: Nhân viên xem toàn Trung tâm (người tạo khác), tra cứu, báo cáo; chỉ cập nhật tình trạng
+ok 34 - YC027: Nhân viên xem toàn Trung tâm (người tạo khác), tra cứu, báo cáo; chỉ cập nhật tình trạng
+  ---
+  duration_ms: 21.371055
+  type: 'test'
+  ...
+# Subtest: YC008: xóa mềm tài khoản, không mất hồ sơ và không xóa Admin cuối cùng
+ok 35 - YC008: xóa mềm tài khoản, không mất hồ sơ và không xóa Admin cuối cùng
+  ---
+  duration_ms: 4.839855
+  type: 'test'
+  ...
+# Subtest: YC008: xóa danh mục chưa liên kết, chặn danh mục có liên kết và giữ ID
+ok 36 - YC008: xóa danh mục chưa liên kết, chặn danh mục có liên kết và giữ ID
+  ---
+  duration_ms: 3.605677
+  type: 'test'
+  ...
+# Subtest: YC009: Kiểm tra 1.000 quyết định trước nhập không ghi dữ liệu
+ok 37 - YC009: Kiểm tra 1.000 quyết định trước nhập không ghi dữ liệu
+  ---
+  duration_ms: 95.05558
+  type: 'test'
+  ...
+# Subtest: YC009: 1.000 quyết định lưu theo 25 lượt, nhập lại không ghi trùng và giữ 94 cột
+ok 38 - YC009: 1.000 quyết định lưu theo 25 lượt, nhập lại không ghi trùng và giữ 94 cột
+  ---
+  duration_ms: 243.251238
+  type: 'test'
+  ...
+# Subtest: YC009: Không gộp người trùng họ tên; cùng số khác năm hợp lệ
+ok 39 - YC009: Không gộp người trùng họ tên; cùng số khác năm hợp lệ
+  ---
+  duration_ms: 4.063647
+  type: 'test'
+  ...
+# Subtest: YC009/012: quyết định trùng, danh mục mới hợp lệ và ngày sai được phân loại đúng
+ok 40 - YC009/012: quyết định trùng, danh mục mới hợp lệ và ngày sai được phân loại đúng
+  ---
+  duration_ms: 3.812158
+  type: 'test'
+  ...
+# Subtest: YC009: Nhân viên không thể kiểm tra hoặc ghi nhập hàng loạt qua API
+ok 41 - YC009: Nhân viên không thể kiểm tra hoặc ghi nhập hàng loạt qua API
+  ---
+  duration_ms: 2.938566
+  type: 'test'
+  ...
+# Subtest: YC009: Đợt nhập giới hạn 40 hồ sơ; kiểm tra file tối đa 3000 dòng
+ok 42 - YC009: Đợt nhập giới hạn 40 hồ sơ; kiểm tra file tối đa 3000 dòng
+  ---
+  duration_ms: 19.858696
+  type: 'test'
+  ...
+# Subtest: YC011: 40 cột hồ sơ, dữ liệu hỗ trợ và giấy tờ được lưu, sửa không mất dữ liệu
+ok 43 - YC011: 40 cột hồ sơ, dữ liệu hỗ trợ và giấy tờ được lưu, sửa không mất dữ liệu
+  ---
+  duration_ms: 5.130774
+  type: 'test'
+  ...
+# Subtest: YC011: 2.326 dòng được hỗ trợ trong bước kiểm tra và nhập theo đợt
+ok 44 - YC011: 2.326 dòng được hỗ trợ trong bước kiểm tra và nhập theo đợt
+  ---
+  duration_ms: 169.234371
+  type: 'test'
+  ...
+# Subtest: YC012: tháng hỗ trợ có số lẻ, được giữ nguyên khi Thêm/Sửa và không làm tròn
+ok 45 - YC012: tháng hỗ trợ có số lẻ, được giữ nguyên khi Thêm/Sửa và không làm tròn
+  ---
+  duration_ms: 4.202825
+  type: 'test'
+  ...
+# Subtest: YC012: tiền VN đa dấu chấm và định dạng quốc tế được chuẩn hóa chính xác
+ok 46 - YC012: tiền VN đa dấu chấm và định dạng quốc tế được chuẩn hóa chính xác
+  ---
+  duration_ms: 1.651119
+  type: 'test'
+  ...
+# Subtest: YC012: nghề/cơ sở mới không còn là lỗi; server tạo một danh mục mỗi tên và liên kết đúng ID
+ok 47 - YC012: nghề/cơ sở mới không còn là lỗi; server tạo một danh mục mỗi tên và liên kết đúng ID
+  ---
+  duration_ms: 4.91477
+  type: 'test'
+  ...
+# Subtest: YC012: không tự tạo nghề từ hồ sơ lỗi hoặc quyết định trùng
+ok 48 - YC012: không tự tạo nghề từ hồ sơ lỗi hoặc quyết định trùng
+  ---
+  duration_ms: 3.695423
+  type: 'test'
+  ...
+# Subtest: YC012: tên khác dấu không bị tự gộp, cùng tên khác khoảng trắng/chữ hoa được dùng lại
+ok 49 - YC012: tên khác dấu không bị tự gộp, cùng tên khác khoảng trắng/chữ hoa được dùng lại
+  ---
+  duration_ms: 3.666561
+  type: 'test'
+  ...
+# Subtest: YC012: danh mục ngừng sử dụng không được tự kích hoạt hoặc tạo bản sao
+ok 50 - YC012: danh mục ngừng sử dụng không được tự kích hoạt hoặc tạo bản sao
+  ---
+  duration_ms: 4.177839
+  type: 'test'
+  ...
+# Subtest: YC012: nhập từng đợt dùng cùng danh mục mới, không tạo trùng ở đợt tiếp theo
+ok 51 - YC012: nhập từng đợt dùng cùng danh mục mới, không tạo trùng ở đợt tiếp theo
+  ---
+  duration_ms: 19.046026
+  type: 'test'
+  ...
+# Subtest: YC012: khi file cung cấp rõ Bỏ học + ngày/lý do, lý do mới được thêm một lần và gắn đúng hồ sơ
+ok 52 - YC012: khi file cung cấp rõ Bỏ học + ngày/lý do, lý do mới được thêm một lần và gắn đúng hồ sơ
+  ---
+  duration_ms: 7.003742
+  type: 'test'
+  ...
+# Subtest: YC012: có lý do nhưng thiếu trạng thái/ngày bỏ học không được tạo danh mục vô cớ
+ok 53 - YC012: có lý do nhưng thiếu trạng thái/ngày bỏ học không được tạo danh mục vô cớ
+  ---
+  duration_ms: 3.679847
+  type: 'test'
+  ...
+# Subtest: YC013: một Gmail thuộc đúng một cơ sở, nhiều Gmail cùng một cơ sở và không vượt quyền
+ok 54 - YC013: một Gmail thuộc đúng một cơ sở, nhiều Gmail cùng một cơ sở và không vượt quyền
+  ---
+  duration_ms: 10.738469
+  type: 'test'
+  ...
+# Subtest: YC013: số quyết định tìm chính xác, không khớp chuỗi chứa số
+ok 55 - YC013: số quyết định tìm chính xác, không khớp chuỗi chứa số
+  ---
+  duration_ms: 5.396598
+  type: 'test'
+  ...
+# Subtest: YC013: tháng bỏ học là kỳ N, lưu KY:2, không sửa lịch sử ngày cũ
+ok 56 - YC013: tháng bỏ học là kỳ N, lưu KY:2, không sửa lịch sử ngày cũ
+  ---
+  duration_ms: 5.242556
+  type: 'test'
+  ...
+# Subtest: YC013: Không nhận quyết định, trạng thái Khác và báo cáo ma trận phân nhóm đúng
+ok 57 - YC013: Không nhận quyết định, trạng thái Khác và báo cáo ma trận phân nhóm đúng
+  ---
+  duration_ms: 8.280019
+  type: 'test'
+  ...
+# Subtest: YC014: lọc báo cáo Đã tham gia bao gồm cả bỏ học, Đang học không bao gồm bỏ học
+ok 58 - YC014: lọc báo cáo Đã tham gia bao gồm cả bỏ học, Đang học không bao gồm bỏ học
+  ---
+  duration_ms: 7.920993
+  type: 'test'
+  ...
+# Subtest: YC014: tìm số quyết định trực tiếp theo cột, năm và quyền, không khớp chữ số con
+ok 59 - YC014: tìm số quyết định trực tiếp theo cột, năm và quyền, không khớp chữ số con
+  ---
+  duration_ms: 4.881906
+  type: 'test'
+  ...
+# Subtest: YC014: cache overview có phân quyền trường và bản sửa quyền; chuyển ABC sang XYZ không rò số liệu
+ok 60 - YC014: cache overview có phân quyền trường và bản sửa quyền; chuyển ABC sang XYZ không rò số liệu
+  ---
+  duration_ms: 4.413631
+  type: 'test'
+  ...
+# Subtest: YC014: tra cứu QĐ 3.000 dòng không đọc toàn bảng 40 cột trên cache miss
+ok 61 - YC014: tra cứu QĐ 3.000 dòng không đọc toàn bảng 40 cột trên cache miss
+  ---
+  duration_ms: 8.885656
+  type: 'test'
+  ...
+# Subtest: YC015 cập nhật tình trạng chỉ đọc toàn hàng đích, không nạp toàn bộ bảng 40 cột
+ok 62 - YC015 cập nhật tình trạng chỉ đọc toàn hàng đích, không nạp toàn bộ bảng 40 cột
+  ---
+  duration_ms: 7.627139
+  type: 'test'
+  ...
+# Subtest: YC016: xem trước + ghi một hồ sơ chưa xác nhận, giữ nguyên hồ sơ gốc
+ok 63 - YC016: xem trước + ghi một hồ sơ chưa xác nhận, giữ nguyên hồ sơ gốc
+  ---
+  duration_ms: 6.040979
+  type: 'test'
+  ...
+# Subtest: YC016: hai lần import cùng QĐ không được ghi đè hay tăng phiên bản lần hai
+ok 64 - YC016: hai lần import cùng QĐ không được ghi đè hay tăng phiên bản lần hai
+  ---
+  duration_ms: 5.858161
+  type: 'test'
+  ...
+# Subtest: YC016: hồ sơ đang bỏ học không thể bị ghi đè kể cả trùng số và họ tên
+ok 65 - YC016: hồ sơ đang bỏ học không thể bị ghi đè kể cả trùng số và họ tên
+  ---
+  duration_ms: 6.126235
+  type: 'test'
+  ...
+# Subtest: YC016: thay đổi đồng thời sau xem trước không cho ghi đè
+ok 66 - YC016: thay đổi đồng thời sau xem trước không cho ghi đè
+  ---
+  duration_ms: 4.890005
+  type: 'test'
+  ...
+# Subtest: YC016: sai họ tên/trường, trùng và thiếu quyết định được liệt kê, không ghi
+ok 67 - YC016: sai họ tên/trường, trùng và thiếu quyết định được liệt kê, không ghi
+  ---
+  duration_ms: 2.934868
+  type: 'test'
+  ...
+# Subtest: YC016: Bỏ học bắt buộc kỳ hợp lệ, lý do hợp lệ
+ok 68 - YC016: Bỏ học bắt buộc kỳ hợp lệ, lý do hợp lệ
+  ---
+  duration_ms: 4.313132
+  type: 'test'
+  ...
+# Subtest: YC016: NHAN_VIEN không được phép kiểm tra/ghi hàng loạt
+ok 69 - YC016: NHAN_VIEN không được phép kiểm tra/ghi hàng loạt
+  ---
+  duration_ms: 2.446416
+  type: 'test'
+  ...
+# Subtest: YC017: permission_check trả revision nhưng không tải danh mục/bootstrap
+ok 70 - YC017: permission_check trả revision nhưng không tải danh mục/bootstrap
+  ---
+  duration_ms: 3.167134
+  type: 'test'
+  ...
+# Subtest: YC017: snapshot đọc cache getAll trọn vẹn khi không đọc được bảng nguồn
+ok 71 - YC017: snapshot đọc cache getAll trọn vẹn khi không đọc được bảng nguồn
+  ---
+  duration_ms: 2.925282
+  type: 'test'
+  ...
+# Subtest: YC017: index số quyết định tự quét lại khi dòng bị sắp xếp thủ công
+ok 72 - YC017: index số quyết định tự quét lại khi dòng bị sắp xếp thủ công
+  ---
+  duration_ms: 3.792982
+  type: 'test'
+  ...
+# Subtest: YC017: phân trang nhật ký đọc đúng trang đầu và trang cuối khi có hơn 30 dòng
+ok 73 - YC017: phân trang nhật ký đọc đúng trang đầu và trang cuối khi có hơn 30 dòng
+  ---
+  duration_ms: 2.920916
+  type: 'test'
+  ...
+# Subtest: YC017: thu hồi tài khoản có hiệu lực ngay khi USERS revision đổi
+ok 74 - YC017: thu hồi tài khoản có hiệu lực ngay khi USERS revision đổi
+  ---
+  duration_ms: 3.213907
+  type: 'test'
+  ...
+# Subtest: YC017: getAll đọc toàn bộ các mảnh snapshot trong một lượt dịch vụ
+ok 75 - YC017: getAll đọc toàn bộ các mảnh snapshot trong một lượt dịch vụ
+  ---
+  duration_ms: 13.573714
+  type: 'test'
+  ...
+# Subtest: YC017: auth cache chỉ tránh đọc lại tab tài khoản trong phạm vi cùng phiên bản quyền
+ok 76 - YC017: auth cache chỉ tránh đọc lại tab tài khoản trong phạm vi cùng phiên bản quyền
+  ---
+  duration_ms: 3.356146
+  type: 'test'
+  ...
+# Subtest: YC018: kỳ 1 luôn bị từ chối, kỳ 2-3 hợp lệ với khóa 3 tháng, kỳ 4 bị từ chối
+ok 77 - YC018: kỳ 1 luôn bị từ chối, kỳ 2-3 hợp lệ với khóa 3 tháng, kỳ 4 bị từ chối
+  ---
+  duration_ms: 3.351466
+  type: 'test'
+  ...
+# Subtest: YC018: 12 tháng có thể chọn kỳ 12 nhưng không quá 12, hỗ trợ lẻ không được làm tròn
+ok 78 - YC018: 12 tháng có thể chọn kỳ 12 nhưng không quá 12, hỗ trợ lẻ không được làm tròn
+  ---
+  duration_ms: 5.999594
+  type: 'test'
+  ...
+# Subtest: YC018: ngày bỏ học lịch sử giữ nguyên khi ghi lại trạng thái và không cho tự tạo ngày mới
+ok 79 - YC018: ngày bỏ học lịch sử giữ nguyên khi ghi lại trạng thái và không cho tự tạo ngày mới
+  ---
+  duration_ms: 4.913294
+  type: 'test'
+  ...
+# Subtest: YC018: kỳ lịch sử ngoài 12 được đọc và giữ nguyên, không được chọn cho hồ sơ khác
+ok 80 - YC018: kỳ lịch sử ngoài 12 được đọc và giữ nguyên, không được chọn cho hồ sơ khác
+  ---
+  duration_ms: 4.767344
+  type: 'test'
+  ...
+# Subtest: YC019: lọc đủ tháng, ngày cuối, một ngày và tổng chính xác ở các trang
+ok 81 - YC019: lọc đủ tháng, ngày cuối, một ngày và tổng chính xác ở các trang
+  ---
+  duration_ms: 8.478887
+  type: 'test'
+  ...
+# Subtest: YC019: báo cáo, Excel ma trận và Excel chi tiết dùng chung khoảng ngày
+ok 82 - YC019: báo cáo, Excel ma trận và Excel chi tiết dùng chung khoảng ngày
+  ---
+  duration_ms: 6.034358
+  type: 'test'
+  ...
+# Subtest: YC019: API từ chối ngày không hợp lệ và Từ ngày sau Đến ngày
+ok 83 - YC019: API từ chối ngày không hợp lệ và Từ ngày sau Đến ngày
+  ---
+  duration_ms: 4.043248
+  type: 'test'
+  ...
+# Subtest: YC019: tài khoản trường chỉ được xem thống kê và hồ sơ đúng cơ sở trong khoảng lọc
+ok 84 - YC019: tài khoản trường chỉ được xem thống kê và hồ sơ đúng cơ sở trong khoảng lọc
+  ---
+  duration_ms: 9.843323
+  type: 'test'
+  ...
+# Subtest: YC023 lọc theo ngày QĐ đối với tình trạng thực tế và lọc theo ngày kết thúc dự kiến khi chọn chế độ mới
+ok 85 - YC023 lọc theo ngày QĐ đối với tình trạng thực tế và lọc theo ngày kết thúc dự kiến khi chọn chế độ mới
+  ---
+  duration_ms: 11.80724
+  type: 'test'
+  ...
+# Subtest: YC023 phân trang, quyền trường và xuất Excel với lọc theo ngày kết thúc không rò dữ liệu
+ok 86 - YC023 phân trang, quyền trường và xuất Excel với lọc theo ngày kết thúc không rò dữ liệu
+  ---
+  duration_ms: 14.746967
+  type: 'test'
+  ...
+# Subtest: YC024 báo cáo lọc ngày kết thúc dự kiến, gồm cả hai đầu mút và mọi trạng thái học viên
+ok 87 - YC024 báo cáo lọc ngày kết thúc dự kiến, gồm cả hai đầu mút và mọi trạng thái học viên
+  ---
+  duration_ms: 11.009207
+  type: 'test'
+  ...
+# Subtest: YC024 lọc trường và quyền khi thống kê, không cấp thêm quyền Excel
+ok 88 - YC024 lọc trường và quyền khi thống kê, không cấp thêm quyền Excel
+  ---
+  duration_ms: 6.52849
+  type: 'test'
+  ...
+# Subtest: YC024 V2 không tính ngày kết thúc dự kiến sai lịch trong thống kê thông thường
+ok 89 - YC024 V2 không tính ngày kết thúc dự kiến sai lịch trong thống kê thông thường
+  ---
+  duration_ms: 6.070581
+  type: 'test'
+  ...
+# Subtest: YC025: lọc ảo Tổng số Quyết định đã ban hành không phải trạng thái thật, giữ khoảng ngày/năm và xuất Excel
+ok 90 - YC025: lọc ảo Tổng số Quyết định đã ban hành không phải trạng thái thật, giữ khoảng ngày/năm và xuất Excel
+  ---
+  duration_ms: 5.852855
+  type: 'test'
+  ...
+# Subtest: YC025: bộ lọc tổng quyết định không rò dữ liệu sang cơ sở khác và không cấp quyền xuất Excel
+ok 91 - YC025: bộ lọc tổng quyết định không rò dữ liệu sang cơ sở khác và không cấp quyền xuất Excel
+  ---
+  duration_ms: 5.914776
+  type: 'test'
+  ...
+# Subtest: YC025 V2 mười QĐ chỉ một người Đã tham gia không bỏ học được tính Hoàn thành khóa học
+ok 92 - YC025 V2 mười QĐ chỉ một người Đã tham gia không bỏ học được tính Hoàn thành khóa học
+  ---
+  duration_ms: 9.282738
+  type: 'test'
+  ...
+# Subtest: YC025 V3 Tất cả và Hoàn thành luôn cùng số theo ngày kết thúc, dùng một snapshot theo quyền
+ok 93 - YC025 V3 Tất cả và Hoàn thành luôn cùng số theo ngày kết thúc, dùng một snapshot theo quyền
+  ---
+  duration_ms: 10.954258
+  type: 'test'
+  ...
+# Subtest: YC026 tài khoản trường xuất cả danh sách và ma trận, chỉ lấy dữ liệu thuộc trường dù giả mạo tham số
+ok 94 - YC026 tài khoản trường xuất cả danh sách và ma trận, chỉ lấy dữ liệu thuộc trường dù giả mạo tham số
+  ---
+  duration_ms: 6.011315
+  type: 'test'
+  ...
+# Subtest: YC026 ma trận dùng hai căn cứ ngày, giữ trường/nghề chỉ có hoàn thành trong kỳ và tổng khớp overview
+ok 95 - YC026 ma trận dùng hai căn cứ ngày, giữ trường/nghề chỉ có hoàn thành trong kỳ và tổng khớp overview
+  ---
+  duration_ms: 8.019873
+  type: 'test'
+  ...
+# Subtest: YC026 ma trận tách các tình trạng tùy chỉnh, không cộng trùng vào cột Khác và giới hạn quyền
+ok 96 - YC026 ma trận tách các tình trạng tùy chỉnh, không cộng trùng vào cột Khác và giới hạn quyền
+  ---
+  duration_ms: 7.654265
+  type: 'test'
+  ...
+# Subtest: YC026 V2 ma trận trường/nghề Đã tham gia gồm Bỏ học và khớp overview trong mọi bộ lọc
+ok 97 - YC026 V2 ma trận trường/nghề Đã tham gia gồm Bỏ học và khớp overview trong mọi bộ lọc
+  ---
+  duration_ms: 24.509067
+  type: 'test'
+  ...
+# Subtest: YC027: A/B/C, hai cơ sở, B cập nhật mọi cơ sở; C chỉ trường mình; nhật ký đúng người
+ok 98 - YC027: A/B/C, hai cơ sở, B cập nhật mọi cơ sở; C chỉ trường mình; nhật ký đúng người
+  ---
+  duration_ms: 15.300023
+  type: 'test'
+  ...
+# Subtest: YC027: khóa/chuyển vai trò B thu hồi quyền ở yêu cầu kế tiếp, không tin QUYEN lịch sử
+ok 99 - YC027: khóa/chuyển vai trò B thu hồi quyền ở yêu cầu kế tiếp, không tin QUYEN lịch sử
+  ---
+  duration_ms: 5.703665
+  type: 'test'
+  ...
+# Subtest: YC028: lưu chức danh theo ID trên CAU_HINH, danh sách và bootstrap trả đúng nhãn, không tăng quyền
+ok 100 - YC028: lưu chức danh theo ID trên CAU_HINH, danh sách và bootstrap trả đúng nhãn, không tăng quyền
+  ---
+  duration_ms: 3.441832
+  type: 'test'
+  ...
+# Subtest: YC028: sửa rồi xóa trắng chức danh, đổi vai trò vẫn không có nhãn cũ
+ok 101 - YC028: sửa rồi xóa trắng chức danh, đổi vai trò vẫn không có nhãn cũ
+  ---
+  duration_ms: 4.721469
+  type: 'test'
+  ...
+# Subtest: YC028: ngăn chức danh công thức/ký tự điều khiển/quá 100; không tạo quyền quản trị
+ok 102 - YC028: ngăn chức danh công thức/ký tự điều khiển/quá 100; không tạo quyền quản trị
+  ---
+  duration_ms: 4.300636
+  type: 'test'
+  ...
+# Subtest: Proxy chỉ chấp nhận Google token hợp lệ và tạo chữ ký GAS
+ok 103 - Proxy chỉ chấp nhận Google token hợp lệ và tạo chữ ký GAS
+  ---
+  duration_ms: 70.826252
+  type: 'test'
+  ...
+# Subtest: Proxy từ chối ID token sai
+ok 104 - Proxy từ chối ID token sai
+  ---
+  duration_ms: 2.178365
+  type: 'test'
+  ...
+# Subtest: Proxy chặn Origin không khớp
+ok 105 - Proxy chặn Origin không khớp
+  ---
+  duration_ms: 7.56771
+  type: 'test'
+  ...
+# Subtest: Proxy từ chối email chưa xác thực
+ok 106 - Proxy từ chối email chưa xác thực
+  ---
+  duration_ms: 4.055185
+  type: 'test'
+  ...
+# Subtest: Proxy từ chối action không chuẩn
+ok 107 - Proxy từ chối action không chuẩn
+  ---
+  duration_ms: 7.293776
+  type: 'test'
+  ...
+# Subtest: Proxy từ chối thiếu biến môi trường
+ok 108 - Proxy từ chối thiếu biến môi trường
+  ---
+  duration_ms: 4.475982
+  type: 'test'
+  ...
+# Subtest: YC008: cookie phiên HttpOnly được phát hành sau bootstrap hợp lệ và dùng lại khi F5
+ok 109 - YC008: cookie phiên HttpOnly được phát hành sau bootstrap hợp lệ và dùng lại khi F5
+  ---
+  duration_ms: 13.90768
+  type: 'test'
+  ...
+# Subtest: YC-HN-005: Không còn biểu đồ tổng hợp trùng KPI
+ok 110 - YC-HN-005: Không còn biểu đồ tổng hợp trùng KPI
+  ---
+  duration_ms: 1.49937
+  type: 'test'
+  ...
+# Subtest: YC-HN-006 thay thế bố cục cũ: 6 KPI một hàng, hai biểu đồ cơ sở/nghề
+ok 111 - YC-HN-006 thay thế bố cục cũ: 6 KPI một hàng, hai biểu đồ cơ sở/nghề
+  ---
+  duration_ms: 0.394032
+  type: 'test'
+  ...
+# Subtest: YC-HN-005: Không hiển thị Google Sheets trên giao diện
+ok 112 - YC-HN-005: Không hiển thị Google Sheets trên giao diện
+  ---
+  duration_ms: 0.238604
+  type: 'test'
+  ...
+# Subtest: YC-HN-005: Một bộ font dùng xuyên suốt toàn bộ phần mềm
+ok 113 - YC-HN-005: Một bộ font dùng xuyên suốt toàn bộ phần mềm
+  ---
+  duration_ms: 0.183379
+  type: 'test'
+  ...
+# Subtest: YC-HN-005: Bảng Báo cáo, Tài khoản, Nhật ký bỏ lớp chờ sau khi tải
+ok 114 - YC-HN-005: Bảng Báo cáo, Tài khoản, Nhật ký bỏ lớp chờ sau khi tải
+  ---
+  duration_ms: 0.185418
+  type: 'test'
+  ...
+# Subtest: YC-HN-005: Danh mục có khả năng lọc tên ngay trên website
+ok 115 - YC-HN-005: Danh mục có khả năng lọc tên ngay trên website
+  ---
+  duration_ms: 0.15649
+  type: 'test'
+  ...
+# Subtest: YC006 sidebar: đủ sáu tên và icon SVG đồng nhất
+ok 116 - YC006 sidebar: đủ sáu tên và icon SVG đồng nhất
+  ---
+  duration_ms: 1.690474
+  type: 'test'
+  ...
+# Subtest: YC006 một banner, không chào mừng trùng tên
+ok 117 - YC006 một banner, không chào mừng trùng tên
+  ---
+  duration_ms: 0.535897
+  type: 'test'
+  ...
+# Subtest: YC006 tận dụng overview một lần cho tất cả biểu đồ
+ok 118 - YC006 tận dụng overview một lần cho tất cả biểu đồ
+  ---
+  duration_ms: 0.687606
+  type: 'test'
+  ...
+# Subtest: YC006: chi tiết báo cáo được xử lý qua ủy quyền điều hướng
+ok 119 - YC006: chi tiết báo cáo được xử lý qua ủy quyền điều hướng
+  ---
+  duration_ms: 0.22384
+  type: 'test'
+  ...
+# Subtest: YC006 giữ font hệ thống và footer không lộ backend
+ok 120 - YC006 giữ font hệ thống và footer không lộ backend
+  ---
+  duration_ms: 0.35006
+  type: 'test'
+  ...
+# Subtest: YC006 bản nguồn có phiên bản đồng bộ
+ok 121 - YC006 bản nguồn có phiên bản đồng bộ
+  ---
+  duration_ms: 0.255631
+  type: 'test'
+  ...
+# Subtest: YC007: lỗi nút Lưu danh mục/tài khoản được xử lý bằng thuộc tính id thật của form
+ok 122 - YC007: lỗi nút Lưu danh mục/tài khoản được xử lý bằng thuộc tính id thật của form
+  ---
+  duration_ms: 1.723549
+  type: 'test'
+  ...
+# Subtest: YC007: menu dùng bộ nhớ phiên không gọi lại overview ở lượt quay lại còn hạn
+ok 123 - YC007: menu dùng bộ nhớ phiên không gọi lại overview ở lượt quay lại còn hạn
+  ---
+  duration_ms: 0.188244
+  type: 'test'
+  ...
+# Subtest: YC007: biểu mẫu dùng 4 lựa chọn nghiệp vụ, bỏ ô bỏ học cũ
+ok 124 - YC007: biểu mẫu dùng 4 lựa chọn nghiệp vụ, bỏ ô bỏ học cũ
+  ---
+  duration_ms: 0.552292
+  type: 'test'
+  ...
+# Subtest: YC007: không hiển thị ID người học trong danh sách và kết quả tìm người
+ok 125 - YC007: không hiển thị ID người học trong danh sách và kết quả tìm người
+  ---
+  duration_ms: 0.235954
+  type: 'test'
+  ...
+# Subtest: YC007: bỏ checkbox phân quyền theo vai trò nhưng backend kiểm tra ADMIN/NHAN_VIEN
+ok 126 - YC007: bỏ checkbox phân quyền theo vai trò nhưng backend kiểm tra ADMIN/NHAN_VIEN
+  ---
+  duration_ms: 0.349779
+  type: 'test'
+  ...
+# Subtest: YC007: mẫu CSV đầy đủ các trường nghiệp vụ
+ok 127 - YC007: mẫu CSV đầy đủ các trường nghiệp vụ
+  ---
+  duration_ms: 0.599937
+  type: 'test'
+  ...
+# Subtest: YC008: menu Nhân viên chỉ có 3 phân hệ; danh mục dành riêng quản trị
+ok 128 - YC008: menu Nhân viên chỉ có 3 phân hệ; danh mục dành riêng quản trị
+  ---
+  duration_ms: 1.28168
+  type: 'test'
+  ...
+# Subtest: YC008: Danh mục lấy từ bộ nhớ bootstrap, không bắt buộc RPC khi đổi tab
+ok 129 - YC008: Danh mục lấy từ bộ nhớ bootstrap, không bắt buộc RPC khi đổi tab
+  ---
+  duration_ms: 1.54927
+  type: 'test'
+  ...
+# Subtest: YC008: có nút xóa, xác nhận và API ở cả frontend/backend
+ok 130 - YC008: có nút xóa, xác nhận và API ở cả frontend/backend
+  ---
+  duration_ms: 0.483829
+  type: 'test'
+  ...
+# Subtest: YC008: không có chữ HN giả và khẩu hiệu phần mềm độc lập
+ok 131 - YC008: không có chữ HN giả và khẩu hiệu phần mềm độc lập
+  ---
+  duration_ms: 0.611745
+  type: 'test'
+  ...
+# Subtest: YC008: file mẫu XLSX tồn tại và website có luồng đọc XLSX thực sự
+ok 132 - YC008: file mẫu XLSX tồn tại và website có luồng đọc XLSX thực sự
+  ---
+  duration_ms: 0.794347
+  type: 'test'
+  ...
+# Subtest: YC008: F5 khôi phục phiên bằng cookie HttpOnly, không localStorage
+ok 133 - YC008: F5 khôi phục phiên bằng cookie HttpOnly, không localStorage
+  ---
+  duration_ms: 0.210954
+  type: 'test'
+  ...
+# Subtest: YC010: chỉ xóa dòng sau server xác nhận, không gọi lại afterMutation(records)
+ok 134 - YC010: chỉ xóa dòng sau server xác nhận, không gọi lại afterMutation(records)
+  ---
+  duration_ms: 2.439731
+  type: 'test'
+  ...
+# Subtest: YC011: biểu mẫu có 15 trường mới và trang chi tiết, sheet chuẩn 40 cột
+ok 135 - YC011: biểu mẫu có 15 trường mới và trang chi tiết, sheet chuẩn 40 cột
+  ---
+  duration_ms: 0.946769
+  type: 'test'
+  ...
+# Subtest: YC011: xuất XLSX có nội dung ZIP hợp lệ, 25 cột và chữ có dấu
+ok 136 - YC011: xuất XLSX có nội dung ZIP hợp lệ, 25 cột và chữ có dấu
+  ---
+  duration_ms: 7.616603
+  type: 'test'
+  ...
+# Subtest: YC013: báo cáo ma trận XLSX chuẩn ZIP, dữ liệu số ghi dạng number, tiêu đề thống nhất
+ok 137 - YC013: báo cáo ma trận XLSX chuẩn ZIP, dữ liệu số ghi dạng number, tiêu đề thống nhất
+  ---
+  duration_ms: 6.289157
+  type: 'test'
+  ...
+# Subtest: YC014: XLSX ma trận có đúng một dòng tổng, gộp A:B, nền vàng và ô số
+ok 138 - YC014: XLSX ma trận có đúng một dòng tổng, gộp A:B, nền vàng và ô số
+  ---
+  duration_ms: 7.628436
+  type: 'test'
+  ...
+# Subtest: YC014: một nhóm hoặc không nhóm vẫn có dòng tổng đúng
+ok 139 - YC014: một nhóm hoặc không nhóm vẫn có dòng tổng đúng
+  ---
+  duration_ms: 4.173741
+  type: 'test'
+  ...
+# Subtest: YC016: file thực tế 26 cột/2 tiêu đề chỉ nhận X, giữ số QĐ 067
+ok 140 - YC016: file thực tế 26 cột/2 tiêu đề chỉ nhận X, giữ số QĐ 067
+  ---
+  duration_ms: 4.959477
+  type: 'test'
+  ...
+# Subtest: YC016: không được dùng cột Tham gia học để áp Không tham gia
+ok 141 - YC016: không được dùng cột Tham gia học để áp Không tham gia
+  ---
+  duration_ms: 0.856279
+  type: 'test'
+  ...
+# Subtest: YC016: mẫu riêng với cột Áp dụng (X) được chọn rõ ràng
+ok 142 - YC016: mẫu riêng với cột Áp dụng (X) được chọn rõ ràng
+  ---
+  duration_ms: 0.340676
+  type: 'test'
+  ...
+# Subtest: YC018: báo cáo và Excel tổng hợp không còn dòng Đang học, vẫn giữ nội bộ KPI
+ok 143 - YC018: báo cáo và Excel tổng hợp không còn dòng Đang học, vẫn giữ nội bộ KPI
+  ---
+  duration_ms: 1.256756
+  type: 'test'
+  ...
+# Subtest: YC018: N=3 vẫn có đủ 12 option, chỉ tháng 2-3 cho phép chọn
+ok 144 - YC018: N=3 vẫn có đủ 12 option, chỉ tháng 2-3 cho phép chọn
+  ---
+  duration_ms: 1.936894
+  type: 'test'
+  ...
+# Subtest: YC018: N=12 có 2-12; N=1 hoặc số lẻ không có kỳ hợp lệ
+ok 145 - YC018: N=12 có 2-12; N=1 hoặc số lẻ không có kỳ hợp lệ
+  ---
+  duration_ms: 2.667317
+  type: 'test'
+  ...
+# Subtest: YC018: ngày lịch sử và KY:13 được giữ dưới dạng mục riêng nếu đã có
+ok 146 - YC018: ngày lịch sử và KY:13 được giữ dưới dạng mục riêng nếu đã có
+  ---
+  duration_ms: 0.291262
+  type: 'test'
+  ...
+# Subtest: YC019: hiển thị trường ngày trong Hồ sơ và Báo cáo, không ở Tổng quan
+ok 147 - YC019: hiển thị trường ngày trong Hồ sơ và Báo cáo, không ở Tổng quan
+  ---
+  duration_ms: 1.348752
+  type: 'test'
+  ...
+# Subtest: YC019: ngày nhập dd/mm/yyyy chuyển ISO, không lệch ngày, có năm nhuận
+ok 148 - YC019: ngày nhập dd/mm/yyyy chuyển ISO, không lệch ngày, có năm nhuận
+  ---
+  duration_ms: 0.485642
+  type: 'test'
+  ...
+# Subtest: YC019: giữ các bộ lọc đồng thời và chặn khoảng ngày đảo ngược trước khi gửi
+ok 149 - YC019: giữ các bộ lọc đồng thời và chặn khoảng ngày đảo ngược trước khi gửi
+  ---
+  duration_ms: 0.354168
+  type: 'test'
+  ...
+# Subtest: YC019: dữ liệu bộ lọc ngày đi tới báo cáo, ma trận, xuất Excel và records
+ok 150 - YC019: dữ liệu bộ lọc ngày đi tới báo cáo, ma trận, xuất Excel và records
+  ---
+  duration_ms: 0.256047
+  type: 'test'
+  ...
+# YC-HN-020: 5000 ô ngày không hợp lệ được giữ nguyên văn bản; cần đối chiếu dữ liệu nguồn.
+# Subtest: YC020: lịch dạng chỉ chọn, có năm tháng ngày, xóa ngày, hỗ trợ bàn phím
+ok 151 - YC020: lịch dạng chỉ chọn, có năm tháng ngày, xóa ngày, hỗ trợ bàn phím
+  ---
+  duration_ms: 2.722438
+  type: 'test'
+  ...
+# Subtest: YC020: xuất 25 cột, ngày số Excel, giới tính có dấu, style căn trái B O theo mẫu YC021
+ok 152 - YC020: xuất 25 cột, ngày số Excel, giới tính có dấu, style căn trái B O theo mẫu YC021
+  ---
+  duration_ms: 7.326186
+  type: 'test'
+  ...
+# Subtest: YC020: 5000 hồ sơ vẫn đủ dòng, ngày không hợp lệ giữ nguyên không đổi bừa
+ok 153 - YC020: 5000 hồ sơ vẫn đủ dòng, ngày không hợp lệ giữ nguyên không đổi bừa
+  ---
+  duration_ms: 972.931152
+  type: 'test'
+  ...
+# Subtest: YC021: user overrides V4 clear-X; input empty triggers automatic submit and no new button
+ok 154 - YC021: user overrides V4 clear-X; input empty triggers automatic submit and no new button
+  ---
+  duration_ms: 2.930925
+  type: 'test'
+  ...
+# Subtest: YC021: scoped record icons preserve original data actions, deletion invalidates cache
+ok 155 - YC021: scoped record icons preserve original data actions, deletion invalidates cache
+  ---
+  duration_ms: 0.480515
+  type: 'test'
+  ...
+# Subtest: YC021: permission-gated navigation and safe aggregate without full sort
+ok 156 - YC021: permission-gated navigation and safe aggregate without full sort
+  ---
+  duration_ms: 0.288422
+  type: 'test'
+  ...
+# Subtest: YC021 V5.2: final approved Excel sample overrides V5.1; B/J/O/V/W left, R/S centered
+ok 157 - YC021 V5.2: final approved Excel sample overrides V5.1; B/J/O/V/W left, R/S centered
+  ---
+  duration_ms: 9.25177
+  type: 'test'
+  ...
+# YC-HN-020: 7 ô ngày không hợp lệ được giữ nguyên văn bản; cần đối chiếu dữ liệu nguồn.
+# Subtest: YC021 V5.1: title Thao tác and its icon cell share centered alignment, no other tables changed
+ok 158 - YC021 V5.1: title Thao tác and its icon cell share centered alignment, no other tables changed
+  ---
+  duration_ms: 1.447348
+  type: 'test'
+  ...
+# Subtest: YC021 V5.1: number of decision only; year stays in filters and original records
+ok 159 - YC021 V5.1: number of decision only; year stays in filters and original records
+  ---
+  duration_ms: 0.278264
+  type: 'test'
+  ...
+# Subtest: YC021 V5.2: XLSX 25 columns, left B/J/O/V/W, center R and remaining columns, dates intact
+ok 160 - YC021 V5.2: XLSX 25 columns, left B/J/O/V/W, center R and remaining columns, dates intact
+  ---
+  duration_ms: 11.256166
+  type: 'test'
+  ...
+# Subtest: Hotfix: style 0 is neutral, never assigned to data cells (WPS-compatible)
+ok 161 - Hotfix: style 0 is neutral, never assigned to data cells (WPS-compatible)
+  ---
+  duration_ms: 1.082686
+  type: 'test'
+  ...
+# Subtest: Hotfix: every body style has explicit border, horizontal + vertical alignment
+ok 162 - Hotfix: every body style has explicit border, horizontal + vertical alignment
+  ---
+  duration_ms: 0.579701
+  type: 'test'
+  ...
+# Subtest: Hotfix: versioned script URLs prevent stale xlsx-export.js module reuse
+ok 163 - Hotfix: versioned script URLs prevent stale xlsx-export.js module reuse
+  ---
+  duration_ms: 1.662896
+  type: 'test'
+  ...
+# Subtest: YC021 V5.2: mẫu đã CHỐT căn trái B/J/O/V/W, R và các cột khác center/middle
+ok 164 - YC021 V5.2: mẫu đã CHỐT căn trái B/J/O/V/W, R và các cột khác center/middle
+  ---
+  duration_ms: 8.865009
+  type: 'test'
+  ...
+# Subtest: YC021 V5.2: chiều cao gọn theo nội dung, không làm mọi dòng cao như nhau
+ok 165 - YC021 V5.2: chiều cao gọn theo nội dung, không làm mọi dòng cao như nhau
+  ---
+  duration_ms: 6.518792
+  type: 'test'
+  ...
+# Subtest: YC021 V5.2: chữ nhiều dòng giữ nguyên, không mất giới tính hoặc định dạng ngày
+ok 166 - YC021 V5.2: chữ nhiều dòng giữ nguyên, không mất giới tính hoặc định dạng ngày
+  ---
+  duration_ms: 3.174004
+  type: 'test'
+  ...
+# Subtest: YC022 sửa hồ sơ dùng ACK backend, không điều hướng hoặc làm mới cả trang
+ok 167 - YC022 sửa hồ sơ dùng ACK backend, không điều hướng hoặc làm mới cả trang
+  ---
+  duration_ms: 0.86724
+  type: 'test'
+  ...
+# Subtest: YC022 chỉ cập nhật dòng trùng HO_SO_ID, giữ các dòng khác và chống XSS
+ok 168 - YC022 chỉ cập nhật dòng trùng HO_SO_ID, giữ các dòng khác và chống XSS
+  ---
+  duration_ms: 0.344755
+  type: 'test'
+  ...
+# Subtest: YC022 dữ liệu thay đổi ảnh hưởng sort/filter phải làm mới riêng vùng kết quả
+ok 169 - YC022 dữ liệu thay đổi ảnh hưởng sort/filter phải làm mới riêng vùng kết quả
+  ---
+  duration_ms: 1.355932
+  type: 'test'
+  ...
+# Subtest: YC022 đo tốc độ có điều kiện, không log dữ liệu cá nhân; không sửa kiểm quyền và trùng QĐ
+ok 170 - YC022 đo tốc độ có điều kiện, không log dữ liệu cá nhân; không sửa kiểm quyền và trùng QĐ
+  ---
+  duration_ms: 0.444739
+  type: 'test'
+  ...
+# Subtest: YC023 lựa chọn lọc ảo ở Hồ sơ, không được đưa vào trạng thái cập nhật hoặc lọc KPI
+ok 171 - YC023 lựa chọn lọc ảo ở Hồ sơ, không được đưa vào trạng thái cập nhật hoặc lọc KPI
+  ---
+  duration_ms: 1.288526
+  type: 'test'
+  ...
+# Subtest: YC023 cập nhật cục bộ khi đổi ngày kết thúc dự kiến bắt buộc refresh đúng vùng danh sách
+ok 172 - YC023 cập nhật cục bộ khi đổi ngày kết thúc dự kiến bắt buộc refresh đúng vùng danh sách
+  ---
+  duration_ms: 2.331052
+  type: 'test'
+  ...
+# Subtest: YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc bảng dữ liệu
+ok 173 - YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc bảng dữ liệu
+  ---
+  duration_ms: 0.230591
+  type: 'test'
+  ...
+# Subtest: YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ giúp lịch đúng nhãn
+ok 174 - YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ giúp lịch đúng nhãn
+  ---
+  duration_ms: 1.9774
+  type: 'test'
+  ...
+# Subtest: YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không ghi trạng thái ảo
+ok 175 - YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không ghi trạng thái ảo
+  ---
+  duration_ms: 0.524581
+  type: 'test'
+  ...
+# Subtest: YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới
+ok 176 - YC024 V2 bảng thống kê có thêm hàng số lượng lịch kết thúc nhưng không tạo trạng thái học viên mới
+  ---
+  duration_ms: 0.542524
+  type: 'test'
+  ...
+# Subtest: YC024 V2 bỏ banner màu xanh ở thống kê, chỉ giữ metadata phạm vi ngày khi in
+ok 177 - YC024 V2 bỏ banner màu xanh ở thống kê, chỉ giữ metadata phạm vi ngày khi in
+  ---
+  duration_ms: 0.382985
+  type: 'test'
+  ...
+# Subtest: YC024 vẫn sử dụng 4 dạng Excel cũ, không sửa exporter
+ok 178 - YC024 vẫn sử dụng 4 dạng Excel cũ, không sửa exporter
+  ---
+  duration_ms: 1.305373
+  type: 'test'
+  ...
+# Subtest: YC025 dropdown 2 màn có Tổng số QĐ, nhãn Hoàn thành và Báo cáo không có Đang học
+ok 179 - YC025 dropdown 2 màn có Tổng số QĐ, nhãn Hoàn thành và Báo cáo không có Đang học
+  ---
+  duration_ms: 0.913712
+  type: 'test'
+  ...
+# Subtest: YC025 Tất cả tình trạng đầy đủ, cụ thể chỉ một hàng đúng số
+ok 180 - YC025 Tất cả tình trạng đầy đủ, cụ thể chỉ một hàng đúng số
+  ---
+  duration_ms: 7.026628
+  type: 'test'
+  ...
+# Subtest: YC025 chưa có nguồn xác nhận thì không báo người tốt nghiệp bằng kpi lịch dự kiến
+ok 181 - YC025 chưa có nguồn xác nhận thì không báo người tốt nghiệp bằng kpi lịch dự kiến
+  ---
+  duration_ms: 1.201188
+  type: 'test'
+  ...
+# Subtest: YC025 không thay đổi module XLSX nguyên tắc 25 cột
+ok 182 - YC025 không thay đổi module XLSX nguyên tắc 25 cột
+  ---
+  duration_ms: 0.916883
+  type: 'test'
+  ...
+# Subtest: YC026+028 xuất cho các vai trò có REPORT_EXPORT, backend vẫn kiểm scope
+ok 183 - YC026+028 xuất cho các vai trò có REPORT_EXPORT, backend vẫn kiểm scope
+  ---
+  duration_ms: 3.110758
+  type: 'test'
+  ...
+# Subtest: YC026 xuất ma trận cột hoàn thành, QĐ đầy đủ, trạng thái tùy chỉnh và tổng
+ok 184 - YC026 xuất ma trận cột hoàn thành, QĐ đầy đủ, trạng thái tùy chỉnh và tổng
+  ---
+  duration_ms: 0.505279
+  type: 'test'
+  ...
+# Subtest: YC026 XLSX 9+ cột và 32 cột: giữ đủ tiêu đề wrap, cột số và dòng tổng
+ok 185 - YC026 XLSX 9+ cột và 32 cột: giữ đủ tiêu đề wrap, cột số và dòng tổng
+  ---
+  duration_ms: 13.998608
+  type: 'test'
+  ...
+# Subtest: YC027: Nhân viên chỉ 3 menu, không có quyền viết dữ liệu hoặc tệp trong client
+ok 186 - YC027: Nhân viên chỉ 3 menu, không có quyền viết dữ liệu hoặc tệp trong client
+  ---
+  duration_ms: 1.138029
+  type: 'test'
+  ...
+# Subtest: YC027: backend chặn ghi ngoài tình trạng, tách check xem/cập nhật/sửa/xóa
+ok 187 - YC027: backend chặn ghi ngoài tình trạng, tách check xem/cập nhật/sửa/xóa
+  ---
+  duration_ms: 0.510524
+  type: 'test'
+  ...
+# Subtest: YC027+028: bản tiếp theo chỉ đổi metadata hiển thị, bảo toàn API gateway / Excel
+ok 188 - YC027+028: bản tiếp theo chỉ đổi metadata hiển thị, bảo toàn API gateway / Excel
+  ---
+  duration_ms: 0.238804
+  type: 'test'
+  ...
+# Subtest: YC028: dropdown tài khoản có chức danh độc lập vai trò, hiển thị danh sách và header an toàn
+ok 189 - YC028: dropdown tài khoản có chức danh độc lập vai trò, hiển thị danh sách và header an toàn
+  ---
+  duration_ms: 1.15376
+  type: 'test'
+  ...
+# Subtest: YC028: bảo toàn ba menu và mở Xuất Excel có kiểm quyền cho Nhân viên
+ok 190 - YC028: bảo toàn ba menu và mở Xuất Excel có kiểm quyền cho Nhân viên
+  ---
+  duration_ms: 0.505211
+  type: 'test'
+  ...
+# Subtest: YC028: không thêm cột tài khoản hoặc đổi module xlsx
+ok 191 - YC028: không thêm cột tài khoản hoặc đổi module xlsx
+  ---
+  duration_ms: 0.627661
+  type: 'test'
+  ...
+1..191
+# tests 191
+# suites 0
+# pass 191
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 6071.685327

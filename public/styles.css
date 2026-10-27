@@ -347,3 +347,6 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 /* YC-HN-026: bản in trường có tên trường đã được gán, không hiển thị trên giao diện thường. */
 .report-print-school{display:none!important}
 @media print{body:has(#report-output) .report-print-school{display:block!important;margin:4px 0 10px!important;color:#000!important;font-size:10pt!important;break-inside:avoid}}
+
+/* YC-HN-028: extra account display-title column scrolls on narrow devices. */
+.account-table table{min-width:1050px}

@@ -5,9 +5,9 @@ import {buildReportXlsx} from '../public/xlsx-export.js';
 const app=fs.readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
 const gas=fs.readFileSync(new URL('../apps-script/Code.gs',import.meta.url),'utf8');
 
-test('YC026 xuất cho trường: có nút Hồ sơ và Báo cáo, backend kiểm quyền và scope',()=>{
+test('YC026+028 xuất cho các vai trò có REPORT_EXPORT, backend vẫn kiểm scope',()=>{
  assert.match(app,/allowed\('REPORT_EXPORT'\)\?'<button class="btn btn-light" data-export-list/);
- assert.match(app,/state\.user\?\.VAI_TRO==='CO_SO_DAO_TAO'\)\?'<button class="btn btn-primary" id="report-export"/);
+ assert.match(app,/allowed\('REPORT_EXPORT'\)\?'<button class="btn btn-primary" id="report-export"/);
  assert.match(gas,/var schoolRights=\[[^\]]*'REPORT_EXPORT'/);
  assert.match(gas,/must_\(user\._has && user\._has\('REPORT_EXPORT'\)/);
  assert.match(gas,/var visible=visibleRecords_\(user\)/);

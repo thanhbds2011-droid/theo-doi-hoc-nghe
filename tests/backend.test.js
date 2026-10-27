@@ -1405,3 +1405,54 @@ test('YC027: khóa/chuyển vai trò B thu hồi quyền ở yêu cầu kế ti�
  assert.equal(sendAs(c,B,'records_list',{}).data.total,1);
  assert.equal(sendAs(c,B,'record_status',{HO_SO_ID:outside.HO_SO_ID,PHIEN_BAN:1,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}).error.code,'NO_PERMISSION');
 });
+
+
+test('YC028: lưu chức danh theo ID trên CAU_HINH, danh sách và bootstrap trả đúng nhãn, không tăng quyền',()=>{
+ const c=setupLive();
+ const response=c.send('account_save',{email:'display028@example.com',name:'Nguyễn Văn A',role:'NHAN_VIEN',displayTitle:'  Nhân viên   Phòng A  ',status:'ACTIVE'});
+ assert.equal(response.ok,true,JSON.stringify(response.error));
+ const id=response.data.item.TAI_KHOAN_ID;
+ assert.equal(response.data.item.CHUC_DANH_HIEN_THI,'Nhân viên Phòng A');
+ const user=c.send('accounts_list').data.items.find(x=>x.TAI_KHOAN_ID===id);
+ assert.equal(user.VAI_TRO,'NHAN_VIEN');assert.equal(user.CHUC_DANH_HIEN_THI,'Nhân viên Phòng A');
+ const saved=c.tables.get('Cấu hình hệ thống').rows.filter(r=>r[0]==='HN_STAFF_DISPLAY_'+id);
+ assert.equal(saved.length,1);assert.equal(saved[0][1],'Nhân viên Phòng A');
+ assert.equal(c.tables.get('Tài khoản người dùng').rows[0].length,12);
+ const who={sub:'77234567890123456789',aud:audience,email:'display028@example.com'};
+ const boot=sendAs(c,who,'bootstrap',{});assert.equal(boot.ok,true,JSON.stringify(boot.error));
+ assert.equal(boot.data.user.CHUC_DANH_HIEN_THI,'Nhân viên Phòng A');
+ assert.doesNotMatch(boot.data.user.QUYEN,/RECORD_CREATE|RECORD_EDIT|RECORD_DELETE|ACCOUNT_MANAGE/);
+ assert.equal(sendAs(c,who,'report_export',{}).ok,true);
+ assert.equal(sendAs(c,who,'account_save',{role:'ADMIN',email:'bad@example.com',status:'ACTIVE'}).error.code,'NO_PERMISSION');
+});
+
+test('YC028: sửa rồi xóa trắng chức danh, đổi vai trò vẫn không có nhãn cũ',()=>{
+ const c=setupLive();const email='change028@example.com';
+ const item=c.send('account_save',{email,name:'B',role:'NHAN_VIEN',status:'ACTIVE',displayTitle:'Trưởng phòng A'}).data.item;
+ const who={sub:'88234567890123456789',aud:audience,email};
+ assert.equal(sendAs(c,who,'permission_check',{}).data.user.CHUC_DANH_HIEN_THI,'Trưởng phòng A');
+ const before=c.props.get('REV_USERS');
+ const updated=c.send('account_save',{id:item.TAI_KHOAN_ID,email,name:'B',role:'NHAN_VIEN',status:'ACTIVE',displayTitle:'Trưởng phòng B'});
+ assert.equal(updated.ok,true,JSON.stringify(updated.error));assert.notEqual(c.props.get('REV_USERS'),before);
+ assert.equal(sendAs(c,who,'permission_check',{}).data.user.CHUC_DANH_HIEN_THI,'Trưởng phòng B');
+ assert.equal(sendAs(c,who,'report_matrix',{groupBy:'truong'}).ok,true);
+ assert.equal(c.send('account_save',{id:item.TAI_KHOAN_ID,email,name:'B',role:'NHAN_VIEN',status:'ACTIVE',displayTitle:'  '}).ok,true);
+ assert.equal(sendAs(c,who,'permission_check',{}).data.user.CHUC_DANH_HIEN_THI,'');
+ const changed=c.send('account_save',{id:item.TAI_KHOAN_ID,email,name:'B',role:'ADMIN',status:'ACTIVE',displayTitle:'Chức danh cũ'});
+ assert.equal(changed.ok,true);
+ const ret=c.send('account_save',{id:item.TAI_KHOAN_ID,email,name:'B',role:'NHAN_VIEN',status:'ACTIVE'});
+ assert.equal(ret.ok,true);assert.equal(ret.data.item.CHUC_DANH_HIEN_THI,'');
+});
+
+test('YC028: ngăn chức danh công thức/ký tự điều khiển/quá 100; không tạo quyền quản trị',()=>{
+ const c=setupLive();
+ for(const title of ['a'.repeat(101),'=IMPORTXML(1)','Nhãn\nquản lý']){
+  const result=c.send('account_save',{email:'invalid028@example.com',name:'B',role:'NHAN_VIEN',status:'ACTIVE',displayTitle:title});
+  assert.equal(result.error.code,'VALIDATION',JSON.stringify(result));
+ }
+ const item=c.send('account_save',{email:'safe028@example.com',name:'B',role:'NHAN_VIEN',status:'ACTIVE',displayTitle:'Quản trị viên <script>alert(1)</script>'}).data.item;
+ assert.match(item.CHUC_DANH_HIEN_THI,/Quản trị viên/);
+ const who={sub:'99234567890123456789',aud:audience,email:'safe028@example.com'};
+ assert.equal(sendAs(c,who,'record_delete',{HO_SO_ID:'UNKNOWN'}).error.code,'NO_PERMISSION');
+ assert.equal(sendAs(c,who,'audit_list',{}).error.code,'NO_PERMISSION');
+});
