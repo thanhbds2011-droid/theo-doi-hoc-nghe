@@ -1,3 +1,5 @@
+> **Phiên bản hiện hành: v1.2.25-RC (YC-HN-031 V1).** Tài khoản Cơ sở đào tạo chỉ nhận trong bộ lọc Nghề đào tạo các nghề có quyết định chưa xóa thuộc trường được cấp. Giữ nguyên phân quyền, báo cáo và Excel. Xem `docs/HUONG_DAN_YC-HN-031_V1.md` trước khi nâng cấp backend và frontend.
+
 > Bản kiểm thử YC-HN-029 V5: **v1.2.23-RC**. Xem docs/MASTER_PROMPT_YC-HN-029_V5_DA_CHOT.md và docs/HUONG_DAN_YC-HN-029_V5.md. Chưa đo production 10–20 người.
 
 # THEO DÕI HỌC NGHỀ — v1.2.18-RC / YC-HN-025 V3

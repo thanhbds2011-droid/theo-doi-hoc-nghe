@@ -1,5 +1,5 @@
-import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.24-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.24-RC (YC-HN-030 V1, kế thừa YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.25-RC';
+/** THEO DÕI HỌC NGHỀ — v1.2.25-RC (YC-HN-031 V1, kế thừa YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -27,7 +27,7 @@ const state = {
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:'',from:'',to:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:'',from:'',to:''},
   records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
-  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
+  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", tradeScopeRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
 };
 
 function notify(message, error=false){ const el=$('#toast');el.textContent=String(message);el.className='toast show'+(error?' error':'');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('show'),5500); }
@@ -48,6 +48,31 @@ const STAFF_RIGHTS=new Set(['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VI
 function allowed(p){return state.user?.VAI_TRO==='ADMIN'||(state.user?.VAI_TRO==='NHAN_VIEN'&&STAFF_RIGHTS.has(p))||(state.user?.VAI_TRO==='CO_SO_DAO_TAO'&&['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','REPORT_EXPORT'].includes(p));}
 const allStatusOptions=()=>[...Object.entries(STATUS_FORM),...state.statuses.map(x=>[x.id,x.label])];
 const isSchoolAccount=()=>state.user?.VAI_TRO==='CO_SO_DAO_TAO';
+/** YC-HN-031: khi nghề không còn thuộc trường, bỏ lựa chọn cũ trong cả ba bộ lọc.
+ * Giữ nguyên năm, ngày, từ khóa, trang và lựa chọn nghề hợp lệ.
+ */
+function reconcileSchoolTradeFilters(){
+  if(!isSchoolAccount())return false;
+  const allowedTrades=new Set(state.cats.nghe.map(x=>x.NGHE_ID));
+  let changed=false;
+  for(const filters of [state.dashboardFilters,state.filters,state.reportFilters]){
+    if(filters.nghe&&!allowedTrades.has(filters.nghe)){
+      filters.nghe='';changed=true;
+    }
+  }
+  return changed;
+}
+/** Đồng bộ dropdown đang HIỂN THỊ, không dựng lại trang hoặc xóa các ô lọc khác. */
+function syncVisibleSchoolTradeOptions(){
+  if(!isSchoolAccount())return;
+  const configs=[['dashboard',state.dashboardFilters],['records',state.filters],['reports',state.reportFilters]];
+  for(const [page,filters] of configs){
+    const select=document.querySelector('#'+page+'-filters select[name="nghe"]');
+    if(!select)continue;
+    select.innerHTML=option('','Tất cả nghề',filters.nghe)+state.cats.nghe.map(x=>option(x.NGHE_ID,x.TEN_NGHE,filters.nghe)).join('');
+    select.value=filters.nghe||'';
+  }
+}
 function rid(){return 'r_'+(crypto?.randomUUID?.() || (Date.now().toString(36)+Math.random().toString(36).slice(2)));}
 function permissionScope(){const u=state.user||{};return [u.TAI_KHOAN_ID||'',u.EMAIL||'',u.VAI_TRO||'',u.TRUONG_ID||'',state.permissionRevision||''].join('|');}
 function cacheKey(a,p){return permissionScope()+'::'+a+'|'+JSON.stringify(p||{});}
@@ -70,7 +95,8 @@ async function verifyPermission(force=false){
       state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;
       state.permissionRevision=data.permissionRevision||'';
     }
-    if(state.catalogRevision!==(data.catalogRevision||'')||state.statusRevision!==(data.statusRevision||'')){
+    if(state.catalogRevision!==(data.catalogRevision||'')||state.statusRevision!==(data.statusRevision||'')||
+       (isSchoolAccount()&&state.tradeScopeRevision!==(data.tradeScopeRevision||''))){
       // Chỉ tải danh mục đầy đủ khi dữ liệu danh mục thay đổi, không tải mỗi 120 giây.
       const refreshed=await rpc('bootstrap',{}, {ttl:0});
       const fresh=refreshed.user||{};
@@ -79,6 +105,10 @@ async function verifyPermission(force=false){
       }
       state.cats=refreshed.catalogs;state.statuses=refreshed.statuses||[];
       state.catalogRevision=refreshed.catalogRevision||'';state.statusRevision=refreshed.statusRevision||'';
+      state.tradeScopeRevision=refreshed.tradeScopeRevision||'';
+      if(reconcileSchoolTradeFilters())notify('Danh sách nghề của cơ sở đã thay đổi. Bộ lọc nghề được đặt lại để hiển thị dữ liệu mới.');
+      syncVisibleSchoolTradeOptions();
+      state.needsActiveRefresh=true;
       state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;
     }
     if(state.dataRevision!==(data.dataRevision||'')){
@@ -207,13 +237,13 @@ function renderCurrentUser(){
   $('#current-user').innerHTML=`<b class="user-display-name" title="${esc(u.HO_TEN||u.EMAIL)}">${esc(u.HO_TEN||u.EMAIL)}</b><span class="user-role-badge user-role-badge--${roleStyle}" title="${esc(sub)}">${esc(sub)}</span>`;
 }
 function activateSession(data){
-  state.session=true;state.user=data.user;state.cats=data.catalogs;state.statuses=data.statuses||[];state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.permissionChecked=Date.now();state.pageDataAt.clear();
+  state.session=true;state.user=data.user;state.cats=data.catalogs;state.statuses=data.statuses||[];state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.tradeScopeRevision=data.tradeScopeRevision||'';reconcileSchoolTradeFilters();state.permissionChecked=Date.now();state.pageDataAt.clear();
   state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.renderedPage=null;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;startDataChecks();
   $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
   renderCurrentUser();
   navigate('dashboard');
 }
-function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
+function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.tradeScopeRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
 // YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
 const ICON_PATHS={
   'calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
@@ -1137,7 +1167,7 @@ function updateAccountSchool(form){
 function accountForm(item){const x=item||{};showModal(item?'Sửa tài khoản':'Thêm tài khoản',`<form id="account-form" class="form-grid"><input type="hidden" name="id" value="${esc(x.TAI_KHOAN_ID||'')}">${field('Email Google *','email',x.EMAIL||'','email','required')}${field('Họ tên','name',x.HO_TEN||'')}${selectField('Vai trò','role',option('NHAN_VIEN','Nhân viên',x.VAI_TRO||'NHAN_VIEN')+option('ADMIN','Quản trị viên',x.VAI_TRO)+option('CO_SO_DAO_TAO','Cơ sở đào tạo',x.VAI_TRO))}<div class="account-school">${selectField('Cơ sở được phân công','schoolId',activeCatOptions('truong',x.TRUONG_ID))}</div><div class="account-display-title"><div class="field"><label for="f-displayTitle">Chức danh/Phòng ban hiển thị</label><input id="f-displayTitle" name="displayTitle" type="text" maxlength="100" placeholder="Ví dụ: Nhân viên Phòng A, Trưởng phòng B" value="${esc(x.CHUC_DANH_HIEN_THI||'')}"></div></div>${selectField('Trạng thái','status',option('ACTIVE','Hoạt động',x.TRANG_THAI||'ACTIVE')+option('DISABLED','Khóa',x.TRANG_THAI))}${modalFoot('Lưu tài khoản')}</form>`);updateAccountSchool($('#account-form'));}
 function fileModal(r){if(!allowed('FILE_UPLOAD')){notify('Bạn chỉ có quyền xem tệp đã được đính kèm.',true);return;}showModal('Tệp đính kèm của hồ sơ',`<div class="info-banner">${esc(r.HO_TEN)} · QĐ ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}<div>Chỉ chấp nhận PDF, JPG, PNG; tối đa 10 MB mỗi tệp.</div></div><form id="file-form" class="form-grid"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="field full"><label>Chọn tệp</label><input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required></div><div class="full" id="upload-progress" aria-live="polite"></div>${modalFoot('Tải lên')}</form>${r.HAS_FILE?`<div class="modal-file-actions">${allowed('FILE_VIEW')?`<button class="btn" data-file-get="${esc(r.HO_SO_ID)}">Tải tệp hiện tại</button>`:''}<button class="btn btn-danger" data-file-remove="${esc(r.HO_SO_ID)}">Gỡ tệp hiện tại</button></div>`:''}`);}
 function getCurrentRecord(id){return state.records.find(x=>x.HO_SO_ID===id);}
-async function refreshBootstrap(){const b=await rpc('bootstrap',{}, {ttl:0});state.user=b.user;state.cats=b.catalogs;state.statuses=b.statuses||[];state.permissionRevision=b.permissionRevision||'';state.dataRevision=b.dataRevision||'';state.catalogRevision=b.catalogRevision||'';state.statusRevision=b.statusRevision||'';state.permissionChecked=Date.now();}
+async function refreshBootstrap(){const b=await rpc('bootstrap',{}, {ttl:0});state.user=b.user;state.cats=b.catalogs;state.statuses=b.statuses||[];state.permissionRevision=b.permissionRevision||'';state.dataRevision=b.dataRevision||'';state.catalogRevision=b.catalogRevision||'';state.statusRevision=b.statusRevision||'';state.tradeScopeRevision=b.tradeScopeRevision||'';reconcileSchoolTradeFilters();syncVisibleSchoolTradeOptions();state.permissionChecked=Date.now();}
 async function afterMutation(page=state.page){closeModal();
   // Hồ sơ/tệp đã được invalidate trong rpc(); chỉ đọc lại bootstrap khi sửa danh mục hoặc tài khoản.
   if(page==='catalogs'||page==='accounts')await refreshBootstrap();

@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.24-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.25-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.24-RC',
+  version: '1.2.25-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -428,6 +428,54 @@ function authorize_(identity,action){
   row._permissions=perms;row._has=has;row._googleSub=identity.sub;return row;
 }
 function safeUser_(u,displayMap) {return {CHUC_DANH_HIEN_THI:u.VAI_TRO==='NHAN_VIEN'?((displayMap||staffDisplayMap_())[u.TAI_KHOAN_ID]||''):'',TAI_KHOAN_ID:u.TAI_KHOAN_ID,EMAIL:u.EMAIL,HO_TEN:u.HO_TEN,VAI_TRO:u.VAI_TRO,TRUONG_ID:u.TRUONG_ID||'',QUYEN:u.VAI_TRO==='ADMIN'?'*':u.VAI_TRO==='CO_SO_DAO_TAO'?'RECORD_VIEW,RECORD_STATUS,REPORT_VIEW,FILE_VIEW,REPORT_EXPORT':'RECORD_VIEW,RECORD_STATUS,REPORT_VIEW,FILE_VIEW,REPORT_EXPORT',TRANG_THAI:u.TRANG_THAI};}
+/** YC-HN-031: Index trường-nghề từ hồ sơ chưa xóa, không phụ thuộc năm hoặc tình trạng học.
+ * Chỉ đọc khối 11 cột cần thiết (TRUONG_ID..TRANG_THAI_HO_SO), không đọc 40 cột hồ sơ.
+ * Cache theo phiên bản RIÊNG: cập nhật tình trạng học nghề không làm mất cache nghề.
+ * Dữ liệu của cơ sở khác chỉ dùng nội bộ, KHÔNG gửi qua bootstrap.
+ */
+function schoolTradeIndex_(){
+  return cached_('HN_SCHOOL_TRADES',[version_('SCHOOL_TRADES')],300,function(){
+    var sh=getSheet_('HO_SO_HOC_NGHE'),last=sh.getLastRow(),index=Object.create(null);
+    if(last<2)return index;
+    var keys=APP.lists.HO_SO_HOC_NGHE;
+    var start=keys.indexOf('TRUONG_ID')+1,tradeCol=keys.indexOf('NGHE_ID')+1,statusCol=keys.indexOf('TRANG_THAI_HO_SO')+1;
+    var width=statusCol-start+1;
+    perfRead_('HO_SO_HOC_NGHE',last-1,width);
+    var values=sh.getRange(2,start,last-1,width).getDisplayValues();
+    values.forEach(function(row){
+      var school=String(row[0]||''),trade=String(row[tradeCol-start]||''),status=String(row[statusCol-start]||'');
+      if(!school||!trade||status==='DELETED')return;
+      if(!Object.prototype.hasOwnProperty.call(index,school))index[school]=Object.create(null);
+      index[school][trade]=true;
+    });
+    return index;
+  });
+}
+function visibleSchoolTrades_(user){
+  var catalog=catalogRows_('nghe').filter(catalogVisible_);
+  if(user.VAI_TRO!=='CO_SO_DAO_TAO')return catalog;
+  // TRUONG_ID đến từ authorize_ sau xác minh Google + phân công trường, không từ client.
+  must_(Boolean(user.TRUONG_ID),'NO_PERMISSION','Tài khoản chưa được cấp cơ sở đào tạo.');
+  var allowed=schoolTradeIndex_()[user.TRUONG_ID]||{};
+  return catalog.filter(function(r){return Object.prototype.hasOwnProperty.call(allowed,r.NGHE_ID);});
+}
+/** Phiên bản riêng theo cơ sở: trường B không phải tải danh mục khi chỉ trường A đổi. */
+function schoolTradeRevision_(user){
+  return user.VAI_TRO==='CO_SO_DAO_TAO'?version_('SCHOOL_TRADES_'+user.TRUONG_ID):'';
+}
+function bumpSchoolTradesForSchools_(schoolIds){
+  var changed=Object.create(null);
+  (schoolIds||[]).forEach(function(id){if(id)changed[id]=true;});
+  if(!Object.keys(changed).length)return;
+  bump_('SCHOOL_TRADES'); // Vô hiệu hóa index nội bộ toàn bộ, không gửi sang client.
+  Object.keys(changed).forEach(function(id){bump_('SCHOOL_TRADES_'+id);});
+}
+/** Chỉ bump khi hồ sơ được tạo, xóa hoặc đổi trường/nghề; không bump khi sửa tình trạng. */
+function bumpSchoolTradesForRecord_(oldRecord,newRecord){
+  function pair(r){return r&&r.TRANG_THAI_HO_SO!=='DELETED'&&r.TRUONG_ID&&r.NGHE_ID?(r.TRUONG_ID+'|'+r.NGHE_ID):'';}
+  if(pair(oldRecord)===pair(newRecord))return;
+  bumpSchoolTradesForSchools_([pair(oldRecord)?oldRecord.TRUONG_ID:'',pair(newRecord)?newRecord.TRUONG_ID:'']);
+}
 function bootstrap_(user){
   // Cập nhật lần đăng nhập gần nhất tối đa một lần/ngày để hạn chế lượt ghi.
   if (String(user.DANG_NHAP_CUOI || '').slice(0,10) !== now_().slice(0,10)) {
@@ -440,12 +488,12 @@ function bootstrap_(user){
       }
     }); } catch(ex){console.warn('Last-login update failed',ex.message);}
   }
-  return {user:safeUser_(user), statuses:customStatusList_(), catalogs:{truong:catalogRows_('truong').filter(function(x){return catalogVisible_(x) && (user.VAI_TRO!=='CO_SO_DAO_TAO'||x.TRUONG_ID===user.TRUONG_ID);}),nghe:catalogRows_('nghe').filter(catalogVisible_),lydo:catalogRows_('lydo').filter(catalogVisible_)},version:APP.version,permissionRevision:version_('USERS'),dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS')};
+  return {user:safeUser_(user), statuses:customStatusList_(), catalogs:{truong:catalogRows_('truong').filter(function(x){return catalogVisible_(x) && (user.VAI_TRO!=='CO_SO_DAO_TAO'||x.TRUONG_ID===user.TRUONG_ID);}),nghe:visibleSchoolTrades_(user),lydo:catalogRows_('lydo').filter(catalogVisible_)},version:APP.version,permissionRevision:version_('USERS'),dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS'),tradeScopeRevision:schoolTradeRevision_(user)};
 }
 /** YC-HN-017: nhẹ hơn bootstrap; authorize_ vẫn kiểm tra mọi quyền ở máy chủ. */
 function permissionCheck_(user){
   return {user:safeUser_(user),permissionRevision:version_('USERS'),
-    dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS')};
+    dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS'),tradeScopeRevision:schoolTradeRevision_(user)};
 }
 function catalogRows_(type){var def=APP.catalog[type];must_(Boolean(def),'BAD_REQUEST','Danh mục không tồn tại.');return cached_('CAT',type+'_'+version_('CAT'),300,function(){return sheetRows_(def.sheet);});}
 function catalogVisible_(r){return r.TRANG_THAI!=='DELETED';}
@@ -751,7 +799,7 @@ function saveRecord_(user,p,requestId){return dedupeWrite_(requestId,function(){
   if(old) writeRecord_('HO_SO_HOC_NGHE',targetRow,data);
   else appendRecord_('HO_SO_HOC_NGHE',data);
   if(HN_PERF_)HN_PERF_.writeMs=Date.now()-tWrite;
-  var tRev=Date.now();bump_('DATA');
+  var tRev=Date.now();bump_('DATA');bumpSchoolTradesForRecord_(old,data);
   if(HN_PERF_)HN_PERF_.revisionMs=Date.now()-tRev;
   var tAudit=Date.now();
   try{audit_(user,old?'SUA_HO_SO':'TAO_HO_SO','HO_SO',data.HO_SO_ID,{so:data.SO_QUYET_DINH,nam:data.NAM_QUYET_DINH,cacTruongThayDoi:old?Object.keys(obj).filter(function(k){return String(obj[k])!==String(old[k]);}):Object.keys(obj)},requestId);}catch(e){/* Giao dịch đã ghi; lưu lỗi trong execution log để đối soát */console.error('Audit failed',e);}
@@ -988,6 +1036,7 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
     });
     if(rows.length){var sh=getSheet_(def.sheet);sh.getRange(sh.getLastRow()+1,1,rows.length,APP.lists[def.sheet].length).setValues(rows);catalogCreated[type]=rows.length;bump_('CAT');}
   });
+  var affectedSchools={};
   var values=plan.valid.map(function(item){
     var data=Object.assign({},item.record,{HO_SO_ID:randomId_('HS'),NGUOI_HOC_ID:randomId_('NH'),
       TRANG_THAI_HO_SO:'ACTIVE',TEP_DRIVE_ID:'',TAO_LUC:ts,TAO_BOI:user.EMAIL,
@@ -996,11 +1045,12 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
     data.NGHE_ID=idMap[data.NGHE_ID]||data.NGHE_ID;
     if(data.LY_DO_BO_HOC_ID)data.LY_DO_BO_HOC_ID=idMap[data.LY_DO_BO_HOC_ID]||data.LY_DO_BO_HOC_ID;
     must_(!/^PENDING_/.test(data.TRUONG_ID)&&!/^PENDING_/.test(data.NGHE_ID)&&!/^PENDING_/.test(data.LY_DO_BO_HOC_ID),'VALIDATION','Chưa thể liên kết danh mục mới.');
+    affectedSchools[data.TRUONG_ID]=true;
     return headers.map(function(k){return safeSheetCell_(data[k]);});
   });
   if(values.length){
     var sh=getSheet_('HO_SO_HOC_NGHE');sh.getRange(sh.getLastRow()+1,1,values.length,headers.length).setValues(values);
-    bump_('DATA');
+    bump_('DATA');bumpSchoolTradesForSchools_(Object.keys(affectedSchools));
     try{audit_(user,'NHAP_HO_SO_HANG_LOAT','HO_SO','BATCH',{imported:values.length,duplicate:plan.duplicate.length,invalid:plan.invalid.length,batchId:str_(p.batchId,80),addedCatalogs:catalogCreated,lines:plan.valid.map(function(x){return x.line;}).slice(0,40)},requestId);}catch(e){console.error('Audit failed',e);}
   }
   return {added:values.length,duplicate:plan.duplicate.length,invalid:plan.invalid.length,
@@ -1219,7 +1269,7 @@ function deleteRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
   r.TRANG_THAI_HO_SO='DELETED';r.PHIEN_BAN=String(Number(r.PHIEN_BAN)+1);
   r.CAP_NHAT_LUC=now_();r.CAP_NHAT_BOI=user.EMAIL;
   writeRecord_('HO_SO_HOC_NGHE',findRowNumber_('HO_SO_HOC_NGHE','HO_SO_ID',id),r);
-  bump_('DATA');
+  bump_('DATA');bumpSchoolTradesForSchools_([r.TRUONG_ID]);
   try{audit_(user,'XOA_MEM_HO_SO','HO_SO',id,{so:r.SO_QUYET_DINH,nam:r.NAM_QUYET_DINH,nguoiTao:r.TAO_BOI},requestId);}catch(e){console.error('Audit delete failed',e);}
   return {HO_SO_ID:id,TRANG_THAI_HO_SO:'DELETED'};
 });}

@@ -24,7 +24,7 @@ test('YC027: backend chặn ghi ngoài tình trạng, tách check xem/cập nh�
  assert.match(backend,/TRANG_THAI_HO_SO!=='DELETED'/);
 });
 test('YC027+028: bản tiếp theo chỉ đổi metadata hiển thị, bảo toàn API gateway / Excel',()=>{
- assert.match(html,/v1\.2\.24-RC/);
- assert.match(backend,/version: '1\.2\.24-RC'/);
- assert.match(app,/xlsx-export\.js\?v=1\.2\.24-RC/); // Keep the approved Excel module unchanged
+ assert.match(html,/v1\.2\.25-RC/);
+ assert.match(backend,/version: '1\.2\.25-RC'/);
+ assert.match(app,/xlsx-export\.js\?v=1\.2\.25-RC/); // Keep the approved Excel module unchanged
 });
