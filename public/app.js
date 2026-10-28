@@ -145,11 +145,15 @@ async function credentialResponse(response){
     activateSession(data);
   }catch(e){state.token='';state.session=false;$('#login-note').textContent='Không thể đăng nhập.';failure(e);}
 }
+/** YC-HN-029 V4: Chỉ trang trí chức danh; mọi quyền vẫn dựa vào VAI_TRO tại backend. */
 function renderCurrentUser(){
   if(!state.user)return;
   const u=state.user;
   const sub=u.VAI_TRO==='ADMIN'?'Quản trị viên':u.VAI_TRO==='CO_SO_DAO_TAO'?'Cơ sở đào tạo: '+lookup('truong',u.TRUONG_ID):u.CHUC_DANH_HIEN_THI||'Nhân viên';
-  $('#current-user').innerHTML=`<b>${esc(u.HO_TEN||u.EMAIL)}</b><span>${esc(sub)}</span>`;
+  const roleStyle=u.VAI_TRO==='ADMIN'?'admin':u.VAI_TRO==='CO_SO_DAO_TAO'?'school':
+    /(^|\s)phó\s+(?:trưởng\s+)?phòng(?=\s|$|[,;:–-])/i.test(sub)?'deputy':
+    /(^|\s)trưởng\s+phòng(?=\s|$|[,;:–-])/i.test(sub)?'manager':'staff';
+  $('#current-user').innerHTML=`<b class="user-display-name" title="${esc(u.HO_TEN||u.EMAIL)}">${esc(u.HO_TEN||u.EMAIL)}</b><span class="user-role-badge user-role-badge--${roleStyle}" title="${esc(sub)}">${esc(sub)}</span>`;
 }
 function activateSession(data){
   state.session=true;state.user=data.user;state.cats=data.catalogs;state.statuses=data.statuses||[];state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.permissionChecked=Date.now();state.pageDataAt.clear();

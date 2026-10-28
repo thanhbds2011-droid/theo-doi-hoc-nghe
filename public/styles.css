@@ -350,3 +350,18 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 
 /* YC-HN-028: extra account display-title column scrolls on narrow devices. */
 .account-table table{min-width:1050px}
+
+/* YC-HN-029 V4 — Chỉ hiển thị chức danh nổi bật trong vùng tài khoản hiện có.
+   Các màu sắc là trang trí; không liên quan đến phân quyền. */
+.topbar .user-box{display:flex;flex-direction:column;align-items:flex-end;justify-content:center;min-width:0;max-width:min(330px,40vw);gap:5px}
+.topbar .user-box .user-display-name{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;line-height:1.2;font-weight:800;color:#10345e}
+.topbar .user-box .user-role-badge{--role-color:#155ba6;--role-bg:#e2efff;--role-border:#c8dfff;display:block;position:relative;max-width:100%;padding:5px 11px 5px 28px;margin:0;border:1px solid var(--role-border);border-radius:999px;background:var(--role-bg);color:var(--role-color);font-size:12px;line-height:1.25;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left}
+.topbar .user-box .user-role-badge::before{content:"";position:absolute;left:12px;top:50%;width:8px;height:8px;transform:translateY(-50%);border-radius:50%;background:currentColor;opacity:.8}
+.topbar .user-box .user-role-badge--manager{--role-color:#895709;--role-bg:#fff1cb;--role-border:#f4d992}
+.topbar .user-box .user-role-badge--manager::before{content:"★";left:9px;width:13px;height:15px;line-height:15px;transform:translateY(-50%);border-radius:0;background:transparent;font-size:13px;opacity:1}
+.topbar .user-box .user-role-badge--deputy{--role-color:#0d5fbd;--role-bg:#dbeaff;--role-border:#b9d4fc}
+.topbar .user-box .user-role-badge--deputy::before{content:"◆";left:11px;width:11px;height:13px;line-height:13px;border-radius:0;background:transparent;font-size:11px;opacity:1}
+.topbar .user-box .user-role-badge--admin{--role-color:#7038a2;--role-bg:#f0e0ff;--role-border:#ddc4f5}
+.topbar .user-box .user-role-badge--admin::before{content:"◆";left:11px;width:11px;height:13px;line-height:13px;border-radius:0;background:transparent;font-size:11px;opacity:1}
+.topbar .user-box .user-role-badge--school{--role-color:#167245;--role-bg:#ddf5e7;--role-border:#bde9ce}
+@media(max-width:600px){.topbar .user-box{display:none}}
