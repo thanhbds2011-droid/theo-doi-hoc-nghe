@@ -365,3 +365,10 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 .topbar .user-box .user-role-badge--admin::before{content:"◆";left:11px;width:11px;height:13px;line-height:13px;border-radius:0;background:transparent;font-size:11px;opacity:1}
 .topbar .user-box .user-role-badge--school{--role-color:#167245;--role-bg:#ddf5e7;--role-border:#bde9ce}
 @media(max-width:600px){.topbar .user-box{display:none}}
+
+/* YC-HN-029: compare server state and unsaved draft, within existing modal only. */
+.status-conflict{border:1px solid #eab75a;background:#fff8e8;border-radius:12px;padding:14px;color:#633f08;line-height:1.55}
+.status-conflict strong{display:block;font-weight:750;color:#71460a}
+.status-conflict p{margin:6px 0 10px}
+.conflict-compare{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.conflict-compare span{flex:1 1 185px;background:#fff;border:1px solid #f4dbac;padding:10px;border-radius:9px}

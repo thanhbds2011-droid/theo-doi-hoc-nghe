@@ -36,7 +36,7 @@ test('YC022 đo tốc độ có điều kiện, không log dữ liệu cá nhân
  assert.match(gateway,/identityMs:perfIdentityMs,upstreamMs:perfUpstreamMs/);
  assert.match(gas,/fullSheetReadMs/);
  assert.match(gas,/if\(HN_PERF_\)HN_PERF_\.validationMs/);
- assert.match(gas,/must_\(!records\.some\(function\(x\)\{return x\.SO_QUYET_DINH_KEY/);
+ assert.match(gas,/must_\(!decisionKeys\.some\(function\(x,i\)\{return x\[0\]===obj\.SO_QUYET_DINH_KEY/);
  assert.match(gas,/VERSION_CONFLICT/);
  assert.match(gas,/try\{audit_\(user,old\?'SUA_HO_SO'/);
 });

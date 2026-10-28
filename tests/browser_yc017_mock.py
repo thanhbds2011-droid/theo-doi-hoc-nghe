@@ -7,8 +7,8 @@ html=(root/'public/index.html').read_text()
 html=re.sub(r'<meta http-equiv="Content-Security-Policy"[^>]+>', '',html)
 html=html.replace('<link rel="stylesheet" href="/styles.css"/>','<style>'+(root/'public/styles.css').read_text()+'</style>')
 html=html.replace('<script src="https://accounts.google.com/gsi/client" async defer></script>','')
-html=html.replace('<script type="module" src="/app.js"></script>','')
-source=(root/'public/app.js').read_text().replace("import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js';",'')
+html=re.sub(r'<script type="module" src="/app\.js\?v=[^" ]+"></script>','',html)
+source=re.sub(r'^import .*\n','',(root/'public/app.js').read_text(),count=1)
 source=re.sub(r'export const tests = \{[^;]+;', '',source)
 errors=[]
 with sync_playwright() as p:

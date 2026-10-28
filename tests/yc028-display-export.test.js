@@ -18,7 +18,7 @@ test('YC028: bảo toàn ba menu và mở Xuất Excel có kiểm quyền cho Nh
  assert.match(app,/allowed\('REPORT_EXPORT'\)\?'<button class="btn btn-light" data-export-list/);
  assert.match(gas,/var staffRights=\[[^\]]*'REPORT_EXPORT'/);
  assert.match(gas,/if\(action==='record_save'\)must_/);
- assert.match(html,/v1\.2\.22-RC/);
+ assert.match(html,/v1\.2\.23-RC/);
 });
 test('YC028: không thêm cột tài khoản hoặc đổi module xlsx',()=>{
  assert.match(gas,/'TAI_KHOAN': 'TAI_KHOAN_ID EMAIL GOOGLE_SUB HO_TEN VAI_TRO QUYEN TRANG_THAI TAO_LUC TAO_BOI CAP_NHAT_LUC CAP_NHAT_BOI DANG_NHAP_CUOI'/);

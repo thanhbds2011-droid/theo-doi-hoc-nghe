@@ -1,3 +1,5 @@
+> Bản kiểm thử YC-HN-029 V5: **v1.2.23-RC**. Xem docs/MASTER_PROMPT_YC-HN-029_V5_DA_CHOT.md và docs/HUONG_DAN_YC-HN-029_V5.md. Chưa đo production 10–20 người.
+
 # THEO DÕI HỌC NGHỀ — v1.2.18-RC / YC-HN-025 V3
 
 **Đã CHỐT:** Sửa sự không đồng nhất ngày trong chỉ tiêu `Hoàn thành khóa học` giữa chế độ `Tất cả tình trạng` và chế độ lọc riêng. Trong cả hai chế độ, hàng Hoàn thành đếm người Đã tham gia/không Bỏ học có `Thời gian đào tạo – Đến ngày` thuộc khoảng lọc; các chỉ tiêu khác của chế độ Tất cả vẫn theo Ngày ban hành QĐ. Một lần đọc tập hồ sơ có quyền, hai cách lọc trong bộ nhớ. Không đổi dữ liệu, quyền, lưu hồ sơ hoặc định dạng Excel. Xem `docs/YC-HN-025_V3_v1.2.18-RC_CHANGELOG_HUONG_DAN.md`. Cần cập nhật frontend và Apps Script; chưa triển khai production.

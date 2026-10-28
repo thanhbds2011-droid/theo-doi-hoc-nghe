@@ -1456,3 +1456,65 @@ test('YC028: ngăn chức danh công thức/ký tự điều khiển/quá 100; k
  assert.equal(sendAs(c,who,'record_delete',{HO_SO_ID:'UNKNOWN'}).error.code,'NO_PERMISSION');
  assert.equal(sendAs(c,who,'audit_list',{}).error.code,'NO_PERMISSION');
 });
+
+test('YC029 V5: xem lại một hồ sơ với quyền backend, không lộ ID tệp và giảm quét 40 cột',()=>{
+ const c=setupLive();
+ const created=c.send('record_save',record(c,'902','2026-08-08')).data.record;
+ const admin=c.send('record_fresh',{HO_SO_ID:created.HO_SO_ID});
+ assert.equal(admin.ok,true,JSON.stringify(admin.error));
+ assert.equal(admin.data.record.SO_QUYET_DINH,'902');
+ assert.equal(admin.data.record.PHIEN_BAN,'1');
+ assert.equal(admin.data.record.TEP_DRIVE_ID,undefined);
+ const missing=c.send('record_fresh',{HO_SO_ID:'HS_WRONG'});
+ assert.equal(missing.error.code,'NOT_FOUND');
+ const staffUser=c.send('account_save',{email:'staff029@example.com',name:'Nhân viên',role:'NHAN_VIEN',status:'ACTIVE'}).data.item;
+ const staff={sub:'22345678901234567891',aud:audience,email:'staff029@example.com'};
+ assert.equal(sendAs(c,staff,'record_fresh',{HO_SO_ID:created.HO_SO_ID}).ok,true);
+ const before=sendAs(c,staff,'record_fresh',{HO_SO_ID:created.HO_SO_ID}).data.record;
+ const first=c.send('record_status',{HO_SO_ID:created.HO_SO_ID,PHIEN_BAN:before.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA'});
+ assert.equal(first.ok,true);
+ const stale=sendAs(c,staff,'record_status',{HO_SO_ID:created.HO_SO_ID,PHIEN_BAN:before.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA'});
+ assert.equal(stale.error.code,'VERSION_CONFLICT');
+ assert.equal(c.send('record_fresh',{HO_SO_ID:created.HO_SO_ID}).data.record.TRANG_THAI_THAM_GIA,'DA_THAM_GIA');
+ assert.ok(staffUser.TAI_KHOAN_ID);
+});
+
+test('YC029 V5: sửa một hồ sơ giữ chống trùng quyết định và người học có mã đang dùng',()=>{
+ const c=setupLive(),a=c.send('record_save',record(c,'903','2026-09-01')).data.record;
+ const b=c.send('record_save',record(c,'904','2026-09-01')).data.record;
+ const edit=c.send('record_save',{...record(c,'904','2026-09-01'),HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:1});
+ assert.equal(edit.error.code,'DECISION_DUPLICATE');
+ const revise=c.send('record_save',{...record(c,'905','2026-09-01'),HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:1});
+ assert.equal(revise.ok,true,JSON.stringify(revise.error));
+ assert.equal(revise.data.record.PHIEN_BAN,'2');
+ assert.equal(c.send('records_list',{query:'905'}).data.total,1);
+ assert.equal(c.send('records_list',{query:'904'}).data.total,1);
+ assert.equal(b.PHIEN_BAN,'1');
+});
+
+test('YC029 V5: lượt đọc một hồ sơ không quét 40 cột của toàn bảng',()=>{
+ const c=setupLive();
+ for(let i=0;i<12;i++)assert.equal(c.send('record_save',record(c,String(930+i),'2026-01-20')).ok,true);
+ const sh=c.tables.get('Hồ sơ học nghề');
+ const calls=[];const original=sh.getRange.bind(sh);
+ sh.getRange=(row,col,height,width)=>{calls.push({row,col,height,width});return original(row,col,height,width);};
+ const result=c.send('record_fresh',{HO_SO_ID:sh.rows[1][0]});
+ assert.equal(result.ok,true,JSON.stringify(result.error));
+ assert.ok(calls.some(x=>x.width===1&&x.height>=12),'ID scan is one column');
+ assert.ok(calls.some(x=>x.height===1&&x.width===40),'read exact record');
+ assert.ok(!calls.some(x=>x.width===40&&x.height>1),'not full sheet');
+});
+
+test('YC029 V5: lưu sửa chỉ đọc cột khóa trùng + một dòng khi không ghép mã người học',()=>{
+ const c=setupLive();
+ for(let i=0;i<8;i++)assert.equal(c.send('record_save',record(c,String(950+i),'2026-01-20')).ok,true);
+ const sh=c.tables.get('Hồ sơ học nghề');
+ const calls=[];const original=sh.getRange.bind(sh);
+ sh.getRange=(row,col,height,width)=>{calls.push({row,col,height,width});return original(row,col,height,width);};
+ const first=c.send('records_list',{query:'950'}).data.items[0];
+ calls.length=0;
+ const edit=c.send('record_save',{...record(c,'950','2026-01-20',{GHI_CHU:'Thử nghiệm tối ưu'}),HO_SO_ID:first.HO_SO_ID,PHIEN_BAN:first.PHIEN_BAN});
+ assert.equal(edit.ok,true,JSON.stringify(edit.error));
+ assert.ok(calls.some(x=>x.width===1&&x.col===8),'Decision key column read');
+ assert.ok(!calls.some(x=>x.width===40&&x.height>1),'Avoid full 40-column sheet read');
+});

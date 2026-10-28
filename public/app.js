@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.21-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.22-RC (YC-HN-028 V2, chức danh hiển thị và quyền Xuất Excel Báo cáo cho Nhân viên). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.23-RC (YC-HN-029 V5, tối ưu hiệu năng/đồng bộ, kế thừa giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -17,6 +17,8 @@ const dateVN = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? d.slice(8, 10)
 const STATUS = { CHO_XAC_NHAN:'Chưa xác nhận', DA_THAM_GIA:'Đã tham gia học', KHONG_THAM_GIA:'Không tham gia', KHONG_NHAN_QUYET_DINH:'Không nhận quyết định' };
 const COURSE_END_FILTER='FILTER_COURSE_END_DATE'; // Tra ngày kết thúc DỰ KIẾN, không xác nhận tốt nghiệp.
 const ALL_DECISIONS_FILTER='FILTER_ALL_DECISIONS'; // Bộ lọc ảo, không lưu vào dữ liệu nguồn.
+const BULK_KIND_VI={eligible:'Đủ điều kiện',updated:'Đã cập nhật',same:'Đã đúng tình trạng',protected:'Đã có tình trạng khác',changed:'Dữ liệu đã thay đổi',missing:'Không tìm thấy hồ sơ',duplicate:'Trùng',invalid:'Thông tin chưa hợp lệ',unselected:'Không đánh dấu',ignored:'Dòng tổng hợp',pending:'Chưa xử lý'};
+const statusBulkKindVi=x=>BULK_KIND_VI[x]||'Chưa xác định';
 const STATUS_FORM = { DA_THAM_GIA:'Đã tham gia học', KHONG_THAM_GIA:'Không tham gia', BO_HOC:'Bỏ học', KHONG_NHAN_QUYET_DINH:'Không nhận quyết định', CHO_XAC_NHAN:'Chưa xác nhận' };
 const RIGHTS = { RECORD_VIEW:'Xem hồ sơ', RECORD_CREATE:'Thêm hồ sơ', RECORD_EDIT:'Sửa hồ sơ', RECORD_DELETE:'Xóa hồ sơ', RECORD_STATUS:'Cập nhật tình trạng', REPORT_VIEW:'Xem báo cáo', CATALOG_MANAGE:'Quản lý danh mục', ACCOUNT_MANAGE:'Quản lý tài khoản', AUDIT_VIEW:'Xem nhật ký', FILE_VIEW:'Xem tệp', FILE_UPLOAD:'Tải lên/xóa tệp' };
 const NAMES = { truong:'Cơ sở đào tạo', nghe:'Nghề đào tạo', lydo:'Lý do bỏ học' };
@@ -25,20 +27,20 @@ const state = {
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:'',from:'',to:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:'',from:'',to:''},
   records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
-  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0
+  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
 };
 
 function notify(message, error=false){ const el=$('#toast');el.textContent=String(message);el.className='toast show'+(error?' error':'');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('show'),5500); }
 const ERROR_TEXT = {
   LOGIN_EXPIRED:'Phiên đăng nhập đã hết hạn. Vui lòng đăng nhập lại.', NOT_AUTHORIZED:'Tài khoản chưa được cấp quyền hoặc đã bị khóa.', NO_PERMISSION:'Bạn chưa được cấp quyền thực hiện thao tác này.', CATALOG_IN_USE:'Danh mục đã có hồ sơ sử dụng. Vui lòng chọn Ngừng sử dụng thay vì xóa.', CANNOT_DELETE_SELF:'Bạn không thể xóa tài khoản đang đăng nhập.', LAST_ADMIN:'Hệ thống phải có ít nhất một Quản trị viên đang hoạt động.', NOT_OWNER:'Bạn chỉ được xóa hồ sơ do chính mình tạo.',
-  DECISION_DUPLICATE:'Số quyết định đã tồn tại trong năm được chọn. Vui lòng kiểm tra lại.', DUPLICATE:'Thông tin này đã tồn tại. Vui lòng kiểm tra lại.', VERSION_CONFLICT:'Hồ sơ đã được cập nhật ở nơi khác. Vui lòng tải lại trước khi lưu.', NOT_FOUND:'Không tìm thấy thông tin cần thao tác. Vui lòng tải lại danh sách.', ALREADY_DELETED:'Hồ sơ này đã được xóa trước đó.',
+  DECISION_DUPLICATE:'Số quyết định đã tồn tại trong năm được chọn. Vui lòng kiểm tra lại.', DUPLICATE:'Thông tin này đã tồn tại. Vui lòng kiểm tra lại.', VERSION_CONFLICT:'Hồ sơ vừa được người khác cập nhật. Thay đổi của bạn chưa được lưu. Vui lòng kiểm tra thông tin mới nhất.', NOT_FOUND:'Không tìm thấy thông tin cần thao tác. Vui lòng tải lại danh sách.', ALREADY_DELETED:'Hồ sơ này đã được xóa trước đó.',
   FILE_TOO_LARGE:'Tệp vượt dung lượng tối đa 10 MB.', VALIDATION:'Thông tin chưa hợp lệ. Vui lòng kiểm tra lại.', UPLOAD_EXPIRED:'Lượt tải đã hết hạn. Vui lòng chọn lại tệp.', UPLOAD_OFFSET:'Có gián đoạn trong quá trình tải tệp. Vui lòng thử lại.', UPLOAD_UNAVAILABLE:'Không tải được tệp lúc này. Vui lòng thử lại.', DOWNLOAD_UNAVAILABLE:'Không tải được tệp lúc này. Vui lòng thử lại.',
   GATEWAY_UNAVAILABLE:'Hệ thống tạm thời không phản hồi. Vui lòng thử lại sau.', SERVER_ERROR:'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.', INTERNAL_ERROR:'Hệ thống đang gặp sự cố. Vui lòng thử lại sau.', BUSY:'Hệ thống đang xử lý yêu cầu khác. Vui lòng thử lại.', SCHEMA_MISMATCH:'Dữ liệu hệ thống cần được quản trị viên kiểm tra.', USE_CHUNK_UPLOAD:'Vui lòng tải lại trang và thử đính kèm tệp.'
 };
 function friendlyError(code,message){
   if(ERROR_TEXT[code])return ERROR_TEXT[code];
   // Chỉ hiển thị thông báo nghiệp vụ đã được phía máy chủ mã hóa phù hợp.
-  if(['VALIDATION','DUPLICATE'].includes(code)&&message && !/[A-Z_]{3,}|Google|API|Script|JSON|\{|\}/i.test(message))return message;
+  if(['VALIDATION','DUPLICATE'].includes(code)&&message && !/\b[A-Z][A-Z0-9_]{2,}\b|Google|API|Script|JSON|\{|\}/.test(message))return message;
   return 'Thao tác chưa hoàn tất. Vui lòng thử lại hoặc liên hệ quản trị viên.';
 }
 function failure(e){notify(e?.message||'Thao tác chưa hoàn tất. Vui lòng thử lại.',true);}
@@ -55,8 +57,8 @@ function trimCache(){while(state.cache.size>110)state.cache.delete(state.cache.k
 /** YC-HN-017: kiểm tra quyền một lần cho nhiều lượt điều hướng đồng thời.
  * Dữ liệu có quyền truy cập chỉ được khôi phục sau khi bước này thành công.
  */
-async function verifyPermission(){
-  if(!state.session||Date.now()-state.permissionChecked<120000)return true;
+async function verifyPermission(force=false){
+  if(!state.session||(!force&&Date.now()-state.permissionChecked<120000))return true;
   if(state.permissionPromise)return state.permissionPromise;
   state.permissionPromise=(async()=>{
     const data=await rpc('permission_check',{}, {ttl:0});
@@ -80,7 +82,10 @@ async function verifyPermission(){
       state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;
     }
     if(state.dataRevision!==(data.dataRevision||'')){
-      state.cache.clear();state.generation++;
+      // A verified change invalidates the DOM snapshot as well as API cache.
+      // Never assign the new revision to previously rendered old HTML.
+      state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.pageDataAt.clear();
+      state.generation++;state.needsActiveRefresh=true;
       state.dataRevision=data.dataRevision||'';
     }
     // Role/school are already verified above; display-only metadata may change without logout.
@@ -89,7 +94,10 @@ async function verifyPermission(){
     state.permissionChecked=Date.now();
     return true;
   })();
-  try{return await state.permissionPromise;}finally{state.permissionPromise=null;}
+  try{return await state.permissionPromise;}finally{
+    state.permissionPromise=null;
+    if(state.needsActiveRefresh)void refreshVisibleStaleData();
+  }
 }
 
 async function rpc(action,payload={},options={}) {
@@ -105,9 +113,9 @@ async function rpc(action,payload={},options={}) {
     catch(e){throw Error('Không kết nối được hệ thống. Vui lòng kiểm tra mạng và thử lại.');}
     let out;
     try{out=await res.json();}catch{throw Error('Hệ thống chưa phản hồi đầy đủ. Vui lòng kiểm tra lại thao tác trước khi thử lại.');}
-    if(!out.ok){if(out.error?.code==='LOGIN_EXPIRED'){signOut();}throw Error(friendlyError(out.error?.code,out.error?.message));}
+    if(!out.ok){const code=out.error?.code||'SERVER_ERROR';if(code==='LOGIN_EXPIRED'){signOut();}const e=new Error(friendlyError(code,out.error?.message));e.code=code;throw e;}
     if(options.mutate){
-      state.generation++;state.dataRevision='';
+      state.generation++;state.dataRevision='';state.renderedDataRevision='';
       if(options.preserveRecordList){expireCacheActions(['overview','report_matrix','report_export']);state.pageViews.delete('dashboard');state.pageViews.delete('reports');}
       else{state.cache.clear();state.pageViews.clear();state.renderedPage=null;}
       state.inFlight.clear();
@@ -118,6 +126,49 @@ async function rpc(action,payload={},options={}) {
   const promise=run();
   if(read)state.inFlight.set(key,promise);
   try{return await promise;}finally{if(read && state.inFlight.get(key)===promise)state.inFlight.delete(key);}
+}
+// YC-HN-029 V5: light foreground-only revision polling. No third-party service.
+const DATA_CHECK_INTERVAL_MS=90000; // Maximum normal foreground detection delay ~90s + network.
+function startDataChecks(){
+  stopDataChecks();
+  state.dataCheckTimer=setInterval(()=>{
+    if(state.session&&!state.busy&&document.visibilityState==='visible')
+      void verifyPermission(true).catch(()=>{/* Do not interrupt a user's draft for a transient poll failure. */});
+  },DATA_CHECK_INTERVAL_MS);
+}
+function stopDataChecks(){if(state.dataCheckTimer){clearInterval(state.dataCheckTimer);state.dataCheckTimer=null;}}
+async function refreshVisibleStaleData(){
+  if(!state.needsActiveRefresh||!state.session||state.permissionPromise||state.routeLoading||state.busy||document.visibilityState==='hidden')return;
+  if(!$('#modal-layer')?.classList.contains('hidden')){
+    const form=$('#status-form');
+    if(form)void checkOpenStatusVersion(form).catch(()=>{});
+    return; // Do not replace a form draft or a modal on top of it.
+  }
+  state.lastDataRefreshAt=Date.now();
+  state.needsActiveRefresh=false;
+  const page=state.page;
+  if(page==='dashboard'||page==='reports'){
+    await refreshCurrentAggregate(page); // preserve filters, refresh only results.
+  }else if(page==='records'&&$('#records-filters')){
+    await refreshRecordResults('Đang cập nhật danh sách hồ sơ…'); // keep search/page/scroll.
+    state.renderedDataRevision=state.dataRevision;
+  }else if(page==='audits'||page==='accounts'||page==='catalogs'){
+    navigate(page,true);
+  }
+}
+async function checkOpenStatusVersion(form){
+  if(!form?.isConnected||form.dataset.conflictCheck==='yes')return;
+  form.dataset.conflictCheck='yes';
+  try{
+    const fresh=await rpc('record_fresh',{HO_SO_ID:form.elements.HO_SO_ID.value},{ttl:0});
+    if(!form.isConnected)return;
+    if(Number(fresh.record.PHIEN_BAN)!==Number(form.elements.PHIEN_BAN.value)){
+      renderStatusConflict(form,fresh.record);
+    }
+  }catch(e){if(e.code==='NO_PERMISSION'||e.code==='NOT_FOUND'){
+    const area=$('#status-conflict');if(area)area.innerHTML='<p role="alert">Hồ sơ không còn khả dụng hoặc bạn không có quyền xem. Vui lòng đóng biểu mẫu và kiểm tra lại danh sách.</p>';
+    const button=form.querySelector('[data-submit-btn]');if(button)button.disabled=true;
+  }}finally{if(form.isConnected)form.dataset.conflictCheck='';}
 }
 async function initialize(){
   try{
@@ -157,12 +208,12 @@ function renderCurrentUser(){
 }
 function activateSession(data){
   state.session=true;state.user=data.user;state.cats=data.catalogs;state.statuses=data.statuses||[];state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.permissionChecked=Date.now();state.pageDataAt.clear();
-  state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.renderedPage=null;
+  state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.renderedPage=null;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;startDataChecks();
   $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
   renderCurrentUser();
   navigate('dashboard');
 }
-function signOut(){if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
+function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
 // YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
 const ICON_PATHS={
   'calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
@@ -203,7 +254,7 @@ function buildNav(){
 const PAGE_AGE={dashboard:300000,records:300000,reports:300000,catalogs:300000,accounts:300000,audits:300000};
 function rememberPage(page){
   const main=$('#main');
-  if(!main||state.renderedPage!==page||main.querySelector('.spinner')||(page==='records'&&state.recordLoading))return;
+  if(!main||state.renderedPage!==page||state.renderedDataRevision!==state.dataRevision||state.needsActiveRefresh||main.querySelector('.spinner')||(page==='records'&&state.recordLoading))return;
   // Đồng bộ giá trị ĐANG HIỂN THỊ vào snapshot DOM (innerHTML thường giữ attribute ban đầu).
   // Dùng cho ngày dd/mm/yyyy, từ khóa, năm và mọi select khi quay lại menu.
   main.querySelectorAll('form[id$="-filters"] input').forEach(field=>{if(field.type!=='hidden')field.setAttribute('value',field.value);});
@@ -213,7 +264,7 @@ function rememberPage(page){
 }
 function finishPageLoad(page,v){
   if(v!==state.routeVersion)return;
-  state.pageDataAt.set(page,Date.now());state.renderedPage=page;
+  state.pageDataAt.set(page,Date.now());state.renderedPage=page;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;
   const note=$('#main .refresh-note');if(note)note.remove();
   rememberPage(page);
 }
@@ -237,7 +288,7 @@ function navigate(page,force=false){
   if(!navItems().some(item=>item[0]===page))page='dashboard';
   const main=$('#main'),previous=state.page;
   rememberPage(previous);
-  state.page=page;const v=++state.routeVersion;
+  state.page=page;const v=++state.routeVersion;state.routeLoading=true;
   $('#sidebar').classList.remove('open');buildNav();
   const fresh=Date.now()-state.permissionChecked<120000;
   const snapshot=state.pageViews.get(page);
@@ -245,7 +296,7 @@ function navigate(page,force=false){
   const age=verified?Date.now()-(snapshot.dataAt||snapshot.at):Infinity;
   // Cache hot: no RPC, even if user switched away and came back within five minutes.
   if(!force&&verified&&age<PAGE_AGE[page]){
-    main.innerHTML=snapshot.html;state.renderedPage=page;return;
+    main.innerHTML=snapshot.html;state.renderedPage=page;state.renderedDataRevision=state.dataRevision;state.routeLoading=false;return;
   }
   // Revalidate silently when needed. Do not block the entire app with a permission banner.
   // Stale private records are NOT restored until permission has been verified.
@@ -259,7 +310,7 @@ function navigate(page,force=false){
       const canRestore=!force&&saved&&saved.scope===permissionScope()&&saved.dataRevision===state.dataRevision;
       const savedAge=canRestore?Date.now()-(saved.dataAt||saved.at):Infinity;
       if(canRestore&&savedAge<PAGE_AGE[page]){
-        main.innerHTML=saved.html;state.renderedPage=page;return;
+        main.innerHTML=saved.html;state.renderedPage=page;state.renderedDataRevision=state.dataRevision;return;
       }
       // Restore verified previous content immediately; refresh *only* the content region.
       if(canRestore){
@@ -271,7 +322,7 @@ function navigate(page,force=false){
     }catch(e){
       if(v===state.routeVersion){main.innerHTML=`<div class="card"><h3>Không tải được dữ liệu</h3><p class="muted">${esc(e.message)}</p><button class="btn" data-retry="1">Tải lại</button></div>`;state.renderedPage=null;}
       failure(e);
-    }
+    }finally{if(v===state.routeVersion)state.routeLoading=false;}
   })();
 }
 
@@ -608,14 +659,17 @@ async function renderAccounts(v,keepOld=false){
   $('#accounts-output').className='';
   $('#accounts-output').innerHTML=`<div class="table-wrap account-table"><table><thead><tr><th>Họ tên</th><th>Email</th><th>Vai trò</th><th>Chức danh/Phòng ban</th><th>Cơ sở được cấp</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody>${data.items.map(x=>`<tr><td>${esc(x.HO_TEN)}</td><td>${esc(x.EMAIL)}</td><td>${x.VAI_TRO==='ADMIN'?'Quản trị viên':x.VAI_TRO==='CO_SO_DAO_TAO'?'Cơ sở đào tạo':'Nhân viên'}</td><td>${x.VAI_TRO==='NHAN_VIEN'?esc(x.CHUC_DANH_HIEN_THI||'—'):'—'}</td><td>${x.VAI_TRO==='CO_SO_DAO_TAO'?esc(lookup('truong',x.TRUONG_ID)):'—'}</td><td><span class="pill ${x.TRANG_THAI==='ACTIVE'?'good':'bad'}">${x.TRANG_THAI==='ACTIVE'?'Hoạt động':'Khóa'}</span></td><td><div class="table-actions"><button class="btn" data-edit-account="${esc(x.TAI_KHOAN_ID)}">Sửa</button><button class="btn btn-danger" data-delete-account="${esc(x.TAI_KHOAN_ID)}">Xóa</button></div></td></tr>`).join('')}</tbody></table></div>`;
 }
+const AUDIT_ACTION_VI={CAP_NHAT_TRANG_THAI:'Cập nhật tình trạng',SUA_HO_SO:'Sửa hồ sơ',TAO_HO_SO:'Thêm hồ sơ',XOA_MEM_HO_SO:'Xóa hồ sơ',NHAP_HO_SO_HANG_LOAT:'Nhập hồ sơ từ Excel',SUA_DANH_MUC:'Sửa danh mục',TAO_DANH_MUC:'Thêm danh mục',XOA_MEM_DANH_MUC:'Xóa danh mục',DINH_KEM_TEP:'Đính kèm tệp',GO_TEP:'Gỡ tệp',TAO_TAI_KHOAN:'Tạo tài khoản',SUA_TAI_KHOAN:'Sửa tài khoản',XOA_MEM_TAI_KHOAN:'Xóa tài khoản',NHAP_DANH_MUC_HANG_LOAT:'Nhập danh mục',CAP_NHAT_TRANG_THAI_HANG_LOAT:'Cập nhật tình trạng từ Excel'};
+const AUDIT_OBJECT_VI={HO_SO:'Hồ sơ',TAI_KHOAN:'Tài khoản',truong:'Cơ sở đào tạo',nghe:'Nghề đào tạo',lydo:'Lý do bỏ học',BATCH:'Nhiều hồ sơ'};
+const auditLabel=(mapping,value)=>mapping[value]||String(value||'').replace(/_/g,' ').toLocaleLowerCase('vi-VN');
 async function renderAudits(v,keepOld=false){
   if(!keepOld)$('#main').innerHTML=heading('Nhật ký thay đổi','Tra cứu hoạt động chỉnh sửa hồ sơ, danh mục và tài khoản.')+'<div id="audit-output" class="spinner">Đang tải nhật ký…</div>';
   const d=await rpc('audit_list',{page:state.auditPage},{ttl:30000});if(v!==state.routeVersion)return;
   $('#audit-output').className='';
-  $('#audit-output').innerHTML=`<div class="table-wrap audit-table"><table><thead><tr><th>Thời gian</th><th>Người thao tác</th><th>Hành động</th><th>Loại</th></tr></thead><tbody>${d.items.length?d.items.map(x=>`<tr><td class="nowrap">${esc(x.THOI_GIAN)}</td><td>${esc(x.EMAIL)}</td><td>${esc(x.HANH_DONG)}</td><td>${esc(x.LOAI_DOI_TUONG)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có nhật ký.</td></tr>'}</tbody></table></div><div class="pagination"><button class="btn" data-audit-page="${d.page-1}" ${d.page===1?'disabled':''}>← Trước</button>Trang ${d.page}/${Math.max(1,Math.ceil(d.total/d.pageSize))}<button class="btn" data-audit-page="${d.page+1}" ${d.page*d.pageSize>=d.total?'disabled':''}>Tiếp →</button></div>`;
+  $('#audit-output').innerHTML=`<div class="table-wrap audit-table"><table><thead><tr><th>Thời gian</th><th>Người thao tác</th><th>Hành động</th><th>Loại</th></tr></thead><tbody>${d.items.length?d.items.map(x=>`<tr><td class="nowrap">${esc(x.THOI_GIAN)}</td><td>${esc(x.EMAIL)}</td><td>${esc(auditLabel(AUDIT_ACTION_VI,x.HANH_DONG))}</td><td>${esc(auditLabel(AUDIT_OBJECT_VI,x.LOAI_DOI_TUONG))}</td></tr>`).join(''):'<tr><td colspan="4" class="empty">Chưa có nhật ký.</td></tr>'}</tbody></table></div><div class="pagination"><button class="btn" data-audit-page="${d.page-1}" ${d.page===1?'disabled':''}>← Trước</button>Trang ${d.page}/${Math.max(1,Math.ceil(d.total/d.pageSize))}<button class="btn" data-audit-page="${d.page+1}" ${d.page*d.pageSize>=d.total?'disabled':''}>Tiếp →</button></div>`;
 }
 function showModal(title,body,footer=''){$('#modal').innerHTML=`<div class="modal-head"><h3>${esc(title)}</h3><button class="btn icon-button" data-close="1" aria-label="Đóng">×</button></div>${body}${footer}`;$('#modal-layer').classList.remove('hidden');$('#modal-layer').setAttribute('aria-hidden','false');}
-function closeModal(){state.statusImport=null;$('#modal-layer').classList.add('hidden');$('#modal-layer').setAttribute('aria-hidden','true');$('#modal').innerHTML='';state.usedPerson=null;}
+function closeModal(){state.statusImport=null;$('#modal-layer').classList.add('hidden');$('#modal-layer').setAttribute('aria-hidden','true');$('#modal').innerHTML='';state.usedPerson=null;if(state.needsActiveRefresh)queueMicrotask(()=>{void refreshVisibleStaleData();});}
 const modalFoot=(label='Lưu hồ sơ')=>`<div class="modal-foot"><button type="button" class="btn" data-close="1">Hủy</button><button type="submit" class="btn btn-primary" data-submit-btn="1">${label}</button></div>`;
 const field=(label,name,value='',type='text',extra='')=>`<div class="field"><label for="f-${esc(name)}">${esc(label)}</label><input id="f-${esc(name)}" name="${esc(name)}" type="${type}" value="${esc(value)}" ${extra}></div>`;
 const selectField=(label,name,inner)=>`<div class="field"><label for="f-${esc(name)}">${esc(label)}</label><select id="f-${esc(name)}" name="${esc(name)}">${inner}</select></div>`;
@@ -701,6 +755,24 @@ function recordForm(r){
 const RECORD_DETAIL_LABELS=[['HO_TEN','Họ và tên'],['NGAY_SINH','Năm sinh'],['GIOI_TINH','Giới tính'],['SO_SO_BHXH','Số sổ BHXH'],['SO_QUYET_DINH','Số QĐ HTHN'],['NGAY_QUYET_DINH','Ngày ban hành QĐHN'],['SO_QD_TCTN','Số QĐ TCTN'],['NGAY_QD_TCTN','Ngày ban hành QĐ TCTN'],['NGHE_ID','Nghề đăng ký'],['SO_THANG_HO_TRO','Số tháng hỗ trợ'],['MUC_HO_TRO_THANG','Mức hỗ trợ/tháng'],['NGAY_BAT_DAU','Thời gian đào tạo – Từ ngày'],['NGAY_KET_THUC_DU_KIEN','Thời gian đào tạo – Đến ngày'],['TRUONG_ID','Cơ sở đào tạo nghề'],['NGAY_KET_THUC_TCTN','Ngày kết thúc hưởng TCTN'],['NGAY_KET_THUC_HO_TRO','Ngày kết thúc hỗ trợ học nghề'],['DIA_CHI_TAM_TRU','Địa chỉ tạm trú'],['DIA_CHI_THUONG_TRU','Địa chỉ thường trú'],['SO_CMND','Số CMND'],['NGAY_CAP_CMND','Ngày cấp CMND'],['NOI_CAP_CMND','Nơi cấp CMND'],['DIA_CHI_CO_SO','Địa chỉ cơ sở đào tạo'],['CHI_NHANH_BHTN','Chi nhánh BHTN'],['DIEN_THOAI','Điện thoại']];
 function recordDetail(r){const rows=RECORD_DETAIL_LABELS.map(([k,label])=>{let val=r[k]||'';if(k==='NGHE_ID')val=lookup('nghe',val);if(k==='TRUONG_ID')val=lookup('truong',val);if(k==='SO_THANG_HO_TRO')val=supportMonthsVN(val);if(k==='MUC_HO_TRO_THANG')val=supportMoneyVN(val);if(['NGAY_SINH','NGAY_QUYET_DINH','NGAY_QD_TCTN','NGAY_BAT_DAU','NGAY_KET_THUC_DU_KIEN','NGAY_KET_THUC_TCTN','NGAY_KET_THUC_HO_TRO','NGAY_CAP_CMND'].includes(k)&&val)val=dateVN(val);if(k==='GIOI_TINH')val=({NAM:'Nam',NU:'Nữ',KHAC:'Khác'})[val]||val;return `<tr><th>${esc(label)}</th><td>${esc(val||'—')}</td></tr>`;}).join('');showModal('Chi tiết hồ sơ học nghề',`<div class="table-wrap detail-table"><table><tbody>${rows}</tbody></table></div><div class="modal-foot"><button class="btn" data-close="1">Đóng</button></div>`);}
 function statusForm(r){showModal('Cập nhật tình trạng học nghề',`<form id="status-form" class="form-grid" data-original-period="${esc(r.NGAY_BO_HOC||'')}" data-support-months="${esc(r.SO_THANG_HO_TRO||'')}"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="full info-banner">${esc(r.HO_TEN)} · Quyết định ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}</div>${statusSelect(r)}${dropoutFields(r)}${modalFoot('Cập nhật tình trạng')}</form>`);updateDropoutFields($('#status-form'));}
+// A user's draft is never overwritten. Explicit confirmation is required to retry.
+const situationLabel=r=>r.DA_BO_HOC==='TRUE'?'Bỏ học':STATUS[r.TRANG_THAI_THAM_GIA]||state.statuses.find(x=>x.id===r.TRANG_THAI_THAM_GIA)?.label||'Tình trạng khác';
+function renderStatusConflict(form,fresh){
+  if(!form?.isConnected||form.elements.HO_SO_ID.value!==fresh.HO_SO_ID)return;
+  let area=$('#status-conflict');
+  if(!area){area=document.createElement('div');area.id='status-conflict';area.className='full status-conflict';area.setAttribute('role','alert');form.querySelector('.info-banner')?.after(area);}
+  const choice=form.elements.UI_TINH_TRANG?.selectedOptions?.[0]?.textContent||'Lựa chọn của bạn';
+  area.innerHTML=`<strong>Hồ sơ vừa được người khác cập nhật</strong><p>Thay đổi của bạn chưa được lưu. Vui lòng đối chiếu tình trạng mới nhất trước khi quyết định cập nhật lại.</p><div class="conflict-compare"><span>Tình trạng mới nhất: <b>${esc(situationLabel(fresh))}</b></span><span>Bạn đang chọn: <b>${esc(choice)}</b></span></div><button type="button" class="btn btn-light" data-accept-conflict="1">Tôi đã kiểm tra, tiếp tục với lựa chọn của tôi</button>`;
+  form.dataset.freshVersion=String(fresh.PHIEN_BAN);
+  const submit=form.querySelector('[data-submit-btn]');if(submit)submit.disabled=true;
+}
+async function showStatusConflict(form){
+  if(!form?.isConnected)return;
+  try{
+    const d=await rpc('record_fresh',{HO_SO_ID:form.elements.HO_SO_ID.value},{ttl:0});
+    renderStatusConflict(form,d.record);
+  }catch(e){failure(e);const submit=form.querySelector('[data-submit-btn]');if(submit)submit.disabled=true;}
+}
 function catalogForm(item){const type=state.catalogType,def={truong:['TRUONG_ID','MA_TRUONG','TEN_TRUONG'],nghe:['NGHE_ID','MA_NGHE','TEN_NGHE'],lydo:['LY_DO_ID','MA_LY_DO','NOI_DUNG']}[type],x=item||{};
   showModal((item?'Sửa':'Thêm')+' '+NAMES[type].toLowerCase(),`<form id="catalog-form" class="form-grid"><input type="hidden" name="id" value="${esc(x[def[0]])}"><input type="hidden" name="type" value="${type}">${item?field('Mã danh mục (không thể thay đổi)','code',x[def[1]]||'','text','readonly'):''}${field('Tên / Nội dung *','title',x[def[2]]||'','text','required maxlength="250"')}${type==='truong'?`${field('Tên viết tắt','shortName',x.TEN_VIET_TAT||'')}${field('Địa chỉ','address',x.DIA_CHI||'')}`:''}${type==='truong'?'':field('Thứ tự','order',x.THU_TU||0,'number')}${selectField('Trạng thái','status',option('ACTIVE','Đang sử dụng',x.TRANG_THAI||'ACTIVE')+option('INACTIVE','Ngừng sử dụng',x.TRANG_THAI))}<div class="field full"><label>Ghi chú</label><textarea name="note">${esc(x.GHI_CHU||'')}</textarea></div><div class="full form-hint">${item?'Mã danh mục đã cấp được giữ nguyên để bảo vệ hồ sơ liên kết.':'Hệ thống sẽ tự tạo mã sau khi lưu.'}</div>${modalFoot('Lưu danh mục')}</form>`);
 }
@@ -890,7 +962,7 @@ function statusBulkRenderResults(rows,skipped){
   const all=[...rows,...skipped],count=statusBulkCounts(all),summary=[['eligible','Đủ điều kiện'],['updated','Đã cập nhật'],['same','Đã đúng tình trạng'],['protected','Đã có tình trạng khác'],['changed','Đã thay đổi khi ghi'],['missing','Không tìm thấy'],['duplicate','Trùng'],['invalid','Sai/thiếu thông tin'],['unselected','Không đánh dấu X'],['ignored','Dòng tổng hợp'],['pending','Chưa xử lý']];
   const cards=summary.filter(([k])=>count[k]).map(([k,label])=>`<span>${esc(label)}: <b>${num(count[k])}</b></span>`).join('');
   const problematic=all.filter(x=>!['eligible','updated','ignored','unselected'].includes(x.kind));
-  const sample=all.slice(0,35).map(x=>`<tr><td>${num(x.line)}</td><td>${esc(x.kind)}</td><td>${esc(x.reason)}</td></tr>`).join('');
+  const sample=all.slice(0,35).map(x=>`<tr><td>${num(x.line)}</td><td>${esc(statusBulkKindVi(x.kind))}</td><td>${esc(x.reason)}</td></tr>`).join('');
   box.innerHTML=`<div class="import-summary"><b>${num(all.length)} dòng được đọc</b>${cards}</div>${problematic.length?`<p class="small"><b>${num(problematic.length)} dòng không cập nhật / cần rà soát.</b> Có thể tải danh sách riêng để kiểm tra.</p>`:''}<div class="table-wrap import-preview-table"><table><thead><tr><th>Dòng</th><th>Phân loại</th><th>Kết quả / lý do</th></tr></thead><tbody>${sample}</tbody></table></div>`;
   const exportBtn=$('[data-status-bulk-errors]');if(exportBtn)exportBtn.hidden=!problematic.length;
 }
@@ -1095,7 +1167,7 @@ async function exportSummaryOrMatrix(mode){
     const columns=['STT',label,'Tổng số Quyết định đã ban hành','Đã tham gia','Bỏ học','Không tham gia','Không nhận Quyết định','Chưa xác nhận','Hoàn thành khóa học',...customs.map(x=>x.label),...(other?['Tình trạng khác']:[])];
     // Frontend mới yêu cầu backend mới: không tự chuyển undefined thành 0 khi lệch bản triển khai.
     if(d.items.some(r=>!Number.isSafeInteger(r.participated)||r.participated<0)){
-      throw Error('Apps Script chưa đồng bộ phiên bản báo cáo. Vui lòng cập nhật Code.gs rồi xuất lại Excel.');
+      throw Error('Chưa thể xuất báo cáo do dữ liệu chưa đồng bộ đầy đủ. Vui lòng liên hệ quản trị viên để kiểm tra.');
     }
     const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.participated,r.dropout,r.notParticipating,r.notReceived,r.pending,r.courseEndParticipated||0,...customs.map(x=>r.customStatusCounts?.[x.id]||0),...(other?[Math.max(0,Number(r.other||0)-customCount(r))]:[])]);
     // Đã tham gia bao gồm Bỏ học; không được cộng chồng cột Bỏ học vào tổng QĐ.
@@ -1150,11 +1222,11 @@ const serialized=async(fn,progress={})=>{
   const prior=button?.innerHTML;
   if(button){button.textContent=progress.label||'Đang xử lý…';button.setAttribute('aria-busy','true');}
   document.querySelectorAll('[data-submit-btn]').forEach(x=>x.disabled=true);
-  try{await fn();}catch(e){failure(e);}
+  try{await fn();}catch(e){if(e.code==='VERSION_CONFLICT'&&$('#status-form'))await showStatusConflict($('#status-form'));else failure(e);}
   finally{
     state.busy=false;
     if(button?.isConnected){button.innerHTML=prior;button.removeAttribute('aria-busy');}
-    document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid) || (x.id==='status-bulk-submit' && (!state.statusImport?.verified || !state.statusImport?.results?.some(r=>r.kind==='eligible')));});
+    document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(!!(x.closest('#status-form')&&$('#status-conflict')) || x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid) || (x.id==='status-bulk-submit' && (!state.statusImport?.verified || !state.statusImport?.results?.some(r=>r.kind==='eligible')));});
   }
 };
 // Delegated buttons: no inline user-controlled event handlers.
@@ -1196,6 +1268,7 @@ window.addEventListener('scroll',()=>{if(activeCalendar)calendarPosition();},tru
 document.addEventListener('click',async e=>{
   const node=e.target.closest('button');if(!node)return;
   if(node.hasAttribute('data-close')){if(!state.busy)closeModal();return;}
+  if(node.hasAttribute('data-accept-conflict')){const form=$('#status-form');if(form?.dataset.freshVersion){form.elements.PHIEN_BAN.value=form.dataset.freshVersion;form.querySelector('#status-conflict')?.remove();form.dataset.freshVersion='';const submit=form.querySelector('[data-submit-btn]');if(submit)submit.disabled=false;}return;}
   if(node.hasAttribute('data-nav')){navigate(node.dataset.nav);return;}
   if(node.hasAttribute('data-dashboard-detail')){if(allowed('REPORT_VIEW'))navigate('reports');return;}
   if(node.hasAttribute('data-retry')){navigate(state.page,true);return;}
@@ -1203,7 +1276,7 @@ document.addEventListener('click',async e=>{
   if(node.hasAttribute('data-status-bulk')){statusBulkForm();return;}
   if(node.hasAttribute('data-status-bulk-template')){const a=document.createElement('a');a.href='/templates/MAU_CAP_NHAT_TINH_TRANG.xlsx';a.download='MAU_CAP_NHAT_TINH_TRANG.xlsx';document.body.append(a);a.click();a.remove();return;}
   if(node.hasAttribute('data-status-bulk-check')){await serialized(statusBulkCheck);return;}
-  if(node.hasAttribute('data-status-bulk-errors')){const s=state.statusImport;if(!s)return;const list=[...(s.results||[]),...(s.skipped||[])].filter(x=>!['eligible','updated','ignored','unselected'].includes(x.kind));downloadCsv('ket-qua-chua-cap-nhat.csv',[['Dòng','Phân loại','Lý do'],...list.map(x=>[x.line,x.kind,x.reason])]);return;}
+  if(node.hasAttribute('data-status-bulk-errors')){const s=state.statusImport;if(!s)return;const list=[...(s.results||[]),...(s.skipped||[])].filter(x=>!['eligible','updated','ignored','unselected'].includes(x.kind));downloadCsv('ket-qua-chua-cap-nhat.csv',[['Dòng','Phân loại','Lý do'],...list.map(x=>[x.line,statusBulkKindVi(x.kind),x.reason])]);return;}
   if(node.hasAttribute('data-record-template')){downloadRecordTemplate();return;}
   if(node.hasAttribute('data-record-check')){await serialized(recordBulkCheck);return;}
   if(node.hasAttribute('data-record-errors')){const issues=state.importPreview?.issues||[];if(!issues.length)return;downloadCsv('danh-sach-loi-nhap-ho-so.csv',[['Dòng trong file','Vấn đề'],...issues.map(x=>[x.line,x.reason])]);return;}
@@ -1387,7 +1460,8 @@ function recheckPermissionOnResume(){
   if(!state.session||document.visibilityState==='hidden')return;
   const now=Date.now();if(now-state.lastPermissionFocusCheck<15000)return;
   state.lastPermissionFocusCheck=now;
-  if(now-state.permissionChecked>=120000)void verifyPermission().catch(failure);
+  if(now-state.permissionChecked>=30000)void verifyPermission(true).catch(()=>{/* Khi có lỗi mạng, giữ nguyên biểu mẫu đang nhập. */});
+  else if(state.needsActiveRefresh)void refreshVisibleStaleData();
 }
 document.addEventListener('visibilitychange',recheckPermissionOnResume);
 window.addEventListener('focus',recheckPermissionOnResume);
