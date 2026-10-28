@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.23-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.24-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.23-RC',
+  version: '1.2.24-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -372,12 +372,12 @@ function registerCustomStatus_(label,user){
 function isValidStatus_(s){return ['CHO_XAC_NHAN','DA_THAM_GIA','KHONG_THAM_GIA','KHONG_NHAN_QUYET_DINH'].indexOf(s)>=0 || !!customStatusLabel_(s);}
 function dropoutPeriod_(raw,months,allowLegacy){
   var value=str_(raw,24);
-  if(allowLegacy && (validDate_(value)||/^KY:(?:1[3-9]|[2-9][0-9]+)$/.test(value)))return value;
+  if(allowLegacy && (validDate_(value)||/^KY:(?:[7-9]|[1-9][0-9]+)$/.test(value)))return value;
   var m=/^KY:([1-9][0-9]*)$/.exec(value), n=Number(m&&m[1]);
-  must_(!!m && n>=2,'VALIDATION','Hãy chọn tháng bắt đầu bỏ học sau tháng đã tham gia.');
+  must_(!!m && n>=1,'VALIDATION','Vui lòng chọn tháng bắt đầu bỏ học từ tháng thứ 1 đến tháng thứ 6.');
   var N=Number(months);
   must_(Number.isInteger(N)&&N>0,'VALIDATION','Khóa học cần số tháng hỗ trợ nguyên để xác định tháng bỏ học. Vui lòng kiểm tra hồ sơ.');
-  must_(n<=12,'VALIDATION','Chỉ được chọn tháng bỏ học từ thứ 2 đến thứ 12. Kỳ ngoài phạm vi này cần được xem xét riêng.');
+  must_(n<=6,'VALIDATION','Chỉ được chọn tháng bỏ học từ tháng thứ 1 đến tháng thứ 6.');
   must_(n<=N,'VALIDATION','Tháng bỏ học vượt số tháng của khóa học.');
   return value;
 }
@@ -522,7 +522,7 @@ function allowedRecord_(p,original,bulkCatalogs,allowLegacyImport){
   must_(trade.TRANG_THAI==='ACTIVE'||original&&original.NGHE_ID===trade.NGHE_ID,'VALIDATION','Nghề đã ngừng sử dụng.');
   if(o.DA_BO_HOC==='TRUE') {
     must_(o.TRANG_THAI_THAM_GIA==='DA_THAM_GIA','VALIDATION','Bỏ học chỉ áp dụng cho người đã tham gia.');
-    o.NGAY_BO_HOC=dropoutPeriod_(o.NGAY_BO_HOC,o.SO_THANG_HO_TRO,Boolean(allowLegacyImport && validDate_(o.NGAY_BO_HOC) || (original && o.NGAY_BO_HOC===original.NGAY_BO_HOC && (validDate_(o.NGAY_BO_HOC)||/^KY:(?:1[3-9]|[2-9][0-9]+)$/.test(o.NGAY_BO_HOC)))));
+    o.NGAY_BO_HOC=dropoutPeriod_(o.NGAY_BO_HOC,o.SO_THANG_HO_TRO,Boolean(allowLegacyImport && validDate_(o.NGAY_BO_HOC) || (original && o.NGAY_BO_HOC===original.NGAY_BO_HOC && (validDate_(o.NGAY_BO_HOC)||/^KY:(?:[7-9]|[1-9][0-9]+)$/.test(o.NGAY_BO_HOC)))));
     must_(Boolean(o.LY_DO_BO_HOC_ID),'VALIDATION','Phải chọn lý do bỏ học.');
     must_(Boolean(lookup('lydo',o.LY_DO_BO_HOC_ID)),'VALIDATION','Lý do bỏ học không tồn tại.');
     if(validDate_(o.NGAY_BO_HOC) && o.NGAY_BAT_DAU)must_(o.NGAY_BO_HOC>=o.NGAY_BAT_DAU,'VALIDATION','Ngày bỏ học không được trước ngày bắt đầu học.');
@@ -779,7 +779,7 @@ function statusRecord_(user,p,requestId){return dedupeWrite_(requestId,function(
   must_(isValidStatus_(data.TRANG_THAI_THAM_GIA),'VALIDATION','Tình trạng không hợp lệ.');
   if(data.DA_BO_HOC==='TRUE'){
     must_(data.TRANG_THAI_THAM_GIA==='DA_THAM_GIA','VALIDATION','Bỏ học chỉ dành cho người đã tham gia.');
-    data.NGAY_BO_HOC=dropoutPeriod_(data.NGAY_BO_HOC,old.SO_THANG_HO_TRO,data.NGAY_BO_HOC===old.NGAY_BO_HOC && (validDate_(data.NGAY_BO_HOC)||/^KY:(?:1[3-9]|[2-9][0-9]+)$/.test(data.NGAY_BO_HOC)));
+    data.NGAY_BO_HOC=dropoutPeriod_(data.NGAY_BO_HOC,old.SO_THANG_HO_TRO,data.NGAY_BO_HOC===old.NGAY_BO_HOC && (validDate_(data.NGAY_BO_HOC)||/^KY:(?:[7-9]|[1-9][0-9]+)$/.test(data.NGAY_BO_HOC)));
     must_(catalogRows_('lydo').some(function(x){return x.LY_DO_ID===data.LY_DO_BO_HOC_ID;}),'VALIDATION','Cần chọn lý do bỏ học.');
     if(validDate_(data.NGAY_BO_HOC) && old.NGAY_BAT_DAU)must_(data.NGAY_BO_HOC>=old.NGAY_BAT_DAU,'VALIDATION','Ngày bỏ học không được trước ngày bắt đầu học.');
   } else {data.NGAY_BO_HOC='';data.LY_DO_BO_HOC_ID='';}

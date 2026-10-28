@@ -96,21 +96,26 @@ export function downloadXlsx(filename,rows){const blob=buildXlsx(rows),url=URL.c
 export function buildReportXlsx(columns, rows, title='Báo cáo học nghề', opts={}){
   if(!Array.isArray(columns)||columns.length<2||columns.length>64||!Array.isArray(rows))throw Error('Mẫu báo cáo không hợp lệ.');
   const n=columns.length;
+  const compact=opts.summaryCompact===true;
+  if(compact && (n!==3||columns[0]!=='STT'||columns[1]!=='Chỉ tiêu'||columns[2]!=='Số lượng'))throw Error('Mẫu Báo cáo tổng hợp không hợp lệ.');
   const cell=(value, r, c, style)=>{
     const a=address(c),at=`${a}${r}`;
     if(typeof value==='number' && Number.isFinite(value))return `<c r="${at}" s="${style||0}"><v>${value}</v></c>`;
     const valueText=String(value??'');
     return `<c r="${at}" t="inlineStr" s="${style||0}"><is><t xml:space="preserve">${xml(valueText)}</t></is></c>`;
   };
-  const lines=[`<row r="1" ht="35" customHeight="1">${cell(title.toUpperCase(),1,0,3)}</row>`,
-    `<row r="2" ht="${Math.max(48,Math.min(110,Math.ceil(Math.max(...columns.map(x=>String(x??'').length))/25)*17+24))}" customHeight="1">${columns.map((x,c)=>cell(x,2,c,1)).join('')}</row>`];
+  const lines=[`<row r="1" ht="35" customHeight="1">${cell(title.toUpperCase(),1,compact?1:0,3)}</row>`,
+    `<row r="2" ht="${compact?38:Math.max(48,Math.min(110,Math.ceil(Math.max(...columns.map(x=>String(x??'').length))/25)*17+24))}" customHeight="1">${columns.map((x,c)=>cell(x,2,c,1)).join('')}</row>`];
   rows.forEach((r,i)=>{
     if(!Array.isArray(r)||r.length!==n)throw Error('Số cột báo cáo không khớp mẫu.');
     const total=opts.matrixTotals && i===rows.length-1;
-    lines.push(`<row r="${i+3}" ht="${total?36:31}" customHeight="1">${r.map((x,c)=>cell(x,i+3,c,total?5:typeof x==='number'?2:4)).join('')}</row>`);
+    const charCount=compact?String(r[1]??'').length:0;
+    const linesNeeded=compact?Math.max(1,Math.ceil(charCount/19)):1;
+    const height=compact?Math.min(112,Math.max(31,12+16*linesNeeded)):(total?36:31);
+    lines.push(`<row r="${i+3}" ht="${height}" customHeight="1">${r.map((x,c)=>cell(x,i+3,c,total?5:typeof x==='number'?2:4)).join('')}</row>`);
   });
   const last=address(n-1);
-  const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${rows.length+2}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${Array.from({length:n},(_,i)=>`<col min="${i+1}" max="${i+1}" width="${i===1?52:i===0?8:22}" customWidth="1"/>`).join('')}</cols><sheetData>${lines.join('')}</sheetData><mergeCells count="${opts.matrixTotals?2:1}"><mergeCell ref="A1:${last}1"/>${opts.matrixTotals?`<mergeCell ref="A${rows.length+2}:B${rows.length+2}"/>`:''}</mergeCells><pageMargins left="0.4" right="0.4" top="0.55" bottom="0.55" header="0.2" footer="0.2"/></worksheet>`;
+  const ws=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${last}${rows.length+2}"/><sheetViews><sheetView workbookViewId="0"><pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><cols>${Array.from({length:n},(_,i)=>`<col min="${i+1}" max="${i+1}" width="${compact?[5.3,21.2,15.9][i]:i===1?52:i===0?8:22}" customWidth="1"/>`).join('')}</cols><sheetData>${lines.join('')}</sheetData><mergeCells count="${opts.matrixTotals?2:1}"><mergeCell ref="${compact?'B1':'A1'}:${last}1"/>${opts.matrixTotals?`<mergeCell ref="A${rows.length+2}:B${rows.length+2}"/>`:''}</mergeCells><pageMargins left="0.4" right="0.4" top="0.55" bottom="0.55" header="0.2" footer="0.2"/>${compact?'<pageSetup orientation="portrait" paperSize="9" fitToWidth="1" fitToHeight="1"/>':''}</worksheet>`;
   const files=[
     ['[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
     ['_rels/.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],

@@ -11,24 +11,24 @@ test('YC018: báo cáo và Excel tổng hợp không còn dòng Đang học, v�
  assert.doesNotMatch(part, /Đang học/);assert.match(part,/Bỏ học/);assert.match(part,/Đã tham gia/);
  assert.doesNotMatch(src,/\['DA_THAM_GIA','Đang học'\]/); // YC025 bỏ Đang học khỏi bộ lọc Báo cáo
 });
-test('YC018: N=3 vẫn có đủ 12 option, chỉ tháng 2-3 cho phép chọn',()=>{
+test('YC030: đúng sáu lựa chọn từ tháng 1 đến tháng 6, giới hạn theo thời gian hỗ trợ',()=>{
  const html=ctx.dropoutPeriodOptions('3');
- assert.equal((html.match(/>Tháng thứ \d+</g)||[]).length,12);
- assert.match(html, /value="KY:1"[^>]*disabled/);
- assert.match(html, /value="KY:2"[^>]*>Tháng thứ 2/);
- assert.match(html, /value="KY:3"[^>]*>Tháng thứ 3/);
- assert.match(html, /value="KY:4"[^>]*disabled/);
+ assert.equal((html.match(/>Tháng thứ \d+</g)||[]).length,6);
+ for(const n of [1,2,3])assert.match(html,new RegExp(`value="KY:${n}"[^>]*>Tháng thứ ${n}`));
+ for(const n of [4,5,6])assert.match(html,new RegExp(`value="KY:${n}"[^>]*disabled`));
+ assert.doesNotMatch(html,/Tháng thứ (?:7|8|9|10|11|12)/);
 });
-test('YC018: N=12 có 2-12; N=1 hoặc số lẻ không có kỳ hợp lệ',()=>{
- const html=ctx.dropoutPeriodOptions('12');assert.match(html,/value="KY:12"[^>]*>Tháng thứ 12/);
- for(const n of ['1','2,5','', '0']){
-  const opts=ctx.dropoutPeriodOptions(n);
-  for(let i=1;i<=12;i++)assert.match(opts,new RegExp(`value="KY:${i}"[^>]*disabled`));
- }
- assert.match(ctx.dropoutPeriodHelp('2,5'),/không tự làm tròn/);
+test('YC030: tháng 6 là tối đa, tháng 1 hợp lệ với hỗ trợ một tháng, số lẻ không cho chọn',()=>{
+ const html=ctx.dropoutPeriodOptions('12');assert.match(html,/value="KY:6"[^>]*>Tháng thứ 6/);
+ assert.doesNotMatch(html,/KY:7|KY:12/);
+ const one=ctx.dropoutPeriodOptions('1');assert.match(one,/value="KY:1"[^>]*>Tháng thứ 1/);
+ for(let i=2;i<=6;i++)assert.match(one,new RegExp(`value="KY:${i}"[^>]*disabled`));
+ for(const n of ['2,5','', '0'])for(let i=1;i<=6;i++)assert.match(ctx.dropoutPeriodOptions(n),new RegExp(`value="KY:${i}"[^>]*disabled`));
+ assert.doesNotMatch(ctx.dropoutFields({SO_THANG_HO_TRO:'2'}),/Chỉ chọn tháng thứ/);
 });
 test('YC018: ngày lịch sử và KY:13 được giữ dưới dạng mục riêng nếu đã có',()=>{
  assert.match(ctx.dropoutPeriodOptions('3','2026-10-19','2026-10-19'),/Dữ liệu cũ — 19\/10\/2026/);
  assert.match(ctx.dropoutPeriodOptions('15','KY:13','KY:13'),/Kỳ lịch sử — 13/);
+ assert.match(ctx.dropoutPeriodOptions('12','KY:8','KY:8'),/Kỳ lịch sử — 8/);
  assert.doesNotMatch(ctx.dropoutPeriodOptions('15','KY:13',''),/Kỳ lịch sử — 13/);
 });

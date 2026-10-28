@@ -364,6 +364,12 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 .topbar .user-box .user-role-badge--admin{--role-color:#7038a2;--role-bg:#f0e0ff;--role-border:#ddc4f5}
 .topbar .user-box .user-role-badge--admin::before{content:"◆";left:11px;width:11px;height:13px;line-height:13px;border-radius:0;background:transparent;font-size:11px;opacity:1}
 .topbar .user-box .user-role-badge--school{--role-color:#167245;--role-bg:#ddf5e7;--role-border:#bde9ce}
+/* YC-HN-030: Tên tài khoản và tên cơ sở đào tạo đầy đủ, không cắt bằng dấu ba chấm. */
+.topbar:has(.user-role-badge--school){height:auto;min-height:87px}
+.topbar .user-box:has(.user-role-badge--school){max-width:min(690px,65vw);flex:0 1 auto}
+.topbar .user-box:has(.user-role-badge--school) .user-display-name{max-width:100%;white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+.topbar .user-box .user-role-badge--school{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere;line-height:1.35;text-align:right}
+@media(max-width:900px){.topbar:has(.user-role-badge--school){min-height:70px}}
 @media(max-width:600px){.topbar .user-box{display:none}}
 
 /* YC-HN-029: compare server state and unsaved draft, within existing modal only. */

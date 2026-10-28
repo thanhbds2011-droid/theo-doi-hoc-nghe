@@ -1,5 +1,5 @@
-import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.21-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.23-RC (YC-HN-029 V5, tối ưu hiệu năng/đồng bộ, kế thừa giao diện chức danh V4). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.24-RC';
+/** THEO DÕI HỌC NGHỀ — v1.2.24-RC (YC-HN-030 V1, kế thừa YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -676,35 +676,29 @@ const selectField=(label,name,inner)=>`<div class="field"><label for="f-${esc(na
 function activeCatOptions(type,current){const id={truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type],name={truong:'TEN_TRUONG',nghe:'TEN_NGHE',lydo:'NOI_DUNG'}[type];return option('','-- Chọn --',current)+state.cats[type].filter(x=>x.TRANG_THAI==='ACTIVE'||x[id]===current).map(x=>option(x[id],x[name],current)).join('');}
 function learningSelection(r){return r?.DA_BO_HOC==='TRUE'?'BO_HOC':r?.TRANG_THAI_THAM_GIA||'CHO_XAC_NHAN';}
 function statusSelect(r){const selected=learningSelection(r);return selectField('Tình trạng tham gia *','UI_TINH_TRANG',allStatusOptions().map(([k,v])=>option(k,v,selected)).join('')+option('KHAC','Khác',selected))+`<div class="field full status-custom" hidden><label>Tình trạng khác *</label><input name="customStatusName" maxlength="60" placeholder="Ví dụ: Thôi việc" disabled></div>`;}
-// YC-HN-018: Luôn hiện 12 kỳ; không cho chọn KY:1 hoặc vượt số tháng hỗ trợ.
-// Giá trị lịch sử (ngày cũ / KY:13+) chỉ được giữ khi đã có sẵn trên hồ sơ.
-function dropoutMaxPeriod(months){const raw=String(months??'').trim().replace(',','.');const n=raw===''?NaN:Number(raw);return Number.isInteger(n)&&n>=2?Math.min(12,n):0;}
-function dropoutPeriodHelp(months){const raw=String(months??'').trim().replace(',','.');const n=raw===''?NaN:Number(raw);
-  if(!Number.isInteger(n)||n<=0)return 'Số tháng hỗ trợ chưa hợp lệ hoặc là số lẻ. Cần kiểm tra lại hồ sơ; không tự làm tròn kỳ.';
-  if(n===1)return 'Hồ sơ chỉ hỗ trợ 1 tháng nên chưa có kỳ bỏ học hợp lệ. Người đã tham gia rồi ngừng học cần xác định nghiệp vụ riêng.';
-  if(n>12)return 'Hệ thống hỗ trợ chọn kỳ 2–12. Kỳ từ 13 trở đi cần được xem xét riêng.';
-  return 'Chỉ chọn tháng thứ 2 đến tháng thứ '+n+'. Tháng thứ 1 đã tham gia dù một ngày vẫn tính đã học; chưa học ngày nào thì chọn Không tham gia.';
-}
+// YC-HN-030: Chỉ hiển thị kỳ 1–6, không cho chọn vượt thời gian hỗ trợ.
+// Hồ sơ cũ có KY:7+ hoặc ngày bỏ học ISO được giữ nếu không thay đổi giá trị.
+function dropoutMaxPeriod(months){const raw=String(months??'').trim().replace(',','.');const n=raw===''?NaN:Number(raw);return Number.isInteger(n)&&n>=1?Math.min(6,n):0;}
+const historicalDropoutPeriod=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)||/^KY:(?:[7-9]|[1-9]\d+)$/.test(value);
 function dropoutPeriodOptions(months,selected='',original=''){
   const limit=dropoutMaxPeriod(months);let html=option('','-- Chọn tháng bắt đầu bỏ học --',selected);
-  for(let n=1;n<=12;n++){
-    const val='KY:'+n,valid=n>=2&&n<=limit;
+  for(let n=1;n<=6;n++){
+    const val='KY:'+n,valid=n<=limit;
     html+=`<option value="${val}" ${valid&&val===selected?'selected':''} ${valid?'':'disabled'}>Tháng thứ ${n}</option>`;
   }
-  const saved=String(original||''),isDate=/^\d{4}-\d{2}-\d{2}$/.test(saved),isOldPeriod=/^KY:(?:1[3-9]|[2-9]\d+)$/.test(saved);
-  if(saved===selected&&(isDate||isOldPeriod))html+=option(saved,isDate?'Dữ liệu cũ — '+dateVN(saved):'Kỳ lịch sử — '+saved.slice(3),saved);
+  const saved=String(original||''),isDate=/^\d{4}-\d{2}-\d{2}$/.test(saved);
+  if(saved===selected&&historicalDropoutPeriod(saved))html+=option(saved,isDate?'Dữ liệu cũ — '+dateVN(saved):'Kỳ lịch sử — '+saved.slice(3),saved);
   return html;
 }
 function dropoutFields(r){const months=r?.SO_THANG_HO_TRO||'',prev=r?.NGAY_BO_HOC||'';
-  const historical=/^\d{4}-\d{2}-\d{2}$/.test(prev)||/^KY:(?:1[3-9]|[2-9]\d+)$/.test(prev);
-  return `<div class="dropout-only field"><label>Tháng bỏ học *</label><select name="NGAY_BO_HOC">${dropoutPeriodOptions(months,prev,prev)}</select><div class="form-hint" data-dropout-help>${esc(dropoutPeriodHelp(months))}</div>${historical?'<div class="form-hint">Dữ liệu bỏ học lịch sử được giữ nguyên nếu không thay đổi; không tự chuyển sang kỳ mới.</div>':''}</div><div class="dropout-only">${selectField('Lý do bỏ học *','LY_DO_BO_HOC_ID',activeCatOptions('lydo',r?.LY_DO_BO_HOC_ID))}</div>`;
+  const historical=historicalDropoutPeriod(prev);
+  return `<div class="dropout-only field"><label>Tháng bỏ học *</label><select name="NGAY_BO_HOC">${dropoutPeriodOptions(months,prev,prev)}</select>${historical?'<div class="form-hint">Dữ liệu bỏ học lịch sử được giữ nguyên nếu không thay đổi; không tự chuyển sang kỳ mới.</div>':''}</div><div class="dropout-only">${selectField('Lý do bỏ học *','LY_DO_BO_HOC_ID',activeCatOptions('lydo',r?.LY_DO_BO_HOC_ID))}</div>`;
 }
 function refreshDropoutPeriod(form){const select=form?.elements?.NGAY_BO_HOC;if(!select)return;
   const months=form.elements.SO_THANG_HO_TRO?.value??form.dataset.supportMonths??'',previous=select.value,original=form.dataset.originalPeriod||'';
-  const limit=dropoutMaxPeriod(months),n=/^KY:(\d+)$/.exec(previous),isValid=n&&Number(n[1])>=2&&Number(n[1])<=limit;
-  const keep=!!(isValid||(previous===original&&(/^\d{4}-\d{2}-\d{2}$/.test(original)||/^KY:(?:1[3-9]|[2-9]\d+)$/.test(original))));
+  const limit=dropoutMaxPeriod(months),n=/^KY:(\d+)$/.exec(previous),isValid=n&&Number(n[1])>=1&&Number(n[1])<=limit;
+  const keep=!!(isValid||(previous===original&&historicalDropoutPeriod(original)));
   select.innerHTML=dropoutPeriodOptions(months,keep?previous:'',original);
-  const note=form.querySelector('[data-dropout-help]');if(note)note.textContent=dropoutPeriodHelp(months);
 }
 function updateDropoutFields(form){if(!form)return;refreshDropoutPeriod(form);
   const st=form.elements.UI_TINH_TRANG?.value,isDropout=st==='BO_HOC';
@@ -942,7 +936,7 @@ function statusBulkForm(){
   showModal('Cập nhật tình trạng từ Excel',`<form id="status-bulk-form" class="form-grid">
     <div class="full info-banner">Chỉ Quản trị viên được cập nhật hàng loạt. <b>Chỉ hồ sơ Chưa xác nhận mới được thay đổi.</b> Hồ sơ đã có tình trạng khác sẽ giữ nguyên, kể cả hồ sơ Bỏ học.</div>
     <div class="field full"><label>Tình trạng cần cập nhật *</label><select name="status">${opts}</select></div>
-    <div class="field full status-bulk-dropout" hidden><label>Tháng bắt đầu bỏ học (nếu chung cho danh sách)</label><select name="dropoutPeriod">${option('','-- Chọn --')}${Array.from({length:11},(_,i)=>option('KY:'+(i+2),'Tháng thứ '+(i+2))).join('')}</select></div>
+    <div class="field full status-bulk-dropout" hidden><label>Tháng bắt đầu bỏ học (nếu chung cho danh sách)</label><select name="dropoutPeriod">${option('','-- Chọn --')}${Array.from({length:6},(_,i)=>option('KY:'+(i+1),'Tháng thứ '+(i+1))).join('')}</select></div>
     <div class="field full status-bulk-dropout" hidden><label>Lý do bỏ học (nếu chung cho danh sách)</label><select name="dropoutReason">${option('','-- Chọn --')}${(state.cats.lydo||[]).filter(x=>x.TRANG_THAI==='ACTIVE').map(x=>option(x.LY_DO_ID,x.NOI_DUNG)).join('')}</select></div>
     <div class="full"><button type="button" class="btn btn-light" data-status-bulk-template="1">⬇ Tải Excel mẫu cập nhật tình trạng</button></div>
     <div class="field full"><label>Chọn file Excel (.xlsx) *</label><input id="status-bulk-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" required></div>
@@ -1156,7 +1150,7 @@ async function exportReport(filters){const d=await rpc('report_export',filters,{
 function exportModal(){showModal('Xuất Excel báo cáo học nghề',`<form id="report-export-form" class="form-grid"><div class="field full"><label>Mẫu Excel cần xuất</label><select name="mode"><option value="list">Danh sách hồ sơ học nghề (25 cột)</option><option value="summary">Báo cáo tổng hợp (Chỉ tiêu / Số lượng)</option><option value="truong">Báo cáo theo cơ sở đào tạo</option><option value="nghe">Báo cáo theo nghề đào tạo</option></select></div>${modalFoot('Xuất Excel')}</form>`);}
 async function exportSummaryOrMatrix(mode){
   const stamp=new Date().toISOString().slice(0,10);
-  if(mode==='summary'){const d=await rpc('overview',state.reportFilters,{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts,state.reportFilters.status);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề');}
+  if(mode==='summary'){const d=await rpc('overview',state.reportFilters,{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts,state.reportFilters.status).map((row,i)=>[i+1,...row]);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['STT','Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề',{summaryCompact:true});}
   else{
     const d=await rpc('report_matrix',{...state.reportFilters,groupBy:mode},{ttl:0});
     const label=mode==='truong'?'Tên cơ sở đào tạo':'Tên nghề';
