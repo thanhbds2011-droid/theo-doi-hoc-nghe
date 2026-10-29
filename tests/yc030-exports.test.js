@@ -31,7 +31,7 @@ test('YC030: không đổi quyền, khóa phiên bản; UI và backend đều gi
   assert.match(app,/for\(let n=1;n<=6;n\+\+\)/);
   assert.doesNotMatch(app,/Chỉ chọn tháng thứ 2 đến tháng thứ/);
   assert.match(gas,/must_\(n<=6,'VALIDATION'/);
-  assert.match(gas,/must_\(n<=N,'VALIDATION'/);
+  assert.doesNotMatch(gas,/must_\(n<=N,'VALIDATION'/);
   assert.match(gas,/PHIEN_BAN/);
   assert.match(gas,/NO_PERMISSION/);
 });

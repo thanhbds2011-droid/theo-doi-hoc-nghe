@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.25-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.27-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.25-RC',
+  version: '1.2.27-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -375,10 +375,9 @@ function dropoutPeriod_(raw,months,allowLegacy){
   if(allowLegacy && (validDate_(value)||/^KY:(?:[7-9]|[1-9][0-9]+)$/.test(value)))return value;
   var m=/^KY:([1-9][0-9]*)$/.exec(value), n=Number(m&&m[1]);
   must_(!!m && n>=1,'VALIDATION','Vui lòng chọn tháng bắt đầu bỏ học từ tháng thứ 1 đến tháng thứ 6.');
-  var N=Number(months);
-  must_(Number.isInteger(N)&&N>0,'VALIDATION','Khóa học cần số tháng hỗ trợ nguyên để xác định tháng bỏ học. Vui lòng kiểm tra hồ sơ.');
+  // Người dùng chọn thủ công tháng 1–6, không giới hạn theo SO_THANG_HO_TRO
+  // hoặc ngày bắt đầu/kết thúc đào tạo.
   must_(n<=6,'VALIDATION','Chỉ được chọn tháng bỏ học từ tháng thứ 1 đến tháng thứ 6.');
-  must_(n<=N,'VALIDATION','Tháng bỏ học vượt số tháng của khóa học.');
   return value;
 }
 function authorize_(identity,action){
@@ -459,9 +458,19 @@ function visibleSchoolTrades_(user){
   var allowed=schoolTradeIndex_()[user.TRUONG_ID]||{};
   return catalog.filter(function(r){return Object.prototype.hasOwnProperty.call(allowed,r.NGHE_ID);});
 }
-/** Phiên bản riêng theo cơ sở: trường B không phải tải danh mục khi chỉ trường A đổi. */
+/** YC-HN-032: gửi CHỈ mục quan hệ trường–nghề cho ADMIN/NHAN_VIEN để đổi dropdown ngay tại trình duyệt.
+ * Không gửi chỉ mục của trường khác cho CO_SO_DAO_TAO; quyền xem hồ sơ vẫn được kiểm ở backend.
+ * Các nghề trong index có quyết định chưa xóa, kể cả nghề đang ngừng sử dụng.
+ */
+function schoolTradeScopeForUser_(user){
+  if(user.VAI_TRO==='CO_SO_DAO_TAO')return null;
+  var index=schoolTradeIndex_(),result=Object.create(null);
+  Object.keys(index).forEach(function(schoolId){result[schoolId]=Object.keys(index[schoolId]);});
+  return result;
+}
+/** Phiên bản theo cơ sở cho CO_SO_DAO_TAO; phiên bản chung cho ADMIN/NHAN_VIEN. */
 function schoolTradeRevision_(user){
-  return user.VAI_TRO==='CO_SO_DAO_TAO'?version_('SCHOOL_TRADES_'+user.TRUONG_ID):'';
+  return user.VAI_TRO==='CO_SO_DAO_TAO'?version_('SCHOOL_TRADES_'+user.TRUONG_ID):version_('SCHOOL_TRADES');
 }
 function bumpSchoolTradesForSchools_(schoolIds){
   var changed=Object.create(null);
@@ -488,7 +497,7 @@ function bootstrap_(user){
       }
     }); } catch(ex){console.warn('Last-login update failed',ex.message);}
   }
-  return {user:safeUser_(user), statuses:customStatusList_(), catalogs:{truong:catalogRows_('truong').filter(function(x){return catalogVisible_(x) && (user.VAI_TRO!=='CO_SO_DAO_TAO'||x.TRUONG_ID===user.TRUONG_ID);}),nghe:visibleSchoolTrades_(user),lydo:catalogRows_('lydo').filter(catalogVisible_)},version:APP.version,permissionRevision:version_('USERS'),dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS'),tradeScopeRevision:schoolTradeRevision_(user)};
+  return {user:safeUser_(user), statuses:customStatusList_(), catalogs:{truong:catalogRows_('truong').filter(function(x){return catalogVisible_(x) && (user.VAI_TRO!=='CO_SO_DAO_TAO'||x.TRUONG_ID===user.TRUONG_ID);}),nghe:visibleSchoolTrades_(user),lydo:catalogRows_('lydo').filter(catalogVisible_)},version:APP.version,permissionRevision:version_('USERS'),dataRevision:version_('DATA'),catalogRevision:version_('CAT'),statusRevision:version_('STATUS'),tradeScopeRevision:schoolTradeRevision_(user),tradeScopeMap:schoolTradeScopeForUser_(user)};
 }
 /** YC-HN-017: nhẹ hơn bootstrap; authorize_ vẫn kiểm tra mọi quyền ở máy chủ. */
 function permissionCheck_(user){

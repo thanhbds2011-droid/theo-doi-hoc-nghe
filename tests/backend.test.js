@@ -580,7 +580,7 @@ test('YC013: tháng bỏ học là kỳ N, lưu KY:2, không sửa lịch sử n
   last[cols.indexOf('NGAY_BO_HOC')]='2026-07-17'; // giả lập dòng lịch sử tồn tại từ trước.
   assert.equal(c.global.sheetRows_('HO_SO_HOC_NGHE').at(-1).NGAY_BO_HOC,'2026-07-17');
   const bad=c.send('record_status',{HO_SO_ID:res.data.record.HO_SO_ID,PHIEN_BAN:res.data.record.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:4',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
-  assert.equal(bad.error.code,'VALIDATION');
+  assert.equal(bad.ok,true,JSON.stringify(bad.error));
 });
 
 test('YC013: Không nhận quyết định, trạng thái Khác và báo cáo ma trận phân nhóm đúng',()=>{
@@ -846,10 +846,13 @@ test('YC017: auth cache chỉ tránh đọc lại tab tài khoản trong phạm 
 });
 
 // YC-HN-030: kỳ bỏ học chỉ được tạo mới từ tháng 1–6 và không vượt số tháng hỗ trợ.
-test('YC030: tháng 1 hợp lệ, tháng 2-3 hợp lệ với khóa 3 tháng, tháng 4 bị từ chối',()=>{
+test('YC033: tháng 1–6 hợp lệ, không giới hạn bởi thời gian hỗ trợ 3 tháng',()=>{
   const c=setupLive();const a=c.send('record_save',record(c,'8101','2026-10-19',{SO_THANG_HO_TRO:'3'})).data.record;
   const payload={HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:a.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,LY_DO_BO_HOC_ID:c.reason.LY_DO_ID};
-  assert.equal(c.send('record_status',{...payload,NGAY_BO_HOC:'KY:4'}).error.code,'VALIDATION');
+  const fourth=c.send('record_status',{...payload,NGAY_BO_HOC:'KY:4'});
+  assert.equal(fourth.ok,true,JSON.stringify(fourth.error));
+  // Các lần cập nhật cùng hồ sơ phải dùng phiên bản mới nhất (tránh ghi đè).
+  payload.PHIEN_BAN=fourth.data.record.PHIEN_BAN;
   const first=c.send('record_status',{...payload,NGAY_BO_HOC:'KY:1'});assert.equal(first.ok,true,JSON.stringify(first.error));
   assert.equal(first.data.record.NGAY_BO_HOC,'KY:1');assert.equal(c.send('overview',{}).data.kpi.dropout,1);
   for(const n of [2,3]){
@@ -857,17 +860,19 @@ test('YC030: tháng 1 hợp lệ, tháng 2-3 hợp lệ với khóa 3 tháng, th
     assert.equal(c.send('record_status',{...payload,HO_SO_ID:x.HO_SO_ID,PHIEN_BAN:x.PHIEN_BAN,NGAY_BO_HOC:'KY:'+n}).ok,true);
   }
 });
-test('YC030: tối đa tháng 6, khóa 1 tháng chọn tháng 1, số hỗ trợ lẻ bị chặn',()=>{
+test('YC033: tối đa tháng 6, tháng hỗ trợ 1 hoặc 2,5 không khóa tháng bỏ học',()=>{
   const c=setupLive();const a=c.send('record_save',record(c,'8102','2026-10-19',{SO_THANG_HO_TRO:'12'})).data.record;
   const payload={HO_SO_ID:a.HO_SO_ID,PHIEN_BAN:a.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,LY_DO_BO_HOC_ID:c.reason.LY_DO_ID};
   assert.equal(c.send('record_status',{...payload,NGAY_BO_HOC:'KY:7'}).error.code,'VALIDATION');
   assert.equal(c.send('record_status',{...payload,NGAY_BO_HOC:'KY:12'}).error.code,'VALIDATION');
   assert.equal(c.send('record_status',{...payload,NGAY_BO_HOC:'KY:6'}).ok,true);
   const part=c.send('record_save',record(c,'8103','2026-10-19',{SO_THANG_HO_TRO:'2,5'})).data.record;
-  assert.equal(c.send('record_status',{HO_SO_ID:part.HO_SO_ID,PHIEN_BAN:part.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}).error.code,'VALIDATION');
+  const half=c.send('record_status',{HO_SO_ID:part.HO_SO_ID,PHIEN_BAN:part.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:6',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(half.ok,true,JSON.stringify(half.error));
   const one=c.send('record_save',record(c,'8104','2026-10-19',{SO_THANG_HO_TRO:'1'})).data.record;
-  assert.equal(c.send('record_status',{HO_SO_ID:one.HO_SO_ID,PHIEN_BAN:one.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}).error.code,'VALIDATION');
-  assert.equal(c.send('record_status',{HO_SO_ID:one.HO_SO_ID,PHIEN_BAN:one.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:1',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}).ok,true);
+  const more=c.send('record_status',{HO_SO_ID:one.HO_SO_ID,PHIEN_BAN:one.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(more.ok,true,JSON.stringify(more.error));
+  assert.equal(c.send('record_status',{HO_SO_ID:one.HO_SO_ID,PHIEN_BAN:more.data.record.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:1',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID}).ok,true);
 });
 test('YC018: ngày bỏ học lịch sử giữ nguyên khi ghi lại trạng thái và không cho tự tạo ngày mới',()=>{
   const c=setupLive();const r=c.send('record_save',record(c,'8105','2026-10-19',{SO_THANG_HO_TRO:'3',TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID})).data.record;
@@ -1522,4 +1527,30 @@ test('YC029 V5: lưu sửa chỉ đọc cột khóa trùng + một dòng khi kh�
  assert.equal(edit.ok,true,JSON.stringify(edit.error));
  assert.ok(calls.some(x=>x.width===1&&x.col===8),'Decision key column read');
  assert.ok(!calls.some(x=>x.width===40&&x.height>1),'Avoid full 40-column sheet read');
+});
+
+test('YC033: Quyết định 761 hỗ trợ 3,5 và dữ liệu ngày bất kỳ vẫn nhận KY:1–6',()=>{
+ const c=setupLive();
+ for(let month=1;month<=6;month++){
+  const r=c.send('record_save',record(c,'761'+month,'2026-03-10',{SO_THANG_HO_TRO:'3,5',NGAY_BAT_DAU:'2026-03-21',NGAY_KET_THUC_DU_KIEN:'2026-06-30'}));
+  assert.equal(r.ok,true,JSON.stringify(r.error));
+  const after=c.send('record_status',{HO_SO_ID:r.data.record.HO_SO_ID,PHIEN_BAN:r.data.record.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:'+month,LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(after.ok,true,JSON.stringify(after.error));
+  assert.equal(after.data.record.NGAY_BO_HOC,'KY:'+month);
+ }
+ assert.equal(c.send('overview',{}).data.kpi.dropout,6);
+});
+test('YC033: nhập cập nhật tình trạng Excel Bỏ học không khóa kỳ 6 dù hỗ trợ 3,5',()=>{
+ const c=setupLive();const r=c.send('record_save',record(c,'761','2026-03-10',{SO_THANG_HO_TRO:'3,5'}));assert.equal(r.ok,true);
+ const source=statusInput(c,'761','2026-03-10');
+ const q={status:'BO_HOC',dropoutPeriod:'KY:6',dropoutReason:c.reason.LY_DO_ID,rows:[source]};
+ const check=c.send('record_status_bulk_check',q);
+ assert.equal(check.ok,true,JSON.stringify(check.error));
+ assert.equal(check.data.items[0].kind,'eligible');
+ const apply=c.send('record_status_bulk_apply',{...q,rows:[{...source,hoSoId:r.data.record.HO_SO_ID,version:r.data.record.PHIEN_BAN}]});
+ assert.equal(apply.ok,true,JSON.stringify(apply.error));
+ assert.equal(apply.data.updated,1);
+ assert.equal(c.send('records_list',{query:'761'}).data.items[0].NGAY_BO_HOC,'KY:6');
+ const retry=c.send('record_status_bulk_check',q);
+ assert.equal(retry.data.items[0].kind,'same'); // đã bỏ học không được ghi lần nữa
 });

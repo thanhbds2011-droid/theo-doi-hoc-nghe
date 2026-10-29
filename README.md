@@ -1,4 +1,6 @@
-> **Phiên bản hiện hành: v1.2.25-RC (YC-HN-031 V1).** Tài khoản Cơ sở đào tạo chỉ nhận trong bộ lọc Nghề đào tạo các nghề có quyết định chưa xóa thuộc trường được cấp. Giữ nguyên phân quyền, báo cáo và Excel. Xem `docs/HUONG_DAN_YC-HN-031_V1.md` trước khi nâng cấp backend và frontend.
+> **Phiên bản hiện hành: v1.2.27-RC (YC-HN-033 V4).** Tháng bỏ học 1–6 không giới hạn bởi số tháng hỗ trợ; bộ lọc cơ sở A–Z; hai mẫu báo cáo theo cơ sở/nghề sắp giảm số quyết định; sửa lỗi sau khi cập nhật tình trạng bằng Excel. Xem `docs/HUONG_DAN_YC-HN-033_V4.md` và kiểm thử staging trước khi triển khai.
+
+> **Phiên bản hiện hành: v1.2.26-RC (YC-HN-032 V2).** ADMIN và NHAN_VIEN: bộ lọc Nghề đào tạo phụ thuộc Cơ sở đào tạo đang chọn và sắp xếp A–Z tiếng Việt tại Tổng quan, Hồ sơ, Báo cáo. Tài khoản cơ sở vẫn chỉ nhận nghề của trường được cấp. Giữ nguyên phân quyền, báo cáo và Excel. Xem `docs/HUONG_DAN_YC-HN-032_V2.md` trước khi nâng cấp backend và frontend.
 
 > Bản kiểm thử YC-HN-029 V5: **v1.2.23-RC**. Xem docs/MASTER_PROMPT_YC-HN-029_V5_DA_CHOT.md và docs/HUONG_DAN_YC-HN-029_V5.md. Chưa đo production 10–20 người.
 

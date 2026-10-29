@@ -111,5 +111,5 @@ test('YC031: frontend sử dụng danh sách từ bootstrap, kiểm tra thay đ�
  assert.match(client,/state\.tradeScopeRevision=data\.tradeScopeRevision\|\|''/);
  assert.match(client,/state\.tradeScopeRevision!==\(data\.tradeScopeRevision\|\|''\)/);
  assert.match(client,/function reconcileSchoolTradeFilters\(\)/);
- assert.match(client,/const tradeOpts=.*state\.cats\.nghe\.filter/);
+ assert.match(client,/const tradeOpts=.*filterTradeRows\(schoolId\)/);
 });

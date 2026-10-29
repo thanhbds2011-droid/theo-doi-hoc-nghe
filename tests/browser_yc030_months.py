@@ -15,19 +15,18 @@ with sync_playwright() as p:
  page.evaluate('code=>{const el=document.createElement("script");el.textContent=code;document.body.appendChild(el)}',helpers)
  page.evaluate('updateDropoutFields(document.querySelector("form"))')
  assert page.locator('[name="NGAY_BO_HOC"] option').count()==7
- for n in [1,2,3]:assert page.locator(f'[name="NGAY_BO_HOC"] option[value="KY:{n}"]').is_enabled(),n
- for n in [4,5,6]:assert page.locator(f'[name="NGAY_BO_HOC"] option[value="KY:{n}"]').is_disabled(),n
+ for n in [1,2,3,4,5,6]:assert page.locator(f'[name="NGAY_BO_HOC"] option[value="KY:{n}"]').is_enabled(),n
  for n in [7,8,9,10,11,12]:assert page.locator(f'[name="NGAY_BO_HOC"] option[value="KY:{n}"]').count()==0,n
  page.locator('[name="NGAY_BO_HOC"]').select_option('KY:3')
  page.locator('[name="SO_THANG_HO_TRO"]').fill('2')
  page.evaluate('refreshDropoutPeriod(document.querySelector("form"))')
- assert page.locator('[name="NGAY_BO_HOC"]').input_value()==''
+ assert page.locator('[name="NGAY_BO_HOC"]').input_value()=='KY:3'
  page.locator('[name="SO_THANG_HO_TRO"]').fill('2,5')
  page.evaluate('refreshDropoutPeriod(document.querySelector("form"))')
- assert all(page.locator(f'[name="NGAY_BO_HOC"] option[value="KY:{n}"]').is_disabled() for n in range(1,7))
+ assert all(page.locator(f'[name="NGAY_BO_HOC"] option[value="KY:{n}"]').is_enabled() for n in range(1,7))
  page.locator('[name="SO_THANG_HO_TRO"]').fill('12')
  page.evaluate('refreshDropoutPeriod(document.querySelector("form"))')
  assert page.locator('[name="NGAY_BO_HOC"] option[value="KY:6"]').is_enabled()
  assert page.locator('[name="NGAY_BO_HOC"] option[value="KY:7"]').count()==0
  browser.close()
-print('YC030_BROWSER_OK: 1-6 only, no old hint, within support months, updates dynamically')
+print('YC030_BROWSER_OK: 1-6 only, no old hint, independent of support months, updates dynamically')

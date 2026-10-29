@@ -29,12 +29,13 @@ def do_rpc(label,req):
  data_revision='D'+str(rev['data'])
  if action in ('bootstrap','permission_check'):
   result={'user':user,'permissionRevision':'P1','dataRevision':data_revision,'catalogRevision':'C1','statusRevision':'S1',
-    'tradeScopeRevision':'S'+str(rev[label]) if label in ['A','B'] else ''}
+    'tradeScopeRevision':'S'+str(rev[label]) if label in ['A','B'] else 'G'+str(rev['data'])}
   if action=='bootstrap':
    permitted={r['NGHE_ID'] for r in rows if r['TRUONG_ID']==label} if label in ['A','B'] else {c['NGHE_ID'] for c in trades}
    result['catalogs']={'truong':[s for s in schools if s['TRUONG_ID']==label] if label in ['A','B'] else schools,
         'nghe':[x for x in trades if x['NGHE_ID'] in permitted], 'lydo':[]}
    result['statuses']=[]
+   result['tradeScopeMap']=None if label in ['A','B'] else {school['TRUONG_ID']: sorted({r['NGHE_ID'] for r in rows if r['TRUONG_ID']==school['TRUONG_ID']}) for school in schools}
   return {'ok':True,'data':result}
  visible=[r for r in rows if label not in ['A','B'] or r['TRUONG_ID']==label]
  f=[r for r in visible if (not payload.get('nghe') or r['NGHE_ID']==payload['nghe'])]
@@ -70,8 +71,8 @@ with sync_playwright() as pw:
   pages[label]=page
  assert options(pages['A'],'dashboard')==['','T1','T2']
  assert options(pages['B'],'dashboard')==['','T3']
- assert options(pages['ADMIN'],'dashboard')==['','T1','T2','T3','T4']
- assert options(pages['NHAN_VIEN'],'dashboard')==['','T1','T2','T3','T4']
+ assert options(pages['ADMIN'],'dashboard')==['','T1','T2','T3']
+ assert options(pages['NHAN_VIEN'],'dashboard')==['','T1','T2','T3']
  for label,expected in [('A',['','T1','T2']),('B',['','T3'])]:
   pg=pages[label]
   assert len(pg.locator('#navigation button').all())==3

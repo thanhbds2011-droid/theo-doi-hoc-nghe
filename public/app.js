@@ -1,5 +1,5 @@
-import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.25-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.25-RC (YC-HN-031 V1, kế thừa YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.27-RC';
+/** THEO DÕI HỌC NGHỀ — v1.2.27-RC (YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -27,7 +27,7 @@ const state = {
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:'',from:'',to:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:'',from:'',to:''},
   records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
-  cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", tradeScopeRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
+  tradeScopeMap:null, cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", tradeScopeRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
 };
 
 function notify(message, error=false){ const el=$('#toast');el.textContent=String(message);el.className='toast show'+(error?' error':'');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('show'),5500); }
@@ -43,34 +43,66 @@ function friendlyError(code,message){
   if(['VALIDATION','DUPLICATE'].includes(code)&&message && !/\b[A-Z][A-Z0-9_]{2,}\b|Google|API|Script|JSON|\{|\}/.test(message))return message;
   return 'Thao tác chưa hoàn tất. Vui lòng thử lại hoặc liên hệ quản trị viên.';
 }
-function failure(e){notify(e?.message||'Thao tác chưa hoàn tất. Vui lòng thử lại.',true);}
+function failure(e){
+  const message=String(e?.message||'');
+  // Không lộ lỗi lập trình/hạ tầng tiếng Anh trong giao diện người dùng cuối.
+  const technical=/Cannot (?:read|set)|undefined|TypeError|ReferenceError|SyntaxError|Unhandled|\.catch|\bat\s+\w+\s*\(|\b(?:API|JSON|Code\.gs|Promise)\b/i;
+  notify(technical.test(message)?'Ứng dụng gặp sự cố khi hiển thị kết quả. Vui lòng kiểm tra thông tin đã lưu trước khi thử lại.':(message||'Thao tác chưa hoàn tất. Vui lòng thử lại.'),true);
+}
 const STAFF_RIGHTS=new Set(['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','REPORT_EXPORT']);
 function allowed(p){return state.user?.VAI_TRO==='ADMIN'||(state.user?.VAI_TRO==='NHAN_VIEN'&&STAFF_RIGHTS.has(p))||(state.user?.VAI_TRO==='CO_SO_DAO_TAO'&&['RECORD_VIEW','RECORD_STATUS','REPORT_VIEW','FILE_VIEW','REPORT_EXPORT'].includes(p));}
 const allStatusOptions=()=>[...Object.entries(STATUS_FORM),...state.statuses.map(x=>[x.id,x.label])];
 const isSchoolAccount=()=>state.user?.VAI_TRO==='CO_SO_DAO_TAO';
-/** YC-HN-031: khi nghề không còn thuộc trường, bỏ lựa chọn cũ trong cả ba bộ lọc.
- * Giữ nguyên năm, ngày, từ khóa, trang và lựa chọn nghề hợp lệ.
+/** YC-HN-032: A–Z tiếng Việt, có tiêu chí phụ cố định khi trùng tên.
+ * Chỉ sắp xếp lựa chọn hiển thị; không sửa thứ tự dữ liệu nguồn hay danh mục Thêm/Sửa.
  */
+const tradeNameCollator=new Intl.Collator('vi',{sensitivity:'base'});
+function sortedFilterTrades(items){
+  return [...items].sort((a,b)=>tradeNameCollator.compare(a.TEN_NGHE||'',b.TEN_NGHE||'')||
+    String(a.TEN_NGHE||'').localeCompare(String(b.TEN_NGHE||''),'vi')||
+    String(a.NGHE_ID||'').localeCompare(String(b.NGHE_ID||'')));
+}
+/** Danh mục nghề để TRA CỨU: chỉ nghề có quyết định chưa xóa.
+ * CO_SO_DAO_TAO nhận dữ liệu nghề được giới hạn ở backend (YC-HN-031).
+ * ADMIN/NHAN_VIEN nhận chỉ mục quan hệ trường–nghề do backend tính và cache, không gọi API khi đổi trường.
+ */
+function filterTradeRows(schoolId=''){
+  const rows=state.cats.nghe||[];
+  if(isSchoolAccount())return sortedFilterTrades(rows);
+  const map=state.tradeScopeMap||{};
+  const schools=schoolId?[schoolId]:Object.keys(map);
+  const ids=new Set();
+  for(const id of schools){
+    if(!Object.prototype.hasOwnProperty.call(map,id))continue;
+    for(const tradeId of (Array.isArray(map[id])?map[id]:[]))ids.add(tradeId);
+  }
+  return sortedFilterTrades(rows.filter(r=>ids.has(r.NGHE_ID)));
+}
 function reconcileSchoolTradeFilters(){
-  if(!isSchoolAccount())return false;
-  const allowedTrades=new Set(state.cats.nghe.map(x=>x.NGHE_ID));
   let changed=false;
   for(const filters of [state.dashboardFilters,state.filters,state.reportFilters]){
+    const allowedTrades=new Set(filterTradeRows(filters.truong||'').map(x=>x.NGHE_ID));
     if(filters.nghe&&!allowedTrades.has(filters.nghe)){
       filters.nghe='';changed=true;
     }
   }
   return changed;
 }
-/** Đồng bộ dropdown đang HIỂN THỊ, không dựng lại trang hoặc xóa các ô lọc khác. */
+/** Làm mới đúng dropdown đang mở khi phiên bản quan hệ trường–nghề thay đổi.
+ * Ưu tiên giá trị DỰ THẢO trong DOM khi người dùng chưa nhấn Lọc dữ liệu.
+ */
 function syncVisibleSchoolTradeOptions(){
-  if(!isSchoolAccount())return;
   const configs=[['dashboard',state.dashboardFilters],['records',state.filters],['reports',state.reportFilters]];
   for(const [page,filters] of configs){
-    const select=document.querySelector('#'+page+'-filters select[name="nghe"]');
+    const form=document.querySelector('#'+page+'-filters');
+    const select=form?.querySelector('select[name="nghe"]');
     if(!select)continue;
-    select.innerHTML=option('','Tất cả nghề',filters.nghe)+state.cats.nghe.map(x=>option(x.NGHE_ID,x.TEN_NGHE,filters.nghe)).join('');
-    select.value=filters.nghe||'';
+    const school=form.elements.truong?.value||'';
+    const choices=filterTradeRows(school);
+    const allowedIds=new Set(choices.map(x=>x.NGHE_ID));
+    const selected=allowedIds.has(select.value)?select.value:'';
+    select.innerHTML=option('','Tất cả nghề',selected)+choices.map(x=>option(x.NGHE_ID,x.TEN_NGHE,selected)).join('');
+    select.value=selected;
   }
 }
 function rid(){return 'r_'+(crypto?.randomUUID?.() || (Date.now().toString(36)+Math.random().toString(36).slice(2)));}
@@ -96,17 +128,17 @@ async function verifyPermission(force=false){
       state.permissionRevision=data.permissionRevision||'';
     }
     if(state.catalogRevision!==(data.catalogRevision||'')||state.statusRevision!==(data.statusRevision||'')||
-       (isSchoolAccount()&&state.tradeScopeRevision!==(data.tradeScopeRevision||''))){
+       state.tradeScopeRevision!==(data.tradeScopeRevision||'')){
       // Chỉ tải danh mục đầy đủ khi dữ liệu danh mục thay đổi, không tải mỗi 120 giây.
       const refreshed=await rpc('bootstrap',{}, {ttl:0});
       const fresh=refreshed.user||{};
       if([n.TAI_KHOAN_ID,n.EMAIL,n.VAI_TRO,n.TRUONG_ID||''].join('|')!==[fresh.TAI_KHOAN_ID,fresh.EMAIL,fresh.VAI_TRO,fresh.TRUONG_ID||''].join('|')){
         signOut();throw Error('Quyền truy cập đã thay đổi. Vui lòng đăng nhập lại.');
       }
-      state.cats=refreshed.catalogs;state.statuses=refreshed.statuses||[];
+      state.cats=refreshed.catalogs;state.tradeScopeMap=refreshed.tradeScopeMap||null;state.statuses=refreshed.statuses||[];
       state.catalogRevision=refreshed.catalogRevision||'';state.statusRevision=refreshed.statusRevision||'';
       state.tradeScopeRevision=refreshed.tradeScopeRevision||'';
-      if(reconcileSchoolTradeFilters())notify('Danh sách nghề của cơ sở đã thay đổi. Bộ lọc nghề được đặt lại để hiển thị dữ liệu mới.');
+      if(reconcileSchoolTradeFilters())notify('Danh sách nghề đã thay đổi. Bộ lọc nghề không còn phù hợp đã được đặt về Tất cả nghề.');
       syncVisibleSchoolTradeOptions();
       state.needsActiveRefresh=true;
       state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;
@@ -237,13 +269,13 @@ function renderCurrentUser(){
   $('#current-user').innerHTML=`<b class="user-display-name" title="${esc(u.HO_TEN||u.EMAIL)}">${esc(u.HO_TEN||u.EMAIL)}</b><span class="user-role-badge user-role-badge--${roleStyle}" title="${esc(sub)}">${esc(sub)}</span>`;
 }
 function activateSession(data){
-  state.session=true;state.user=data.user;state.cats=data.catalogs;state.statuses=data.statuses||[];state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.tradeScopeRevision=data.tradeScopeRevision||'';reconcileSchoolTradeFilters();state.permissionChecked=Date.now();state.pageDataAt.clear();
+  state.session=true;state.user=data.user;state.cats=data.catalogs;state.tradeScopeMap=data.tradeScopeMap||null;state.statuses=data.statuses||[];state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.tradeScopeRevision=data.tradeScopeRevision||'';reconcileSchoolTradeFilters();state.permissionChecked=Date.now();state.pageDataAt.clear();
   state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.renderedPage=null;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;startDataChecks();
   $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
   renderCurrentUser();
   navigate('dashboard');
 }
-function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.tradeScopeRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
+function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.tradeScopeRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.tradeScopeMap=null;state.statuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
 // YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
 const ICON_PATHS={
   'calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
@@ -360,8 +392,19 @@ function heading(title,desc,buttons=''){return `<div class="page-header"><div><h
 function sel(name,items,selected='',empty='Tất cả',key='ID',value='TEN'){
   return `<select name="${esc(name)}">${option('',empty,selected)}${items.map(x=>option(x[key],x[value],selected)).join('')}</select>`;
 }
-const schoolOpts= (s='',empty='Tất cả cơ sở',activeOnly=false) => isSchoolAccount()?`<input type="hidden" name="truong" value="${esc(state.user.TRUONG_ID)}"><select disabled><option>${esc(lookup('truong',state.user.TRUONG_ID))}</option></select>`:sel('truong',state.cats.truong.filter(x=>!activeOnly||x.TRANG_THAI==='ACTIVE'),s,empty,'TRUONG_ID','TEN_TRUONG');
-const tradeOpts= (s='',empty='Tất cả nghề',activeOnly=false) => sel('nghe',state.cats.nghe.filter(x=>!activeOnly||x.TRANG_THAI==='ACTIVE'),s,empty,'NGHE_ID','TEN_NGHE');
+// Chỉ sắp xếp bộ lọc tra cứu; không đổi Danh mục hay các biểu mẫu Thêm/Sửa.
+const schoolNameCollator=new Intl.Collator('vi',{sensitivity:'base'});
+function sortedFilterSchools(items){return [...items].sort((a,b)=>
+  schoolNameCollator.compare(a.TEN_TRUONG||'',b.TEN_TRUONG||'')||
+  String(a.TEN_TRUONG||'').localeCompare(String(b.TEN_TRUONG||''),'vi')||
+  String(a.TRUONG_ID||'').localeCompare(String(b.TRUONG_ID||'')));}
+// Sắp xếp bản sao dữ liệu báo cáo; không đảo thứ tự kết quả trên website.
+function sortedReportMatrixItems(items){return [...items].sort((a,b)=>Number(b.total)-Number(a.total)||
+  schoolNameCollator.compare(a.name||'',b.name||'')||
+  String(a.name||'').localeCompare(String(b.name||''),'vi')||
+  String(a.id||'').localeCompare(String(b.id||'')));}
+const schoolOpts= (s='',empty='Tất cả cơ sở',activeOnly=false) => isSchoolAccount()?`<input type="hidden" name="truong" value="${esc(state.user.TRUONG_ID)}"><select disabled><option>${esc(lookup('truong',state.user.TRUONG_ID))}</option></select>`:sel('truong',sortedFilterSchools(state.cats.truong.filter(x=>!activeOnly||x.TRANG_THAI==='ACTIVE')),s,empty,'TRUONG_ID','TEN_TRUONG');
+const tradeOpts= (s='',empty='Tất cả nghề',schoolId='') => sel('nghe',filterTradeRows(schoolId),s,empty,'NGHE_ID','TEN_NGHE');
 function lookup(type,id){const def={truong:['TRUONG_ID','TEN_TRUONG'],nghe:['NGHE_ID','TEN_NGHE'],lydo:['LY_DO_ID','NOI_DUNG']}[type];let x=state.cats[type].find(r=>r[def[0]]===id);return x?.[def[1]] || 'Chưa có trong danh mục';}
 // YC-HN-019: Nhập ngày dd/mm/yyyy, gửi yyyy-mm-dd để so sánh không lệch múi giờ.
 function dateFilterToInput(value){const text=String(value||'');return /^\d{4}-\d{2}-\d{2}$/.test(text)?text.slice(8,10)+'/'+text.slice(5,7)+'/'+text.slice(0,4):text;}
@@ -444,7 +487,7 @@ function calendarStep(delta){const a=activeCalendar;if(!a)return;const when=new 
 function filterFields(filters,mode){return `<form class="card filter-grid ${mode==='dashboard'?'short':''}" id="${mode}-filters">
   <div class="field"><label>Năm quyết định</label><input type="number" min="1900" max="2200" name="year" placeholder="Tất cả các năm" value="${esc(filters.year||'')}"></div>
   <div class="field"><label>Cơ sở đào tạo</label>${schoolOpts(filters.truong)}</div>
-  <div class="field"><label>Nghề đào tạo</label>${tradeOpts(filters.nghe)}</div>
+  <div class="field"><label>Nghề đào tạo</label>${tradeOpts(filters.nghe,'Tất cả nghề',filters.truong)}</div>
   ${mode==='records'?`<div class="field"><label>Tình trạng</label><select name="status">${option('','Tất cả',filters.status)}${[[ALL_DECISIONS_FILTER,'Tổng số Quyết định đã ban hành'],...allStatusOptions().filter(([k])=>k!=='BO_HOC'),['BO_HOC','Bỏ học'],[COURSE_END_FILTER,'Hoàn thành khóa học']].map(([k,v])=>option(k,v,filters.status)).join('')}</select></div><div class="field"><label>Tìm người học / số QĐ</label><input name="query" value="${esc(filters.query||'')}" placeholder="Nhập từ khóa..."></div>`:''}
   ${mode==='reports'?`<div class="field"><label>Tình trạng</label><select name="status">${[['','Tất cả tình trạng'],[ALL_DECISIONS_FILTER,'Tổng số Quyết định đã ban hành'],['REPORT_PARTICIPATED_ALL','Đã tham gia'],['BO_HOC','Bỏ học'],['KHONG_THAM_GIA','Không tham gia'],['KHONG_NHAN_QUYET_DINH','Không nhận Quyết định'],['CHO_XAC_NHAN','Chưa xác nhận'],...state.statuses.map(x=>[x.id,x.label]),[COURSE_END_FILTER,'Hoàn thành khóa học']].map(([k,v])=>option(k,v,filters.status||'')).join('')}</select></div>`:''}
   ${mode==='records'||mode==='reports'?dateFilterControls(filters,mode):''}
@@ -706,15 +749,15 @@ const selectField=(label,name,inner)=>`<div class="field"><label for="f-${esc(na
 function activeCatOptions(type,current){const id={truong:'TRUONG_ID',nghe:'NGHE_ID',lydo:'LY_DO_ID'}[type],name={truong:'TEN_TRUONG',nghe:'TEN_NGHE',lydo:'NOI_DUNG'}[type];return option('','-- Chọn --',current)+state.cats[type].filter(x=>x.TRANG_THAI==='ACTIVE'||x[id]===current).map(x=>option(x[id],x[name],current)).join('');}
 function learningSelection(r){return r?.DA_BO_HOC==='TRUE'?'BO_HOC':r?.TRANG_THAI_THAM_GIA||'CHO_XAC_NHAN';}
 function statusSelect(r){const selected=learningSelection(r);return selectField('Tình trạng tham gia *','UI_TINH_TRANG',allStatusOptions().map(([k,v])=>option(k,v,selected)).join('')+option('KHAC','Khác',selected))+`<div class="field full status-custom" hidden><label>Tình trạng khác *</label><input name="customStatusName" maxlength="60" placeholder="Ví dụ: Thôi việc" disabled></div>`;}
-// YC-HN-030: Chỉ hiển thị kỳ 1–6, không cho chọn vượt thời gian hỗ trợ.
-// Hồ sơ cũ có KY:7+ hoặc ngày bỏ học ISO được giữ nếu không thay đổi giá trị.
-function dropoutMaxPeriod(months){const raw=String(months??'').trim().replace(',','.');const n=raw===''?NaN:Number(raw);return Number.isInteger(n)&&n>=1?Math.min(6,n):0;}
+// YC-HN-033: Tháng bỏ học luôn là kỳ 1–6; không suy ra từ số tháng hỗ trợ / ngày đào tạo.
+// Hồ sơ lịch sử KY:7+ hoặc ngày ISO chỉ giữ khi không đổi giá trị.
+function dropoutMaxPeriod(_months){return 6;}
 const historicalDropoutPeriod=value=>/^\d{4}-\d{2}-\d{2}$/.test(value)||/^KY:(?:[7-9]|[1-9]\d+)$/.test(value);
 function dropoutPeriodOptions(months,selected='',original=''){
-  const limit=dropoutMaxPeriod(months);let html=option('','-- Chọn tháng bắt đầu bỏ học --',selected);
+  let html=option('','-- Chọn tháng bắt đầu bỏ học --',selected);
   for(let n=1;n<=6;n++){
-    const val='KY:'+n,valid=n<=limit;
-    html+=`<option value="${val}" ${valid&&val===selected?'selected':''} ${valid?'':'disabled'}>Tháng thứ ${n}</option>`;
+    const val='KY:'+n;
+    html+=option(val,`Tháng thứ ${n}`,selected);
   }
   const saved=String(original||''),isDate=/^\d{4}-\d{2}-\d{2}$/.test(saved);
   if(saved===selected&&historicalDropoutPeriod(saved))html+=option(saved,isDate?'Dữ liệu cũ — '+dateVN(saved):'Kỳ lịch sử — '+saved.slice(3),saved);
@@ -726,7 +769,7 @@ function dropoutFields(r){const months=r?.SO_THANG_HO_TRO||'',prev=r?.NGAY_BO_HO
 }
 function refreshDropoutPeriod(form){const select=form?.elements?.NGAY_BO_HOC;if(!select)return;
   const months=form.elements.SO_THANG_HO_TRO?.value??form.dataset.supportMonths??'',previous=select.value,original=form.dataset.originalPeriod||'';
-  const limit=dropoutMaxPeriod(months),n=/^KY:(\d+)$/.exec(previous),isValid=n&&Number(n[1])>=1&&Number(n[1])<=limit;
+  const n=/^KY:(\d+)$/.exec(previous),isValid=n&&Number(n[1])>=1&&Number(n[1])<=6;
   const keep=!!(isValid||(previous===original&&historicalDropoutPeriod(original)));
   select.innerHTML=dropoutPeriodOptions(months,keep?previous:'',original);
 }
@@ -1030,7 +1073,9 @@ async function statusBulkApply(){
   notify(`Đã cập nhật ${num(updated)} hồ sơ. Các hồ sơ đã có tình trạng khác được giữ nguyên.`);
   // Không đóng ngay kết quả; invalidation dữ liệu cần làm mới khi trở lại trang.
   expireCacheActions(['overview','report_matrix','records_list','report_export']);state.pageViews.delete('dashboard');state.pageViews.delete('reports');state.pageViews.delete('records');
-  if(state.page==='records')void navigate('records',true).catch(failure);
+  // navigate() không trả Promise; chỉ đánh dấu làm mới để giữ nguyên kết quả trong hộp thoại.
+  // Người dùng đóng hộp thoại thì danh sách được làm mới, không gửi lại yêu cầu ghi.
+  state.needsActiveRefresh=true;
 }
 
 function bulkRecordForm(){
@@ -1167,7 +1212,7 @@ function updateAccountSchool(form){
 function accountForm(item){const x=item||{};showModal(item?'Sửa tài khoản':'Thêm tài khoản',`<form id="account-form" class="form-grid"><input type="hidden" name="id" value="${esc(x.TAI_KHOAN_ID||'')}">${field('Email Google *','email',x.EMAIL||'','email','required')}${field('Họ tên','name',x.HO_TEN||'')}${selectField('Vai trò','role',option('NHAN_VIEN','Nhân viên',x.VAI_TRO||'NHAN_VIEN')+option('ADMIN','Quản trị viên',x.VAI_TRO)+option('CO_SO_DAO_TAO','Cơ sở đào tạo',x.VAI_TRO))}<div class="account-school">${selectField('Cơ sở được phân công','schoolId',activeCatOptions('truong',x.TRUONG_ID))}</div><div class="account-display-title"><div class="field"><label for="f-displayTitle">Chức danh/Phòng ban hiển thị</label><input id="f-displayTitle" name="displayTitle" type="text" maxlength="100" placeholder="Ví dụ: Nhân viên Phòng A, Trưởng phòng B" value="${esc(x.CHUC_DANH_HIEN_THI||'')}"></div></div>${selectField('Trạng thái','status',option('ACTIVE','Hoạt động',x.TRANG_THAI||'ACTIVE')+option('DISABLED','Khóa',x.TRANG_THAI))}${modalFoot('Lưu tài khoản')}</form>`);updateAccountSchool($('#account-form'));}
 function fileModal(r){if(!allowed('FILE_UPLOAD')){notify('Bạn chỉ có quyền xem tệp đã được đính kèm.',true);return;}showModal('Tệp đính kèm của hồ sơ',`<div class="info-banner">${esc(r.HO_TEN)} · QĐ ${esc(r.SO_QUYET_DINH)}/${esc(r.NAM_QUYET_DINH)}<div>Chỉ chấp nhận PDF, JPG, PNG; tối đa 10 MB mỗi tệp.</div></div><form id="file-form" class="form-grid"><input type="hidden" name="HO_SO_ID" value="${esc(r.HO_SO_ID)}"><input type="hidden" name="PHIEN_BAN" value="${esc(r.PHIEN_BAN)}"><div class="field full"><label>Chọn tệp</label><input type="file" name="file" accept=".pdf,.png,.jpg,.jpeg" required></div><div class="full" id="upload-progress" aria-live="polite"></div>${modalFoot('Tải lên')}</form>${r.HAS_FILE?`<div class="modal-file-actions">${allowed('FILE_VIEW')?`<button class="btn" data-file-get="${esc(r.HO_SO_ID)}">Tải tệp hiện tại</button>`:''}<button class="btn btn-danger" data-file-remove="${esc(r.HO_SO_ID)}">Gỡ tệp hiện tại</button></div>`:''}`);}
 function getCurrentRecord(id){return state.records.find(x=>x.HO_SO_ID===id);}
-async function refreshBootstrap(){const b=await rpc('bootstrap',{}, {ttl:0});state.user=b.user;state.cats=b.catalogs;state.statuses=b.statuses||[];state.permissionRevision=b.permissionRevision||'';state.dataRevision=b.dataRevision||'';state.catalogRevision=b.catalogRevision||'';state.statusRevision=b.statusRevision||'';state.tradeScopeRevision=b.tradeScopeRevision||'';reconcileSchoolTradeFilters();syncVisibleSchoolTradeOptions();state.permissionChecked=Date.now();}
+async function refreshBootstrap(){const b=await rpc('bootstrap',{}, {ttl:0});state.user=b.user;state.cats=b.catalogs;state.tradeScopeMap=b.tradeScopeMap||null;state.statuses=b.statuses||[];state.permissionRevision=b.permissionRevision||'';state.dataRevision=b.dataRevision||'';state.catalogRevision=b.catalogRevision||'';state.statusRevision=b.statusRevision||'';state.tradeScopeRevision=b.tradeScopeRevision||'';reconcileSchoolTradeFilters();syncVisibleSchoolTradeOptions();state.permissionChecked=Date.now();}
 async function afterMutation(page=state.page){closeModal();
   // Hồ sơ/tệp đã được invalidate trong rpc(); chỉ đọc lại bootstrap khi sửa danh mục hoặc tài khoản.
   if(page==='catalogs'||page==='accounts')await refreshBootstrap();
@@ -1193,7 +1238,10 @@ async function exportSummaryOrMatrix(mode){
     if(d.items.some(r=>!Number.isSafeInteger(r.participated)||r.participated<0)){
       throw Error('Chưa thể xuất báo cáo do dữ liệu chưa đồng bộ đầy đủ. Vui lòng liên hệ quản trị viên để kiểm tra.');
     }
-    const rows=d.items.map((r,i)=>[i+1,r.name,r.total,r.participated,r.dropout,r.notParticipating,r.notReceived,r.pending,r.courseEndParticipated||0,...customs.map(x=>r.customStatusCounts?.[x.id]||0),...(other?[Math.max(0,Number(r.other||0)-customCount(r))]:[])]);
+    // YC-HN-033: chỉ thứ tự Excel theo số QĐ giảm dần; không sửa thứ tự trên website.
+    // Các nhóm chỉ có Hoàn thành khóa học trong kỳ (total=0) vẫn được giữ.
+    const sortedItems=sortedReportMatrixItems(d.items);
+    const rows=sortedItems.map((r,i)=>[i+1,r.name,r.total,r.participated,r.dropout,r.notParticipating,r.notReceived,r.pending,r.courseEndParticipated||0,...customs.map(x=>r.customStatusCounts?.[x.id]||0),...(other?[Math.max(0,Number(r.other||0)-customCount(r))]:[])]);
     // Đã tham gia bao gồm Bỏ học; không được cộng chồng cột Bỏ học vào tổng QĐ.
     if(d.items.some(r=>r.participated<Number(r.dropout||0)))throw Error('Số liệu Đã tham gia/Bỏ học chưa nhất quán. Vui lòng thử lại.');
     const total=[...Array(2).fill(''),...columns.slice(2).map((_,i)=>rows.reduce((sum,row)=>sum+Number(row[i+2]||0),0))];total[0]='Tổng cộng';
@@ -1251,6 +1299,7 @@ const serialized=async(fn,progress={})=>{
     state.busy=false;
     if(button?.isConnected){button.innerHTML=prior;button.removeAttribute('aria-busy');}
     document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(!!(x.closest('#status-form')&&$('#status-conflict')) || x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid) || (x.id==='status-bulk-submit' && (!state.statusImport?.verified || !state.statusImport?.results?.some(r=>r.kind==='eligible')));});
+    if(state.needsActiveRefresh&&$('#modal-layer')?.classList.contains('hidden'))void refreshVisibleStaleData();
   }
 };
 // Delegated buttons: no inline user-controlled event handlers.
@@ -1412,6 +1461,19 @@ document.addEventListener('compositionend',e=>{
 });
 document.addEventListener('input',e=>{if(e.target.name==='SO_THANG_HO_TRO'&&e.target.closest('#record-form'))refreshDropoutPeriod(e.target.closest('form'));});
 document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){state.catalogSearch=e.target.value;const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
+// YC-HN-032: đổi cơ sở cập nhật NGAY lựa chọn Nghề, không request backend hay submit form.
+document.addEventListener('change',e=>{
+  if(e.target.name!=='truong')return;
+  const form=e.target.closest('#dashboard-filters,#records-filters,#reports-filters');
+  if(!form)return;
+  const trades=form.querySelector('select[name="nghe"]');
+  if(!trades)return;
+  const items=filterTradeRows(e.target.value);
+  const allowedIds=new Set(items.map(x=>x.NGHE_ID));
+  const selected=allowedIds.has(trades.value)?trades.value:'';
+  trades.innerHTML=option('','Tất cả nghề',selected)+items.map(x=>option(x.NGHE_ID,x.TEN_NGHE,selected)).join('');
+  trades.value=selected;
+});
 document.addEventListener('change',e=>{if(e.target.name==='status'&&e.target.closest('#records-filters,#reports-filters'))updateRecordDateFilterHelp(e.target.closest('#records-filters,#reports-filters'));});
 document.addEventListener('change',e=>{if(e.target.name==='status'&&e.target.closest('#status-bulk-form')){statusBulkToggle();if(state.statusImport){state.statusImport.rows=[];state.statusImport.skipped=[];}const file=$('#status-bulk-file');if(file)file.value='';resetStatusBulkReview('Đã thay đổi tình trạng. Vui lòng chọn lại file Excel.');}if(['dropoutPeriod','dropoutReason'].includes(e.target.name)&&e.target.closest('#status-bulk-form'))resetStatusBulkReview('Đã thay đổi thông tin bỏ học. Vui lòng bấm Kiểm tra dữ liệu lại.');if(e.target.name==='UI_TINH_TRANG'){updateDropoutFields(e.target.closest('form'));}if(e.target.name==='role'&&e.target.closest('#account-form'))updateAccountSchool(e.target.closest('form'));if(e.target.name==='type'&&e.target.closest('#bulk-catalog-form')){const f=e.target.closest('form');f.dataset.ready='no';f.dataset.verified='';state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';$('#bulk-import-submit').disabled=true;}});
 document.addEventListener('change',e=>{if(e.target.name==='NGAY_QUYET_DINH'&&$('#preview-year'))$('#preview-year').value=e.target.value?.slice(0,4)||'Tự lấy từ ngày quyết định';});
