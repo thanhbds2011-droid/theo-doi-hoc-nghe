@@ -1,3 +1,5 @@
+> **Phiên bản hiện hành: v1.2.28-RC (YC-HN-034 V3).** Chuẩn hóa nhãn 'Xuất báo cáo' và danh mục tình trạng học nghề: chỉ ADMIN quản lý, các tình trạng tự tạo cũ phải phê duyệt mới được chọn lại; dữ liệu lịch sử và biểu mẫu Excel được giữ nguyên. Xem `docs/HUONG_DAN_YC-HN-034_V3.md`. Kiểm thử staging trước khi triển khai.
+
 > **Phiên bản hiện hành: v1.2.27-RC (YC-HN-033 V4).** Tháng bỏ học 1–6 không giới hạn bởi số tháng hỗ trợ; bộ lọc cơ sở A–Z; hai mẫu báo cáo theo cơ sở/nghề sắp giảm số quyết định; sửa lỗi sau khi cập nhật tình trạng bằng Excel. Xem `docs/HUONG_DAN_YC-HN-033_V4.md` và kiểm thử staging trước khi triển khai.
 
 > **Phiên bản hiện hành: v1.2.26-RC (YC-HN-032 V2).** ADMIN và NHAN_VIEN: bộ lọc Nghề đào tạo phụ thuộc Cơ sở đào tạo đang chọn và sắp xếp A–Z tiếng Việt tại Tổng quan, Hồ sơ, Báo cáo. Tài khoản cơ sở vẫn chỉ nhận nghề của trường được cấp. Giữ nguyên phân quyền, báo cáo và Excel. Xem `docs/HUONG_DAN_YC-HN-032_V2.md` trước khi nâng cấp backend và frontend.

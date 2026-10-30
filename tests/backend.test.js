@@ -587,7 +587,8 @@ test('YC013: Không nhận quyết định, trạng thái Khác và báo cáo ma
   const c=setupLive();
   c.send('record_save',record(c,'51','2026-01-02',{TRANG_THAI_THAM_GIA:'KHONG_NHAN_QUYET_DINH'}));
   const another=c.send('record_save',record(c,'52','2026-01-03',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));
-  const custom=c.send('record_status',{HO_SO_ID:another.data.record.HO_SO_ID,PHIEN_BAN:another.data.record.PHIEN_BAN,customStatusName:'  thôi   việc ',DA_BO_HOC:false});
+  const made=c.send('status_manage_save',{label:'  thôi   việc ',status:'ACTIVE'});assert.equal(made.ok,true,JSON.stringify(made.error));
+  const custom=c.send('record_status',{HO_SO_ID:another.data.record.HO_SO_ID,PHIEN_BAN:another.data.record.PHIEN_BAN,TRANG_THAI_THAM_GIA:made.data.id,DA_BO_HOC:false});
   assert.equal(custom.ok,true,JSON.stringify(custom.error));
   const boot=c.send('bootstrap');assert.equal(boot.ok,true);assert.ok(boot.data.statuses.some(x=>x.label==='Thôi việc'));
   const overview=c.send('overview').data;
@@ -1295,8 +1296,11 @@ test('YC026 ma trận dùng hai căn cứ ngày, giữ trường/nghề chỉ c�
 
 test('YC026 ma trận tách các tình trạng tùy chỉnh, không cộng trùng vào cột Khác và giới hạn quyền',()=>{
  const c=setupLive();
- const a=c.send('record_save',{...record(c,'2801','2026-04-01'),customStatusName:'Tạm hoãn vì lý do riêng'});
- const b=c.send('record_save',{...record(c,'2802','2026-04-02'),customStatusName:'Chờ bổ sung hồ sơ'});
+ const first=c.send('status_manage_save',{label:'Tạm hoãn vì lý do riêng',status:'ACTIVE'});
+ const second=c.send('status_manage_save',{label:'Chờ bổ sung hồ sơ',status:'ACTIVE'});
+ assert.equal(first.ok,true);assert.equal(second.ok,true);
+ const a=c.send('record_save',{...record(c,'2801','2026-04-01'),TRANG_THAI_THAM_GIA:first.data.id});
+ const b=c.send('record_save',{...record(c,'2802','2026-04-02'),TRANG_THAI_THAM_GIA:second.data.id});
  assert.equal(a.ok,true,JSON.stringify(a.error));assert.equal(b.ok,true,JSON.stringify(b.error));
  const m=c.send('report_matrix',{groupBy:'truong'});
  assert.equal(m.ok,true,JSON.stringify(m.error));
@@ -1553,4 +1557,62 @@ test('YC033: nhập cập nhật tình trạng Excel Bỏ học không khóa k�
  assert.equal(c.send('records_list',{query:'761'}).data.items[0].NGAY_BO_HOC,'KY:6');
  const retry=c.send('record_status_bulk_check',q);
  assert.equal(retry.data.items[0].kind,'same'); // đã bỏ học không được ghi lần nữa
+});
+
+// YC-HN-034 V3: danh mục tình trạng tập trung và dữ liệu lịch sử.
+test('YC034 ADMIN phê duyệt trạng thái và ngừng sử dụng nhưng vẫn giữ hồ sơ lịch sử',()=>{
+ const c=setupLive();
+ const created=c.send('status_manage_save',{label:'Tai nạn',status:'ACTIVE'});
+ assert.equal(created.ok,true,JSON.stringify(created.error));
+ const status=created.data.id;
+ assert.ok(/^CUS_/.test(status));
+ const one=c.send('record_save',record(c,'773','2026-04-05',{TRANG_THAI_THAM_GIA:status}));
+ assert.equal(one.ok,true,JSON.stringify(one.error));
+ const before=c.send('status_manage_list').data.items.find(x=>x.id===status);
+ assert.equal(before.usageCount,1);assert.equal(before.state,'ACTIVE');
+ const deactivated=c.send('status_manage_save',{id:status,label:'Tai nạn',status:'INACTIVE'});
+ assert.equal(deactivated.ok,true,JSON.stringify(deactivated.error));
+ const boot=c.send('bootstrap');assert.equal(boot.data.statuses.some(x=>x.id===status),false);
+ const existing=c.send('records_list',{}).data.items.find(x=>x.HO_SO_ID===one.data.record.HO_SO_ID);
+ assert.equal(existing.TRANG_THAI_NHAN,'Tai nạn');
+ assert.equal(c.send('record_save',record(c,'774','2026-04-06',{TRANG_THAI_THAM_GIA:status})).error.code,'VALIDATION');
+ const old=c.send('record_save',{...record(c,'773','2026-04-05',{TRANG_THAI_THAM_GIA:status,HO_SO_ID:one.data.record.HO_SO_ID,PHIEN_BAN:one.data.record.PHIEN_BAN,GHI_CHU:'Đối soát lịch sử'})});
+ assert.equal(old.ok,true,JSON.stringify(old.error));
+ const rename=c.send('status_manage_save',{id:status,label:'Tên khác',status:'INACTIVE'});
+ assert.equal(rename.error.code,'CATALOG_IN_USE');
+ const on=c.send('status_manage_save',{id:status,label:'Tai nạn',status:'ACTIVE'});assert.equal(on.ok,true);
+ assert.ok(c.send('bootstrap').data.statuses.some(x=>x.id===status));
+});
+test('YC034 cấm nhập tự do và chặn Nhân viên tạo/phê duyệt tình trạng trực tiếp',()=>{
+ const c=setupLive();
+ const p=record(c,'775','2026-04-05');
+ assert.equal(c.send('record_save',{...p,customStatusName:'Tự đặt tên'}).error.code,'VALIDATION');
+ const one=c.send('record_save',p);assert.equal(one.ok,true);
+ const direct=c.send('record_status',{HO_SO_ID:one.data.record.HO_SO_ID,PHIEN_BAN:one.data.record.PHIEN_BAN,customStatusName:'Tự đặt tên'});
+ assert.equal(direct.error.code,'VALIDATION');
+ const staff=c.send('account_save',{email:'staff034@example.com',name:'Staff034',role:'NHAN_VIEN',status:'ACTIVE'});assert.equal(staff.ok,true);
+ const identity={sub:'82345678901234567890',aud:audience,email:'staff034@example.com'};
+ const req=c.signed('status_manage_save',{label:'Tạo lậu',status:'ACTIVE'},'staff034_no000001',identity);
+ const res=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(req)}}).getContent());
+ assert.equal(res.ok,false);assert.equal(res.error.code,'NO_PERMISSION');
+});
+test('YC034 tình trạng tự tạo cũ mặc định cần rà soát, không lọt vào dropdown được duyệt',()=>{
+ const c=setupLive();
+ const sh=c.tables.get('Cấu hình hệ thống');
+ sh.rows.push(['HN_STATUS_CUS_LEGACY034','Chưa đến lấy lịch','','HN_STATUS','','','']);
+ c.global.bump_('STATUS');
+ const list=c.send('status_manage_list');assert.equal(list.ok,true,JSON.stringify(list.error));
+ const old=list.data.items.find(x=>x.id==='CUS_LEGACY034');assert.equal(old.state,'PENDING');
+ assert.equal(c.send('bootstrap').data.statuses.some(x=>x.id==='CUS_LEGACY034'),false);
+ const approve=c.send('status_manage_save',{id:'CUS_LEGACY034',label:'Chưa đến lấy lịch',status:'ACTIVE'});assert.equal(approve.ok,true,JSON.stringify(approve.error));
+ assert.equal(c.send('bootstrap').data.statuses.some(x=>x.id==='CUS_LEGACY034'),true);
+});
+test('YC034 Cơ sở đào tạo cũng bị chặn tạo hoặc phê duyệt tình trạng',()=>{
+ const c=setupLive();
+ const acc=c.send('account_save',{email:'school034@example.com',name:'Trường A',role:'CO_SO_DAO_TAO',schoolId:c.school.TRUONG_ID,status:'ACTIVE'});
+ assert.equal(acc.ok,true,JSON.stringify(acc.error));
+ const identity={sub:'92345678901234567890',aud:audience,email:'school034@example.com'};
+ const request=c.signed('status_manage_save',{label:'Tự thêm tình trạng',status:'ACTIVE'},'school034_no00001',identity);
+ const res=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(request)}}).getContent());
+ assert.equal(res.ok,false);assert.equal(res.error.code,'NO_PERMISSION');
 });

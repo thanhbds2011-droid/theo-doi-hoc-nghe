@@ -13,7 +13,7 @@ test('YC008: menu Nhân viên chỉ có 3 phân hệ; danh mục dành riêng qu
  assert.match(gas,/catalog_list:'CATALOG_MANAGE'/);
 });
 test('YC008: Danh mục lấy từ bộ nhớ bootstrap, không bắt buộc RPC khi đổi tab',()=>{
- assert.match(js,/const type=state\.catalogType,data=\{items:state\.cats\[type\]\|\|\[\]\}/);
+ assert.match(js,/const data=\{items:state\.cats\[type\]\|\|\[\]\}/);
  assert.match(js,/catalogSearch/);
 });
 test('YC008: có nút xóa, xác nhận và API ở cả frontend/backend',()=>{

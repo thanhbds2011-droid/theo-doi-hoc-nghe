@@ -18,7 +18,7 @@ test('YC024 cùng một mã lọc ảo trong Hồ sơ và Báo cáo, có trợ g
  assert.match(app,/if\(formId==='reports-filters'\)/);
 });
 test('YC024 backend không lọc nhầm ngày QĐ ở bước đầu và không ghi trạng thái ảo',()=>{
- assert.match(gas,/function reportStatusValid_\(status\)/);
+ assert.match(gas,/function reportStatusValid_\(status,user\)/);
  assert.match(gas,/COURSE_END_FILTER_,ALL_DECISIONS_FILTER_\]\.indexOf\(status\)/);
  assert.match(gas,/decisionRange_\(p,status===COURSE_END_FILTER_\)/);
  assert.match(gas,/status:f\.status===COURSE_END_FILTER_\?COURSE_END_FILTER_:''/);
