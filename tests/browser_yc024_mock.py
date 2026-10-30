@@ -129,7 +129,7 @@ with sync_playwright() as pw:
    assert page.evaluate('window.exported[3].cols.includes("Tổng số Quyết định đã ban hành")')
    assert page.evaluate('window.exported[2].cols.includes("Đã tham gia")'),role
    lines=page.evaluate('window.exported[1].rows')
-   assert len(lines)==1 and lines[0]==['Hoàn thành khóa học',1],(role,lines)
+   assert len(lines)==1 and lines[0]==[1,'Hoàn thành khóa học',1],(role,lines)  # YC-HN-030: đã thêm cột STT
   page.locator('#reports-filters [name="status"]').select_option('')
   page.locator('#reports-filters button[type="submit"]').click()
   page.wait_for_function('window.calls.filter(x=>x.action==="overview").at(-1).payload.status===""',timeout=12000)

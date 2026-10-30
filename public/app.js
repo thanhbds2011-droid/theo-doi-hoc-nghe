@@ -1,5 +1,5 @@
-import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.28-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.28-RC (YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
+import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.29-RC';
+/** THEO DÕI HỌC NGHỀ — v1.2.29-RC (YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -26,7 +26,7 @@ const state = {
   token:'', session:false, clientId:'', user:null, cats:{truong:[],nghe:[],lydo:[]}, statuses:[], page:'dashboard', routeVersion:0,
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:'',from:'',to:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:'',from:'',to:''},
-  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', managedStatuses:[], bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
+  records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', catalogSearchByType:{truong:'',nghe:'',lydo:'',tinhtrang:''}, managedStatuses:[], bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
   tradeScopeMap:null, cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", tradeScopeRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
 };
 
@@ -722,7 +722,8 @@ async function renderCatalogs(v,keepOld=false){
 async function loadCatalogs(v){
   const type=state.catalogType;
   if(type==='tinhtrang'){
-    const result=await rpc('status_manage_list',{}, {ttl:0});if(v!==state.routeVersion)return;state.managedStatuses=result.items||[];
+    // Cache ngắn theo tài khoản/quyền; thao tác ghi hoặc revision đổi sẽ tự xóa cache RPC.
+    const result=await rpc('status_manage_list',{}, {ttl:45000});if(v!==state.routeVersion)return;state.managedStatuses=result.items||[];
     $('#cats-view').innerHTML=`<div class="table-wrap"><table><thead><tr><th>Mã</th><th>Tình trạng học nghề</th><th>Trạng thái</th><th>Hồ sơ đang dùng</th><th>Thao tác quản trị</th></tr></thead><tbody>${state.managedStatuses.map(x=>`<tr class="catalog-data-row"><td>${esc(x.id)}</td><td>${esc(x.label)}${x.builtin?' <span class="muted">(mặc định)</span>':''}</td><td><span class="pill ${x.state==='ACTIVE'?'good':'warn'}">${x.state==='ACTIVE'?'Được phép chọn':x.state==='PENDING'?'Cần rà soát':'Ngừng sử dụng'}</span></td><td>${num(x.usageCount||0)}</td><td><div class="table-actions">${Number(x.usageCount)>0?`<button class="btn" data-status-usage="${dataAttr(x.id)}">Xem hồ sơ</button>`:''}${!x.builtin?`<button class="btn" data-edit-status="${dataAttr(x.id)}">${x.state==='PENDING'?'Rà soát':'Quản lý'}</button>`:''}</div></td></tr>`).join('')}</tbody></table></div>`;
     const search=state.catalogSearch.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
     document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(search);});
@@ -1391,7 +1392,20 @@ document.addEventListener('click',async e=>{
   if(node.hasAttribute('data-file-get')){try{await getFile(node.dataset.fileGet);}catch(err){failure(err);}return;}
   if(node.hasAttribute('data-page')){state.recordPage=Number(node.dataset.page);state.pageViews.delete('records');navigate('records',true);return;}
   if(node.hasAttribute('data-audit-page')){state.auditPage=Number(node.dataset.auditPage);state.pageViews.delete('audits');navigate('audits',true);return;}
-  if(node.hasAttribute('data-cat-tab')){state.catalogType=node.dataset.catTab;state.pageViews.delete('catalogs');navigate('catalogs',false);return;}
+  if(node.hasAttribute('data-cat-tab')){
+    const nextType=node.dataset.catTab;
+    if(state.page!=='catalogs'||!allowed('CATALOG_MANAGE')||!Object.hasOwn(NAMES,nextType)||nextType===state.catalogType)return;
+    // Chuyển tab là thay đổi NỘI DUNG cùng một route, không phải điều hướng sang trang khác.
+    // Nếu giữ renderedPage='catalogs', navigate() sẽ rememberPage() và lưu lại HTML tab cũ
+    // ngay sau khi ta vừa xóa snapshot, khiến cả bốn tab bị kẹt ở tab ban đầu.
+    state.catalogSearchByType[state.catalogType]=state.catalogSearch;
+    state.catalogType=nextType;
+    state.catalogSearch=state.catalogSearchByType[nextType]||'';
+    state.pageViews.delete('catalogs');
+    state.renderedPage=null; // ngăn rememberPage() ghi đè snapshot tab cũ
+    navigate('catalogs',true); // render tab mới từ danh mục sẵn có; chỉ tab Tình trạng mới cần RPC
+    return;
+  }
   if(node.hasAttribute('data-new-status')){manageStatusForm(null);return;}
   if(node.hasAttribute('data-edit-status')){const x=state.managedStatuses.find(y=>y.id===node.dataset.editStatus);if(x&&!x.builtin)manageStatusForm(x);return;}
   if(node.hasAttribute('data-status-usage')){const id=node.dataset.statusUsage;state.filters={...state.filters,status:id,query:''};state.recordPage=1;state.pageViews.delete('records');navigate('records',false);return;}
@@ -1477,7 +1491,7 @@ document.addEventListener('compositionend',e=>{
   if(e.target.name==='query')autoApplyEmptyRecordQuery(e.target);
 });
 document.addEventListener('input',e=>{if(e.target.name==='SO_THANG_HO_TRO'&&e.target.closest('#record-form'))refreshDropoutPeriod(e.target.closest('form'));});
-document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){state.catalogSearch=e.target.value;const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
+document.addEventListener('input',e=>{if(e.target.id==='catalog-search'){state.catalogSearch=e.target.value;state.catalogSearchByType[state.catalogType]=state.catalogSearch;const text=e.target.value.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'');document.querySelectorAll('.catalog-data-row').forEach(row=>{row.hidden=!row.textContent.toLocaleLowerCase('vi-VN').normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes(text);});}const form=e.target.closest('#bulk-catalog-form');if(form){if(e.target.name==='names'&&e.target.value.trim()){state.bulkRows=null;state.bulkFileText='';const file=$('#bulk-csv');if(file)file.value='';}form.dataset.verified='';form.dataset.ready='no';const btn=$('#bulk-import-submit');if(btn)btn.disabled=true;}});
 // YC-HN-032: đổi cơ sở cập nhật NGAY lựa chọn Nghề, không request backend hay submit form.
 document.addEventListener('change',e=>{
   if(e.target.name!=='truong')return;

@@ -36,5 +36,5 @@ test('YC023 giữ chuẩn XLSX đã nghiệm thu và không chỉnh cấu trúc 
   assert.match(backend,/NGAY_KET_THUC_DU_KIEN/);
   assert.match(backend,/var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'/);
   assert.match(backend,/version: '1\.2\.28-RC'/);
-  assert.match(app,/v1\.2\.28-RC/);
+  assert.match(app,/v1\.2\.29-RC/);
 });
