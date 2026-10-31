@@ -1569,7 +1569,7 @@ test('YC034 ADMIN phê duyệt trạng thái và ngừng sử dụng nhưng vẫ
  const one=c.send('record_save',record(c,'773','2026-04-05',{TRANG_THAI_THAM_GIA:status}));
  assert.equal(one.ok,true,JSON.stringify(one.error));
  const before=c.send('status_manage_list').data.items.find(x=>x.id===status);
- assert.equal(before.usageCount,1);assert.equal(before.state,'ACTIVE');
+ assert.equal(before.usageCount,undefined,'V4 không tính số hồ sơ dùng chỉ để dựng bảng');assert.equal(before.state,'ACTIVE');
  const deactivated=c.send('status_manage_save',{id:status,label:'Tai nạn',status:'INACTIVE'});
  assert.equal(deactivated.ok,true,JSON.stringify(deactivated.error));
  const boot=c.send('bootstrap');assert.equal(boot.data.statuses.some(x=>x.id===status),false);
@@ -1615,4 +1615,79 @@ test('YC034 Cơ sở đào tạo cũng bị chặn tạo hoặc phê duyệt tì
  const request=c.signed('status_manage_save',{label:'Tự thêm tình trạng',status:'ACTIVE'},'school034_no00001',identity);
  const res=JSON.parse(c.global.doPost({postData:{contents:JSON.stringify(request)}}).getContent());
  assert.equal(res.ok,false);assert.equal(res.error.code,'NO_PERMISSION');
+});
+
+// YC-HN-036: tests of revised status lifecycle, history and school-scoped revisions.
+test('YC036 V4: trạng thái tùy chỉnh xóa mềm, không ghi đè hồ sơ cũ và không tái sử dụng mã',()=>{
+  const c=setupLive();
+  const custom=c.send('status_manage_save',{label:'Tai nạn ngoài giờ',status:'ACTIVE'});
+  assert.equal(custom.ok,true,JSON.stringify(custom.error));const id=custom.data.id;
+  const added=c.send('record_save',record(c,'8901','2026-08-01',{TRANG_THAI_THAM_GIA:id}));
+  assert.equal(added.ok,true,JSON.stringify(added.error));
+  const before=c.send('status_manage_list');assert.equal(before.ok,true);
+  assert.equal(before.data.items.find(x=>x.id===id).usageCount,undefined,'Không còn thống kê usageCount trong tab danh mục');
+  const deleted=c.send('status_manage_delete',{id});assert.equal(deleted.ok,true,JSON.stringify(deleted.error));
+  assert.equal(c.send('status_manage_list').data.items.find(x=>x.id===id).state,'DELETED');
+  assert.equal(c.send('bootstrap').data.statuses.some(x=>x.id===id),false);
+  const existing=c.send('records_list',{}).data.items.find(x=>x.HO_SO_ID===added.data.record.HO_SO_ID);
+  assert.equal(existing.TRANG_THAI_THAM_GIA,id);
+  assert.equal(existing.TRANG_THAI_NHAN,'Tai nạn ngoài giờ');
+  const prohibited=c.send('record_save',record(c,'8902','2026-08-02',{TRANG_THAI_THAM_GIA:id}));
+  assert.equal(prohibited.error.code,'VALIDATION');
+  const reusing=c.send('status_manage_save',{label:'Tai nạn ngoài giờ',status:'ACTIVE'});
+  assert.equal(reusing.error.code,'DUPLICATE');
+  const edited=c.send('record_status',{HO_SO_ID:existing.HO_SO_ID,PHIEN_BAN:existing.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:false});
+  assert.equal(edited.ok,true,JSON.stringify(edited.error));
+  assert.equal(edited.data.record.TRANG_THAI_THAM_GIA,'DA_THAM_GIA');
+});
+
+test('YC036 V4: xóa mềm mặc định Đã tham gia không chặn chuyển hồ sơ cũ sang Bỏ học',()=>{
+  const c=setupLive();
+  const created=c.send('record_save',record(c,'8903','2026-08-03',{TRANG_THAI_THAM_GIA:'DA_THAM_GIA'}));
+  assert.equal(created.ok,true);
+  const removed=c.send('status_manage_delete',{id:'DA_THAM_GIA'});
+  assert.equal(removed.ok,true,JSON.stringify(removed.error));
+  const boot=c.send('bootstrap');assert.equal(boot.data.builtinStatuses.some(x=>x.id==='DA_THAM_GIA'),false);
+  assert.equal(boot.data.builtinStatuses.some(x=>x.id==='BO_HOC'),true);
+  const r=created.data.record;
+  const newStatus=c.send('record_status',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN,
+    TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:true,NGAY_BO_HOC:'KY:2',LY_DO_BO_HOC_ID:c.reason.LY_DO_ID});
+  assert.equal(newStatus.ok,true,JSON.stringify(newStatus.error));
+  assert.equal(newStatus.data.record.DA_BO_HOC,'TRUE');
+  const kpi=c.send('overview',{}).data.kpi;
+  assert.equal(kpi.participated,1);assert.equal(kpi.dropout,1);
+});
+
+test('YC036 V5: dữ liệu cơ sở B không đổi revision khi A cập nhật tình trạng',()=>{
+  const c=setupLive();
+  const b=c.send('catalog_save',{type:'truong',title:'Trường B',status:'ACTIVE'}).data.item;
+  const aRec=c.send('record_save',record(c,'8904','2026-08-04')).data.record;
+  const bRec=c.send('record_save',record(c,'8905','2026-08-05',{TRUONG_ID:b.TRUONG_ID})).data.record;
+  assert.equal(bRec.TRUONG_ID,b.TRUONG_ID);
+  const aUser={VAI_TRO:'CO_SO_DAO_TAO',TRUONG_ID:c.school.TRUONG_ID};
+  const bUser={VAI_TRO:'CO_SO_DAO_TAO',TRUONG_ID:b.TRUONG_ID};
+  const allUser={VAI_TRO:'NHAN_VIEN'};
+  const beforeA=c.global.dataRevisionForUser_(aUser),beforeB=c.global.dataRevisionForUser_(bUser),beforeAll=c.global.dataRevisionForUser_(allUser);
+  const changed=c.send('record_status',{HO_SO_ID:aRec.HO_SO_ID,PHIEN_BAN:aRec.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:false});
+  assert.equal(changed.ok,true,JSON.stringify(changed.error));
+  assert.notEqual(c.global.dataRevisionForUser_(aUser),beforeA);
+  assert.equal(c.global.dataRevisionForUser_(bUser),beforeB);
+  assert.notEqual(c.global.dataRevisionForUser_(allUser),beforeAll);
+});
+
+test('YC036 V4: danh mục tình trạng không đọc bảng hồ sơ chỉ để tính số lượng',()=>{
+  const c=setupLive();const oldGet=c.global.getSheet_;
+  c.global.getSheet_=function(name){if(name==='HO_SO_HOC_NGHE')throw Error('Forbidden full record scan');return oldGet(name);};
+  const out=c.send('status_manage_list');
+  assert.equal(out.ok,true,JSON.stringify(out.error));
+  assert.equal(out.data.items.length,5);
+  assert.ok(out.data.items.every(x=>!Object.hasOwn(x,'usageCount')));
+});
+
+test('YC036 V4: tình trạng mới cập nhật phải tuân PHIEN_BAN, chống ghi đè hai phiên',()=>{
+  const c=setupLive();const r=c.send('record_save',record(c,'8906','2026-08-06')).data.record;
+  const first=c.send('record_status',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN,TRANG_THAI_THAM_GIA:'KHONG_THAM_GIA',DA_BO_HOC:false});
+  assert.equal(first.ok,true,JSON.stringify(first.error));
+  const stale=c.send('record_status',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN,TRANG_THAI_THAM_GIA:'DA_THAM_GIA',DA_BO_HOC:false});
+  assert.equal(stale.ok,false);assert.equal(stale.error.code,'VERSION_CONFLICT');
 });

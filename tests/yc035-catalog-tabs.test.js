@@ -26,8 +26,8 @@ test('YC035: lưu từ khóa riêng từng danh mục, cache ngắn trạng thá
 test('YC035: giữ nguyên backend và mẫu Excel; phiên bản frontend đồng bộ',()=>{
  const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
  const pkg=JSON.parse(readFileSync(new URL('../package.json',import.meta.url),'utf8'));
- assert.match(html,/app\.js\?v=1\.2\.29-RC/);
- assert.match(html,/v1\.2\.29-RC/);
- assert.equal(pkg.version,'1.2.29-rc.0');
- assert.match(app,/xlsx-export\.js\?v=1\.2\.29-RC/);
+ assert.match(html,/app\.js\?v=1\.2\.30-RC/);
+ assert.match(html,/v1\.2\.30-RC/);
+ assert.equal(pkg.version,'1.2.30-rc.0');
+ assert.match(app,/xlsx-export\.js\?v=1\.2\.30-RC/);
 });

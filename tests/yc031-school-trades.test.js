@@ -22,6 +22,7 @@ function fixture(){
   vm.runInContext(source,env,{filename:'Code.gs'});
   env.now_=()=> '2026-10-28T10:00:00';
   env.customStatusList_=()=> [];
+  env.builtinStatusList_=()=>[{id:'DA_THAM_GIA',label:'Đã tham gia học',state:'ACTIVE'},{id:'BO_HOC',label:'Bỏ học',state:'ACTIVE'},{id:'CHO_XAC_NHAN',label:'Chưa xác nhận',state:'ACTIVE'}];
   env.staffDisplayMap_=()=>({});
   env.version_=type=>revisions[type]||'0';
   env.bump_=type=>{revisions[type]=type+'_'+(++seq);};
@@ -99,9 +100,9 @@ test('YC031: không bump khi chỉ cập nhật tình trạng hoặc khi không 
 });
 
 test('YC031: các lối ghi khác nhau chỉ cập nhật quan hệ khi thay đổi hồ sơ cấu trúc',()=>{
- assert.match(source,/var tRev=Date\.now\(\);bump_\('DATA'\);bumpSchoolTradesForRecord_\(old,data\);/);
- assert.match(source,/bump_\('DATA'\);bumpSchoolTradesForSchools_\(Object\.keys\(affectedSchools\)\);[\s\S]*?NHAP_HO_SO_HANG_LOAT/);
- assert.match(source,/bump_\('DATA'\);bumpSchoolTradesForSchools_\(\[r\.TRUONG_ID\]\);[\s\S]*?XOA_MEM_HO_SO/);
+ assert.match(source,/var tRev=Date\.now\(\);bumpDataForSchools_\([^;]+\);bumpSchoolTradesForRecord_\(old,data\);/);
+ assert.match(source,/bumpDataForSchools_\([^;]+\);bumpSchoolTradesForSchools_\(Object\.keys\(affectedSchools\)\);[\s\S]*?NHAP_HO_SO_HANG_LOAT/);
+ assert.match(source,/bumpDataForSchools_\([^;]+\);bumpSchoolTradesForSchools_\(\[r\.TRUONG_ID\]\);[\s\S]*?XOA_MEM_HO_SO/);
  const status=source.split('function statusRecord_(')[1].split('function statusBulkTarget_')[0];
  assert.doesNotMatch(status,/bump_\('SCHOOL_TRADES'\)/);
  assert.match(source,/return catalog\.filter\(function\(r\)\{return Object\.prototype\.hasOwnProperty\.call\(allowed,r\.NGHE_ID\);\}\)/);

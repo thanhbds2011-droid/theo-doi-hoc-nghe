@@ -29,6 +29,6 @@ test('Hotfix: every body style has explicit border, horizontal + vertical alignm
 test('Hotfix: versioned script URLs prevent stale xlsx-export.js module reuse',()=>{
  const html=readFileSync(new URL('../public/index.html',import.meta.url),'utf8');
  const app=readFileSync(new URL('../public/app.js',import.meta.url),'utf8');
- assert.match(html,/\/app\.js\?v=1\.2\.29-RC/);
- assert.match(app,/xlsx-export\.js\?v=1\.2\.29-RC/);
+ assert.match(html,/\/app\.js\?v=1\.2\.30-RC/);
+ assert.match(app,/xlsx-export\.js\?v=1\.2\.30-RC/);
 });

@@ -76,6 +76,7 @@ with sync_playwright() as playwright:
                                              ('truong','Trường A','Thêm danh mục')]:
   admin.locator(f'[data-cat-tab="{category}"]').click()
   admin.wait_for_selector(f'[data-cat-tab="{category}"].active',timeout=10000)
+  if category=='tinhtrang':admin.locator('#cats-view details').evaluate('(el)=>el.open=true')
   admin.locator('#cats-view').get_by_text(expected_name,exact=False).first.wait_for(timeout=10000)
   assert admin.locator('.page-actions').get_by_text(expected_button,exact=False).count()==1,(category,expected_button)
   assert admin.evaluate('state.catalogType')==category
@@ -84,6 +85,7 @@ with sync_playwright() as playwright:
  for i in range(3):
   admin.locator('[data-cat-tab="tinhtrang"]').click()
   admin.wait_for_selector('[data-cat-tab="tinhtrang"].active')
+  admin.locator('#cats-view details').evaluate('(el)=>el.open=true')
   admin.locator('#cats-view').get_by_text('Tình trạng cần rà soát').wait_for()
   admin.locator('[data-cat-tab="truong"]').click()
   admin.wait_for_selector('[data-cat-tab="truong"].active')
@@ -118,6 +120,7 @@ with sync_playwright() as playwright:
  admin.wait_for_selector('.kpi')
  admin.locator('[data-nav="catalogs"]').click()
  admin.wait_for_selector('[data-cat-tab="tinhtrang"].active')
+ admin.locator('#cats-view details').evaluate('(el)=>el.open=true')
  assert admin.locator('#cats-view').get_by_text('Tình trạng cần rà soát').is_visible()
  # ADMIN phê duyệt tình trạng lịch sử: cache được vô hiệu hóa sau khi ghi;
  # màn hình Danh mục hiển thị lại trạng thái mới với mã hồ sơ không đổi.
