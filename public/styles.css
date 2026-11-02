@@ -378,3 +378,10 @@ nav button.active{color:#0864bf;background:#e0efff;box-shadow:inset 3px 0 #0977d
 .status-conflict p{margin:6px 0 10px}
 .conflict-compare{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 .conflict-compare span{flex:1 1 185px;background:#fff;border:1px solid #f4dbac;padding:10px;border-radius:9px}
+
+/* YC-HN-036/V6: hai mốc đào tạo cùng một ô; giữ nút Thao tác và cuộn ngang trên màn hẹp. */
+#list-output th.training-period-header,#list-output td.training-period-cell{min-width:189px;}
+#list-output td.training-period-cell{white-space:normal;vertical-align:middle;}
+#list-output .training-date{display:flex;flex-wrap:wrap;align-items:baseline;column-gap:5px;row-gap:1px;line-height:1.65;}
+#list-output .training-date-label{font-weight:700;white-space:nowrap;}
+#list-output .training-date-value{white-space:nowrap;font-variant-numeric:tabular-nums;}

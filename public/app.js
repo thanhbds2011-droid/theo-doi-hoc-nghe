@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.30-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.30-RC (YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.31-RC (YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -14,6 +14,14 @@ const supportMoneyVN = value => {
 };
 const option = (value, label, selected = '') => `<option value="${esc(value)}" ${String(value) === String(selected) ? 'selected' : ''}>${esc(label)}</option>`;
 const dateVN = d => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : (d || '—');
+// YC-HN-036/V6: ngày đào tạo chỉ hiển thị nếu là ngày ISO hợp lệ; không tạo ngày giả.
+const trainingDateVN = raw => {
+  const value=String(raw??'').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(value))return 'Chưa có thông tin';
+  const d=new Date(value+'T00:00:00Z');
+  if(!Number.isFinite(d.getTime())||d.toISOString().slice(0,10)!==value)return 'Chưa có thông tin';
+  return dateVN(value);
+};
 const STATUS = { CHO_XAC_NHAN:'Chưa xác nhận', DA_THAM_GIA:'Đã tham gia học', KHONG_THAM_GIA:'Không tham gia', KHONG_NHAN_QUYET_DINH:'Không nhận quyết định' };
 const COURSE_END_FILTER='FILTER_COURSE_END_DATE'; // Tra ngày kết thúc DỰ KIẾN, không xác nhận tốt nghiệp.
 const ALL_DECISIONS_FILTER='FILTER_ALL_DECISIONS'; // Bộ lọc ảo, không lưu vào dữ liệu nguồn.
@@ -635,8 +643,8 @@ async function renderRecords(v,keepOld=false){
 }
 // YC-HN-022: one canonical escaped row renderer, for initial load and single-row update.
 function renderRecordRow(r){
-  const endColumn=state.filters.status===COURSE_END_FILTER?`<td class="nowrap">${esc(dateVN(r.NGAY_KET_THUC_DU_KIEN))}</td>`:'';
-  return `<tr data-record-id="${dataAttr(r.HO_SO_ID)}"><td class="nowrap">${esc(dateVN(r.NGAY_QUYET_DINH))}</td>${endColumn}<td><b>${esc(r.SO_QUYET_DINH)}</b></td><td>${esc(r.HO_TEN)}</td><td>${esc(lookup('truong',r.TRUONG_ID))}</td><td>${esc(lookup('nghe',r.NGHE_ID))}</td><td>${pillStatus(r)}</td><td class="record-action-cell"><div class="table-actions record-actions">${recordIconButton('eye','Chi tiết hồ sơ','data-detail-record',r.HO_SO_ID)}${allowed('RECORD_EDIT')?recordIconButton('pencil','Sửa hồ sơ','data-edit-record',r.HO_SO_ID):''}${canDeleteRecord(r)?recordIconButton('trash-2','Xóa hồ sơ','data-delete-record',r.HO_SO_ID,true):''}${allowed('RECORD_STATUS')?recordIconButton('clipboard-check','Cập nhật tình trạng','data-status-record',r.HO_SO_ID):''}${r.HAS_FILE&&allowed('FILE_VIEW')?recordIconButton('file-down','Xem hoặc tải tệp hiện có','data-file-get',r.HO_SO_ID):''}${allowed('FILE_UPLOAD')?recordIconButton('paperclip','Quản lý tệp đính kèm','data-file-modal',r.HO_SO_ID):''}</div></td></tr>`;
+  const trainingPeriod=`<td class="training-period-cell"><div class="training-date"><span class="training-date-label">Từ ngày:</span><span class="training-date-value">${esc(trainingDateVN(r.NGAY_BAT_DAU))}</span></div><div class="training-date"><span class="training-date-label" title="Ngày kết thúc đào tạo dự kiến">Đến ngày:</span><span class="training-date-value">${esc(trainingDateVN(r.NGAY_KET_THUC_DU_KIEN))}</span></div></td>`;
+  return `<tr data-record-id="${dataAttr(r.HO_SO_ID)}"><td class="nowrap">${esc(dateVN(r.NGAY_QUYET_DINH))}</td><td><b>${esc(r.SO_QUYET_DINH)}</b></td><td>${esc(r.HO_TEN)}</td><td>${esc(lookup('truong',r.TRUONG_ID))}</td><td>${esc(lookup('nghe',r.NGHE_ID))}</td>${trainingPeriod}<td class="record-status-cell">${pillStatus(r)}</td><td class="record-action-cell"><div class="table-actions record-actions">${recordIconButton('eye','Chi tiết hồ sơ','data-detail-record',r.HO_SO_ID)}${allowed('RECORD_EDIT')?recordIconButton('pencil','Sửa hồ sơ','data-edit-record',r.HO_SO_ID):''}${canDeleteRecord(r)?recordIconButton('trash-2','Xóa hồ sơ','data-delete-record',r.HO_SO_ID,true):''}${allowed('RECORD_STATUS')?recordIconButton('clipboard-check','Cập nhật tình trạng','data-status-record',r.HO_SO_ID):''}${r.HAS_FILE&&allowed('FILE_VIEW')?recordIconButton('file-down','Xem hoặc tải tệp hiện có','data-file-get',r.HO_SO_ID):''}${allowed('FILE_UPLOAD')?recordIconButton('paperclip','Quản lý tệp đính kèm','data-file-modal',r.HO_SO_ID):''}</div></td></tr>`;
 }
 // A changed sort key or an applied filter field needs authoritative list/pagination refresh.
 // Prefer a conservative refresh over incorrectly keeping a row in a filtered list.
@@ -706,8 +714,8 @@ async function loadRecordList(v,keepOld=false,markup="",loadVersion=++state.reco
   state.records=data.items;state.recordTotal=data.total;
   $('#list-output').classList.remove('records-failed');
   $('#record-count').textContent=`Hiển thị ${num(data.items.length)} / ${num(data.total)} hồ sơ · Trang ${data.page}`;
-  const courseEndMode=filters.status===COURSE_END_FILTER;
-  $('#list-output').innerHTML=`<table><thead><tr><th>Ngày QĐ</th>${courseEndMode?'<th>Ngày kết thúc đào tạo (dự kiến)</th>':''}<th>Số QĐ</th><th>Người học</th><th>Cơ sở đào tạo</th><th>Nghề</th><th>Tình trạng</th><th class="record-action-header">Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(renderRecordRow).join(''):`<tr><td colspan="${courseEndMode?8:7}" class="empty">Không có hồ sơ phù hợp.</td></tr>`}</tbody></table>`;
+  // YC-HN-036/V6: 8 cột cố định ở mọi chế độ lọc; không lặp ngày kết thúc khi lọc Hoàn thành.
+  $('#list-output').innerHTML=`<table><thead><tr><th>Ngày QĐ</th><th>Số QĐ</th><th>Người học</th><th>Cơ sở đào tạo</th><th>Nghề</th><th class="training-period-header" title="Đến ngày là ngày kết thúc đào tạo dự kiến">Thời gian đào tạo</th><th>Tình trạng</th><th class="record-action-header">Thao tác</th></tr></thead><tbody>${data.items.length?data.items.map(renderRecordRow).join(''):'<tr><td colspan="8" class="empty">Không có hồ sơ phù hợp.</td></tr>'}</tbody></table>`;
   const totalPages=Math.max(1,Math.ceil(data.total/20));
   $('#list-pages').innerHTML=`<div class="pagination"><button class="btn" data-page="${data.page-1}" ${data.page<=1?'disabled':''}>← Trước</button>Trang ${data.page}/${totalPages}<button class="btn" data-page="${data.page+1}" ${data.page>=totalPages?'disabled':''}>Tiếp →</button></div>`;
 }
@@ -1420,7 +1428,7 @@ document.addEventListener('click',async e=>{
     state.pageViews.delete('dashboard');state.pageViews.delete('reports');
     closeModal();const tr=document.querySelector(`[data-delete-record="${CSS.escape(r.HO_SO_ID)}"]`)?.closest('tr');if(tr)tr.remove();
     const cnt=$('#record-count');if(cnt)cnt.textContent=`Hiển thị ${num(state.records.length)} / ${num(state.recordTotal)} hồ sơ · Trang ${state.recordPage}`;
-    const empty=$('#list-output tbody');if(empty&&!empty.children.length)empty.innerHTML='<tr><td colspan="'+(state.filters.status===COURSE_END_FILTER?8:7)+'" class="empty">Không có hồ sơ phù hợp.</td></tr>';
+    const empty=$('#list-output tbody');if(empty&&!empty.children.length)empty.innerHTML='<tr><td colspan="'+(8)+'" class="empty">Không có hồ sơ phù hợp.</td></tr>';
     state.pageViews.delete('records');const lastPage=Math.max(1,Math.ceil(state.recordTotal/20));
     if(state.recordPage>lastPage){state.recordPage=lastPage;notify('Đã xóa hồ sơ; đang cập nhật trang cuối.');void refreshRecordResults('Đang cập nhật danh sách…');return;}
     const pageBox=$('#list-pages');if(pageBox)pageBox.innerHTML=`<div class="pagination"><button class="btn" data-page="${state.recordPage-1}" ${state.recordPage<=1?'disabled':''}>← Trước</button>Trang ${state.recordPage}/${lastPage}<button class="btn" data-page="${state.recordPage+1}" ${state.recordPage>=lastPage?'disabled':''}>Tiếp →</button></div>`;
@@ -1595,7 +1603,7 @@ document.addEventListener('submit',e=>{
     const noMatch=status&&(status==='BO_HOC'?next.DA_BO_HOC!=='TRUE':status==='DA_THAM_GIA'?(next.TRANG_THAI_THAM_GIA!=='DA_THAM_GIA'||next.DA_BO_HOC==='TRUE'):status!==next.TRANG_THAI_THAM_GIA);
     if(noMatch){navigate('records',true);}else{
       const button=[...document.querySelectorAll('[data-status-record]')].find(n=>n.dataset.statusRecord===next.HO_SO_ID);
-      const badge=button?.closest('tr')?.querySelector('td:nth-child(6)');if(badge)badge.innerHTML=pillStatus(next);
+      const badge=button?.closest('tr')?.querySelector('td.record-status-cell');if(badge)badge.innerHTML=pillStatus(next);
     }},{button:form.querySelector('[data-submit-btn]'),label:'Đang cập nhật…'});return;}
   if(formId==='manage-status-form'){serialized(async()=>{const result=await rpc('status_manage_save',getFormFields(form),{mutate:true});notify(result.auditPending?'Đã cập nhật tình trạng nhưng chưa ghi được nhật ký. Vui lòng đối soát.':'Đã cập nhật danh mục tình trạng học nghề.',Boolean(result.auditPending));await afterMutation('catalogs');});return;}
   if(formId==='catalog-form'){serialized(async()=>{await rpc('catalog_save',getFormFields(form),{mutate:true});notify('Đã lưu danh mục.');await afterMutation('catalogs');});return;}
