@@ -1,5 +1,5 @@
 import {downloadReportXlsx,downloadXlsx} from './xlsx-export.js?v=1.2.30-RC';
-/** THEO DÕI HỌC NGHỀ — v1.2.31-RC (YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
+/** THEO DÕI HỌC NGHỀ — v1.2.32-RC (YC-HN-037/V1, YC-HN-032 V2, kế thừa YC-HN-031 V1, YC-HN-030 V1, YC-HN-029 V5 và giao diện chức danh V4). Không lưu token/PII vào localStorage. */
 const $ = (s, root = document) => root.querySelector(s);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const dataAttr = esc;
@@ -35,7 +35,7 @@ const state = {
   filters:{year:'',truong:'',nghe:'',status:'',dropout:'',query:'',from:'',to:''},
   dashboardFilters:{year:'',truong:'',nghe:''}, reportFilters:{year:'',truong:'',nghe:'',status:'',from:'',to:''},
   records:[], recordPage:1, recordTotal:0, accountRows:[], auditPage:1, catalogType:'truong', catalogSearch:'', catalogSearchByType:{truong:'',nghe:'',lydo:'',tinhtrang:''}, managedStatuses:[], bulkRows:null, importRows:null, importFile:null, importPreview:null, importSession:null, statusImport:null,
-  tradeScopeMap:null, cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", tradeScopeRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false
+  tradeScopeMap:null, cache:new Map(), inFlight:new Map(), pageViews:new Map(), renderedPage:null, generation:0, busy:false, usedPerson:null, permissionRevision:"", permissionChecked:0, permissionPromise:null, dataRevision:"", catalogRevision:"", statusRevision:"", tradeScopeRevision:"", pageDataAt:new Map(), scope:"", lastRecordSearchMs:0, recordLoadVersion:0, recordLoading:false, activeRecordRequestKey:"", lastPermissionFocusCheck:0, renderedDataRevision:"", needsActiveRefresh:false, lastDataRefreshAt:0, dataCheckTimer:null, pendingConflictRecord:"", routeLoading:false, prefetchTask:null
 };
 
 function notify(message, error=false){ const el=$('#toast');el.textContent=String(message);el.className='toast show'+(error?' error':'');clearTimeout(notify.timer);notify.timer=setTimeout(()=>el.classList.remove('show'),5500); }
@@ -122,9 +122,14 @@ function expireCacheActions(actions){for(const k of state.cache.keys())if(action
 function trimCache(){while(state.cache.size>110)state.cache.delete(state.cache.keys().next().value);}
 /** YC-HN-036: idle, bounded, permission-scoped menu warmup (one outstanding RPC). */
 function startMenuPrefetch(){
-  const generation=state.generation,scope=permissionScope();
-  if(!state.session||state.prefetchScope===scope+'|'+state.dataRevision)return;
-  state.prefetchScope=scope+'|'+state.dataRevision;
+  const generation=state.generation,scope=permissionScope(),stamp=scope+'|'+state.dataRevision;
+  if(!state.session)return;
+  if(state.prefetchScope!==stamp){
+    state.prefetchScope=stamp;
+    state.prefetchTask={stamp,next:0,running:false,scheduled:false,done:false};
+  }
+  const task=state.prefetchTask;
+  if(!task||task.done||task.running||task.scheduled)return;
   const todo=[
     ...(allowed('CATALOG_MANAGE')?[['status_manage_list',{},45000]]:[]),
     ['records_list',{...state.filters,page:state.recordPage,pageSize:20},45000],
@@ -132,16 +137,25 @@ function startMenuPrefetch(){
     ...(allowed('ACCOUNT_MANAGE')?[['accounts_list',{},30000]]:[]),
     ...(allowed('AUDIT_VIEW')?[['audit_list',{page:state.auditPage},30000]]:[])
   ];
+  task.scheduled=true;
   const run=async()=>{
-    for(const [action,payload,ttl] of todo){
-      if(!state.session||state.generation!==generation||permissionScope()!==scope)return;
-      if(document.visibilityState==='hidden'||state.busy)break;
-      try{await rpc(action,payload,{ttl});}
-      catch(e){/* Foreground navigation will show a visible error and offer retry. */}
-    }
+    task.scheduled=false;
+    if(task.running||task.done||!state.session||state.generation!==generation||permissionScope()!==scope||state.prefetchTask!==task)return;
+    task.running=true;
+    try{
+      while(task.next<todo.length){
+        if(!state.session||state.generation!==generation||permissionScope()!==scope)return;
+        if(document.visibilityState==='hidden'||state.busy)break;
+        const [action,payload,ttl]=todo[task.next];
+        try{await rpc(action,payload,{ttl});task.next++;}
+        catch(e){break;} // Giữ vị trí để tiếp tục khi người dùng quay lại; không retry liên tục.
+      }
+      if(task.next===todo.length)task.done=true;
+    }finally{task.running=false;}
   };
-  // Avoid competing with first visible page; never hold the current navigation open.
-  setTimeout(()=>{if(state.session&&state.generation===generation)void run();},250);
+  // Tải tuần tự có thể tiếp tục sau khi tab ẩn, trình duyệt bận hoặc lỗi mạng.
+  task.scheduled=true;
+  setTimeout(()=>{if(state.session&&state.generation===generation)void run();else task.scheduled=false;},250);
 }
 
 /** YC-HN-017: kiểm tra quyền một lần cho nhiều lượt điều hướng đồng thời.
@@ -157,7 +171,7 @@ async function verifyPermission(force=false){
       signOut();throw Error('Quyền truy cập đã thay đổi. Vui lòng đăng nhập lại để nhận quyền mới.');
     }
     if(state.permissionRevision!==(data.permissionRevision||'')){
-      state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;state.prefetchScope='';
+      state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;state.prefetchScope='';state.prefetchTask=null;
       state.permissionRevision=data.permissionRevision||'';
     }
     if(state.catalogRevision!==(data.catalogRevision||'')||state.statusRevision!==(data.statusRevision||'')||
@@ -174,14 +188,26 @@ async function verifyPermission(force=false){
       if(reconcileSchoolTradeFilters())notify('Danh sách nghề đã thay đổi. Bộ lọc nghề không còn phù hợp đã được đặt về Tất cả nghề.');
       syncVisibleSchoolTradeOptions();
       state.needsActiveRefresh=true;
-      state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;state.prefetchScope='';
+      state.cache.clear();state.pageViews.clear();state.pageDataAt.clear();state.generation++;state.prefetchScope='';state.prefetchTask=null;
     }
     if(state.dataRevision!==(data.dataRevision||'')){
       // A verified change invalidates the DOM snapshot as well as API cache.
       // Never assign the new revision to previously rendered old HTML.
-      state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.pageDataAt.clear();
-      state.generation++;state.needsActiveRefresh=true;
+      // YC-HN-037: dữ liệu hồ sơ thay đổi không làm mất danh mục và danh sách tài khoản.
+      // Nhật ký cần cập nhật vì thao tác hồ sơ có thể tạo thêm log.
+      expireCacheActions(['records_list','overview','report_matrix','report_export','audit_list','person_lookup']);
+      state.inFlight.clear();
+      for(const page of ['dashboard','records','reports','audits']){
+        state.pageViews.delete(page);state.pageDataAt.delete(page);
+      }
+      for(const page of ['catalogs','accounts']){
+        const snap=state.pageViews.get(page);
+        if(snap)snap.dataRevision=data.dataRevision||'';
+      }
+      state.generation++;state.prefetchScope='';state.prefetchTask=null;
+      state.needsActiveRefresh=state.needsActiveRefresh||['dashboard','records','reports','audits'].includes(state.page);
       state.dataRevision=data.dataRevision||'';
+      if(['catalogs','accounts'].includes(state.page))state.renderedDataRevision=state.dataRevision;
     }
     // Role/school are already verified above; display-only metadata may change without logout.
     state.user={...u,CHUC_DANH_HIEN_THI:n.CHUC_DANH_HIEN_THI||''};
@@ -310,12 +336,12 @@ function renderCurrentUser(){
 }
 function activateSession(data){
   state.session=true;state.user=data.user;state.cats=data.catalogs;state.tradeScopeMap=data.tradeScopeMap||null;state.statuses=data.statuses||[];state.builtinStatuses=data.builtinStatuses||Object.entries(STATUS_FORM).map(([id,label])=>({id,label}));state.token='';state.permissionRevision=data.permissionRevision||'';state.dataRevision=data.dataRevision||'';state.catalogRevision=data.catalogRevision||'';state.statusRevision=data.statusRevision||'';state.tradeScopeRevision=data.tradeScopeRevision||'';reconcileSchoolTradeFilters();state.permissionChecked=Date.now();state.pageDataAt.clear();
-  state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.prefetchScope='';state.renderedPage=null;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;startDataChecks();
+  state.pageViews.clear();state.cache.clear();state.inFlight.clear();state.prefetchScope='';state.prefetchTask=null;state.renderedPage=null;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;startDataChecks();
   $('#login').classList.add('hidden');$('#app').classList.remove('hidden');
   renderCurrentUser();
   navigate('dashboard');
 }
-function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.tradeScopeRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.tradeScopeMap=null;state.statuses=[];state.builtinStatuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
+function signOut(){stopDataChecks();if(state.session){fetch('/api/rpc',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','X-Requested-With':'HocNgheWeb'},body:JSON.stringify({action:'logout'})}).catch(()=>{});}state.session=false;state.token='';state.user=null;state.permissionRevision='';state.permissionChecked=0;state.permissionPromise=null;state.dataRevision='';state.catalogRevision='';state.statusRevision='';state.tradeScopeRevision='';state.pageDataAt.clear();state.generation++;state.cache.clear();state.inFlight.clear();state.pageViews.clear();state.prefetchTask=null;state.renderedPage=null;state.renderedDataRevision='';state.needsActiveRefresh=false;state.records=[];state.cats={truong:[],nghe:[],lydo:[]};state.tradeScopeMap=null;state.statuses=[];state.builtinStatuses=[];$('#app').classList.add('hidden');$('#login').classList.remove('hidden');closeModal();if(window.google?.accounts?.id)google.accounts.id.disableAutoSelect();$('#login-note').textContent='Đăng nhập lại bằng tài khoản Google.';}
 // YC-HN-006 — Bộ biểu tượng vector đồng nhất, không phụ thuộc font/emoji bên ngoài.
 const ICON_PATHS={
   'calendar':'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
@@ -367,7 +393,7 @@ function rememberPage(page){
 function finishPageLoad(page,v){
   if(v!==state.routeVersion)return;
   state.pageDataAt.set(page,Date.now());state.renderedPage=page;state.renderedDataRevision=state.dataRevision;state.needsActiveRefresh=false;
-  if(page==='dashboard')startMenuPrefetch();
+  startMenuPrefetch();
   const note=$('#main .refresh-note');if(note)note.remove();
   rememberPage(page);
 }
@@ -1283,12 +1309,12 @@ async function afterMutation(page=state.page){closeModal();
 }
 function csvCell(x){const str=String(x??'');const secure=/^[\s]*[=+\-@\t\r]/.test(str)?"'"+str:str;return '"'+secure.replace(/"/g,'""')+'"';}
 function downloadCsv(name,rows){const csv='\ufeff'+rows.map(r=>r.map(csvCell).join(',')).join('\r\n');const url=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=name;document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),5000);}
-async function exportReport(filters){const d=await rpc('report_export',filters,{ttl:30000});const firstHeader=[...d.columns];firstHeader[12]='Thời gian đào tạo';firstHeader[13]='';const secondHeader=Array(25).fill('');secondHeader[12]='Từ ngày';secondHeader[13]='Đến ngày';downloadXlsx('danh-sach-hoc-nghe-'+new Date().toISOString().slice(0,10)+'.xlsx',[firstHeader,secondHeader,...d.items]);notify('Đã xuất báo cáo gồm '+num(d.items.length)+' hồ sơ.');}
+async function exportReport(filters){const d=await rpc('report_export',filters,{ttl:0});const firstHeader=[...d.columns];firstHeader[12]='Thời gian đào tạo';firstHeader[13]='';const secondHeader=Array(25).fill('');secondHeader[12]='Từ ngày';secondHeader[13]='Đến ngày';downloadXlsx('danh-sach-hoc-nghe-'+new Date().toISOString().slice(0,10)+'.xlsx',[firstHeader,secondHeader,...d.items]);notify('Đã xuất báo cáo gồm '+num(d.items.length)+' hồ sơ.');}
 
 function exportModal(){showModal('Xuất báo cáo học nghề',`<form id="report-export-form" class="form-grid"><div class="field full"><label>Mẫu Excel cần xuất</label><select name="mode"><option value="list">Danh sách hồ sơ học nghề (25 cột)</option><option value="summary">Báo cáo tổng hợp (Chỉ tiêu / Số lượng)</option><option value="truong">Báo cáo theo cơ sở đào tạo</option><option value="nghe">Báo cáo theo nghề đào tạo</option></select></div>${modalFoot('Xuất báo cáo')}</form>`);}
 async function exportSummaryOrMatrix(mode){
   const stamp=new Date().toISOString().slice(0,10);
-  if(mode==='summary'){const d=await rpc('overview',state.reportFilters,{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts,state.reportFilters.status).map((row,i)=>[i+1,...row]);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['STT','Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề',{summaryCompact:true});}
+  if(mode==='summary'){const d=await rpc('overview',{...state.reportFilters,forceFresh:true},{ttl:0});const lines=reportKpiRows(d.kpi,d.statusCounts,state.reportFilters.status).map((row,i)=>[i+1,...row]);downloadReportXlsx('Bao-cao-hoc-nghe-'+stamp+'.xlsx',['STT','Chỉ tiêu','Số lượng'],lines,'Báo cáo học nghề',{summaryCompact:true});}
   else{
     const d=await rpc('report_matrix',{...state.reportFilters,groupBy:mode},{ttl:0});
     const label=mode==='truong'?'Tên cơ sở đào tạo':'Tên nghề';
@@ -1363,6 +1389,7 @@ const serialized=async(fn,progress={})=>{
     if(button?.isConnected){button.innerHTML=prior;button.removeAttribute('aria-busy');}
     document.querySelectorAll('[data-submit-btn]').forEach(x=>{x.disabled=(!!(x.closest('#status-form')&&$('#status-conflict')) || x.id==='bulk-import-submit' && $('#bulk-catalog-form')?.dataset.ready!=='yes') || (x.id==='record-import-submit' && !state.importPreview?.valid) || (x.id==='status-bulk-submit' && (!state.statusImport?.verified || !state.statusImport?.results?.some(r=>r.kind==='eligible')));});
     if(state.needsActiveRefresh&&$('#modal-layer')?.classList.contains('hidden'))void refreshVisibleStaleData();
+    if(state.session)startMenuPrefetch();
   }
 };
 // Delegated buttons: no inline user-controlled event handlers.
@@ -1471,7 +1498,7 @@ document.addEventListener('click',async e=>{
   if(node.hasAttribute('data-new-account')){accountForm(null);return;}
   if(node.hasAttribute('data-edit-account')){accountForm(state.accountRows.find(x=>x.TAI_KHOAN_ID===node.dataset.editAccount));return;}
   if(node.hasAttribute('data-file-remove')){if(!confirm('Gỡ tệp đính kèm của hồ sơ?'))return;const r=getCurrentRecord(node.dataset.fileRemove);if(!r)return;await serialized(async()=>{await rpc('file_remove',{HO_SO_ID:r.HO_SO_ID,PHIEN_BAN:r.PHIEN_BAN},{mutate:true});notify('Đã gỡ tệp.');await afterMutation('records');});return;}
-  if(node.hasAttribute('data-export-list')){try{await exportReport({...state.filters,source:'records'});}catch(err){failure(err);}return;}
+  if(node.hasAttribute('data-export-list')){await serialized(async()=>exportReport({...state.filters,source:'records'}));return;}
   if(node.id==='print-report'){window.print();return;}
   if(node.id==='report-export'){exportModal();return;}
   if(node.id==='find-person'){
@@ -1630,6 +1657,7 @@ function recheckPermissionOnResume(){
   state.lastPermissionFocusCheck=now;
   if(now-state.permissionChecked>=30000)void verifyPermission(true).catch(()=>{/* Khi có lỗi mạng, giữ nguyên biểu mẫu đang nhập. */});
   else if(state.needsActiveRefresh)void refreshVisibleStaleData();
+  startMenuPrefetch();
 }
 document.addEventListener('visibilitychange',recheckPermissionOnResume);
 window.addEventListener('focus',recheckPermissionOnResume);

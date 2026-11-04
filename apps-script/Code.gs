@@ -1,11 +1,11 @@
 /**
- * THEO_DOI_HOC_NGHE_API — v1.2.30-RC
+ * THEO_DOI_HOC_NGHE_API — v1.2.32-RC
  * Dự án độc lập: Google Sheets + Apps Script, không sử dụng Firebase hoặc Work.
  * Đặt API_SHARED_SECRET / SPREADSHEET_ID / GOOGLE_CLIENT_ID trong Script Properties.
  * Không phát hành Web App khi chưa triển khai proxy có xác minh Google ID Token.
  */
 var APP = {
-  version: '1.2.30-RC',
+  version: '1.2.32-RC',
   tz: 'Asia/Ho_Chi_Minh',
   maxFileBytes: 10485760,
   chunkBytes: 262144,
@@ -181,7 +181,7 @@ function doPost(e) {
       throw err_('NOT_AUTHORIZED', 'Thiếu danh tính được xác minh.');
     }
     if(cfg_().getProperty('HN_PERF_TEST')==='1')
-      HN_PERF_={started:Date.now(),action:body.action,authMs:0,lockWaitMs:0,sheetReads:0,cells:0};
+      HN_PERF_={started:Date.now(),action:body.action,authMs:0,lockWaitMs:0,sheetReads:0,cells:0,cacheHits:0,cacheMisses:0};
     var authStarted=Date.now();
     var user = authorize_(who, body.action);
     if(HN_PERF_)HN_PERF_.authMs=Date.now()-authStarted;
@@ -251,6 +251,7 @@ function perfEmit_(ok){
     var out={name:'YC022',action:HN_PERF_.action,ok:ok,totalMs:HN_PERF_.totalMs,
       authMs:HN_PERF_.authMs||0,lockWaitMs:HN_PERF_.lockWaitMs,
       sheetReads:HN_PERF_.sheetReads,cells:HN_PERF_.cells,
+      cacheHits:HN_PERF_.cacheHits,cacheMisses:HN_PERF_.cacheMisses,
       fullSheetReadMs:HN_PERF_.fullSheetReadMs||0,rowLookupMs:HN_PERF_.rowLookupMs||0,rowReadMs:HN_PERF_.rowReadMs||0,
       validationMs:HN_PERF_.validationMs||0,writeMs:HN_PERF_.writeMs||0,
       revisionMs:HN_PERF_.revisionMs||0,auditMs:HN_PERF_.auditMs||0};
@@ -310,7 +311,9 @@ function dataRevisionForUser_(user){return user.VAI_TRO==='CO_SO_DAO_TAO'?versio
 function bumpDataForSchools_(ids){
   var updates={REV_DATA:Utilities.getUuid().slice(0,12)};
   (ids||[]).filter(Boolean).forEach(function(id){updates['REV_SCHOOL_'+id]=Utilities.getUuid().slice(0,12);});
-  Object.keys(updates).forEach(function(k){cfg_().setProperty(k,updates[k]);});
+  var properties=cfg_();
+  if(typeof properties.setProperties==='function')properties.setProperties(updates,false);
+  else Object.keys(updates).forEach(function(k){properties.setProperty(k,updates[k]);});
 }
 function bump_(type){cfg_().setProperty('REV_'+type, Utilities.getUuid().slice(0,12));}
 function cached_(prefix,key,seconds,fn){var k=cacheKey_(prefix,key), value=cache_().get(k);if(value){try{return JSON.parse(value);}catch(e){}}var data=fn(); var txt=JSON.stringify(data);if(txt.length<65000){try{cache_().put(k,txt,seconds||45);}catch(e){console.warn('Cache bypass',e.message);}}return data;}
@@ -734,15 +737,17 @@ function cachedRecordSnapshot_(){
         if(!part)throw new Error('Snapshot chunk expired');
         rows=rows.concat(JSON.parse(part));
       }
+      if(HN_PERF_)HN_PERF_.cacheHits++;
       return rows;
     }}catch(e){/* Miss một phần: đọc lại nguồn Sheet, tuyệt đối không trả dữ liệu thiếu */}
   }
+  if(HN_PERF_)HN_PERF_.cacheMisses++;
   rows=sheetRows_('HO_SO_HOC_NGHE');
-  if(!rows.length||rows.length>7000)return rows;
+  if(!rows.length)return rows;
   var batch=[],chars=0;
   rows.forEach(function(r){
     var part=JSON.stringify(r),len=part.length+2;
-    if(batch.length&&chars+len>22000){chunks.push(JSON.stringify(batch));batch=[];chars=0;}
+    if(batch.length&&chars+len>30000){chunks.push(JSON.stringify(batch));batch=[];chars=0;}
     batch.push(r);chars+=len;
   });
   if(batch.length)chunks.push(JSON.stringify(batch));
@@ -756,6 +761,60 @@ function cachedRecordSnapshot_(){
   return rows;
 }
 function visibleRecords_(user){return cachedRecordSnapshot_().filter(function(r){return canViewRecord_(user,r);});}
+/** YC-HN-037: thống kê chỉ cần 20 cột đầu thay vì 40 cột hồ sơ.
+ * Trả về dữ liệu trong RAM backend, không trả snapshot dùng chung sang frontend.
+ * Cache theo REV_DATA và chia khối có kiểm tra đầy đủ; cache thiếu => đọc lại Sheets.
+ */
+function aggregateRows_(forceFresh){
+  var rev=version_('DATA'),cacheRoot=['aggregate20',rev],metaKey=cacheKey_('HNAGG',[cacheRoot,'meta']);
+  if(!forceFresh){
+    var meta=cache_().get(metaKey);
+    if(meta){
+      try{
+        var parts=Number(meta),keys=[],i,rows=[];
+        if(parts>0&&parts<=180){
+          for(i=0;i<parts;i++)keys.push(cacheKey_('HNAGG',[cacheRoot,i]));
+          var found=cache_().getAll(keys);
+          for(i=0;i<parts;i++){
+            if(!found[keys[i]])throw Error('Aggregate cache incomplete');
+            rows=rows.concat(JSON.parse(found[keys[i]]));
+          }
+          if(HN_PERF_)HN_PERF_.cacheHits++;
+          return rows;
+        }
+      }catch(e){/* Nếu thiếu một khối, không dùng dữ liệu thống kê thiếu */}
+    }
+  }
+  if(HN_PERF_)HN_PERF_.cacheMisses++;
+  var sheet=getSheet_('HO_SO_HOC_NGHE'),last=sheet.getLastRow(),hdr=APP.lists.HO_SO_HOC_NGHE.slice(0,20);
+  if(last<2)return [];
+  perfRead_('HO_SO_HOC_NGHE',last-1,hdr.length);
+  var values=sheet.getRange(2,1,last-1,hdr.length).getDisplayValues();
+  var result=values.filter(function(x){return x[0]!=='';}).map(function(cells){
+    var record={};hdr.forEach(function(k,i){record[k]=cells[i];});return record;
+  });
+  if(!forceFresh){
+    var chunks=[],batch=[],length=0;
+    result.forEach(function(row){
+      var str=JSON.stringify(row),size=str.length+2;
+      if(batch.length&&length+size>30000){chunks.push(JSON.stringify(batch));batch=[];length=0;}
+      batch.push(row);length+=size;
+    });
+    if(batch.length)chunks.push(JSON.stringify(batch));
+    if(chunks.length&&chunks.length<=180){
+      try{
+        var map={};chunks.forEach(function(chunk,i){map[cacheKey_('HNAGG',[cacheRoot,i])]=chunk;});
+        cache_().putAll(map,90);
+        cache_().put(metaKey,String(chunks.length),90);
+      }catch(e){console.warn('Aggregate cache bypass',e.message);}
+    }
+  }
+  return result;
+}
+function visibleAggregateRecords_(user,forceFresh){
+  return aggregateRows_(forceFresh).filter(function(record){return canViewRecord_(user,record);});
+}
+
 // YC-HN-019: Chỉ chấp nhận ngày ISO hợp lệ, đầu mút có bao gồm ngày.
 var COURSE_END_FILTER_='FILTER_COURSE_END_DATE'; // Chỉ là chế độ tra cứu lịch dự kiến.
 var ALL_DECISIONS_FILTER_='FILTER_ALL_DECISIONS'; // Lọc ảo theo mọi tình trạng, không ghi vào Sheet.
@@ -1187,11 +1246,11 @@ function recordBulkImport_(user,p,requestId){return dedupeWrite_(requestId,funct
 
 function overview_(user,p){
   var filters=reportFilters_(p,user),year=filters.year,truong=filters.truong,nghe=filters.nghe;
-  return cached_('OVERVIEW',[APP.version,dataRevisionForUser_(user),version_('USERS'),user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V3_COURSE_END_DATE_INDEPENDENT_V1'],90,function(){
+  var calculate=function(){
     // Một lần lấy snapshot đã kiểm quyền, sau đó lọc hai tập độc lập trong RAM.
     // Tình trạng thường: KPI gốc theo NGAY_QUYET_DINH; Hoàn thành: theo NGAY_KET_THUC_DU_KIEN.
     // Không cộng chỉ tiêu hoàn thành vào các tổng tình trạng, không dùng ngày dự kiến như chứng nhận tốt nghiệp.
-    var visible=visibleRecords_(user);
+    var visible=visibleAggregateRecords_(user,p.forceFresh===true);
     var all=reportRecords_(filters,user,false,visible);
     var courseEndFilters={year:year,truong:truong,nghe:nghe,status:COURSE_END_FILTER_,from:filters.from,to:filters.to};
     var completed=filters.status===COURSE_END_FILTER_?all:reportRecords_(courseEndFilters,user,false,visible);
@@ -1206,7 +1265,8 @@ function overview_(user,p){
       schools[r.TRUONG_ID]=(schools[r.TRUONG_ID]||0)+1;trades[r.NGHE_ID]=(trades[r.NGHE_ID]||0)+1;
     });
     return {kpi:k,statusCounts:extras,schoolCounts:schools,tradeCounts:trades};
-  });
+  };
+  return p.forceFresh===true?calculate():cached_('OVERVIEW',[APP.version,dataRevisionForUser_(user),version_('USERS'),user.VAI_TRO,user.TRUONG_ID||'',year,truong,nghe,filters.status,filters.from,filters.to,'YC025_V3_COURSE_END_DATE_INDEPENDENT_V1'],90,calculate);
 }
 /** YC-HN-026: ma trận chỉ lấy hồ sơ trong phạm vi user đã xác minh.
  * Cột quyết định lọc NGAY_QUYET_DINH, cột hoàn thành lọc NGAY_KET_THUC_DU_KIEN
@@ -1220,7 +1280,7 @@ function reportMatrix_(user,p){
   must_(by==='truong'||by==='nghe','VALIDATION','Vui lòng chọn mẫu báo cáo theo cơ sở hoặc theo nghề.');
   var filters=reportFilters_(p,user),key=by==='truong'?'TRUONG_ID':'NGHE_ID';
   // Một snapshot chỉ gồm các hồ sơ của người sử dụng; không tin mã trường từ payload.
-  var visible=visibleRecords_(user);
+  var visible=visibleAggregateRecords_(user,true);
   var rows=reportRecords_(filters,user,false,visible);
   var includeCompleted=!filters.status||filters.status===ALL_DECISIONS_FILTER_||filters.status===COURSE_END_FILTER_||filters.status==='REPORT_PARTICIPATED_ALL';
   var completed=includeCompleted?(filters.status===COURSE_END_FILTER_?rows:reportRecords_({year:filters.year,truong:filters.truong,nghe:filters.nghe,status:COURSE_END_FILTER_,from:filters.from,to:filters.to},user,false,visible)):[];
@@ -1259,7 +1319,18 @@ function listExportFilters_(p,user){
 }
 function exportRecords_(user,p){
   // Hồ sơ và Báo cáo cùng dùng chế độ lọc ngày kết thúc dự kiến; không ghi tình trạng ảo vào Sheet.
-  var all=p.source==='records'?filteredRecords_(listExportFilters_(p,user),user):reportRecords_(p,user); must_(all.length<=5000,'EXPORT_TOO_LARGE','Tối đa 5.000 hồ sơ cho mỗi lần xuất. Hãy thu hẹp bộ lọc.');
+  // Xuất chính thức phải đối chiếu Sheets tại thời điểm yêu cầu, kể cả khi
+  // bản ghi bị chỉnh sửa thủ công mà chưa bump revision. Không dùng cache snapshot.
+  var liveRows=sheetRows_('HO_SO_HOC_NGHE').filter(function(r){return canViewRecord_(user,r);});
+  var all;
+  if(p.source==='records'){
+    var f=listExportFilters_(p,user);
+    all=liveRows.filter(function(r){return recordMatches_(r,f);}).sort(function(a,b){return recordSort_(a,b,f);});
+  }else{
+    var f=reportFilters_(p,user),base={year:f.year,truong:f.truong,nghe:f.nghe,from:f.from,to:f.to,status:f.status===COURSE_END_FILTER_?COURSE_END_FILTER_:''};
+    all=liveRows.filter(function(r){return recordMatches_(r,base);}).sort(function(a,b){return recordSort_(a,b,base);}).filter(function(r){return reportMatches_(r,f);});
+  }
+  must_(all.length<=5000,'EXPORT_TOO_LARGE','Tối đa 5.000 hồ sơ cho mỗi lần xuất. Hãy thu hẹp bộ lọc.');
   var schools={},trades={};catalogRows_('truong').forEach(function(x){schools[x.TRUONG_ID]=x.TEN_TRUONG;});catalogRows_('nghe').forEach(function(x){trades[x.NGHE_ID]=x.TEN_NGHE;});
   return {columns:['STT', 'Họ và tên', 'Năm sinh', 'Giới tính', 'Số sổ BHXH', 'Số QĐ HTHN', 'Ngày ban hành QĐHN', 'Số QĐ TCTN', 'Ngày ban hành QĐ TCTN', 'Nghề đăng ký', 'Số tháng hỗ trợ', 'Mức hỗ trợ/tháng', 'Thời gian đào tạo - Từ ngày', 'Thời gian đào tạo - Đến ngày', 'Cơ sở đào tạo nghề', 'Ngày kết thúc hưởng TCTN', 'Ngày kết thúc hỗ trợ học nghề', 'Địa chỉ tạm trú', 'Địa chỉ thường trú', 'Số CMND', 'Ngày cấp CMND', 'Nơi cấp CMND', 'Địa chỉ cơ sở đào tạo', 'Chi nhánh BHTN', 'Điện thoại'],items:all.map(function(x,i){return [i+1,x.HO_TEN,x.NGAY_SINH,x.GIOI_TINH,x.SO_SO_BHXH,x.SO_QUYET_DINH,x.NGAY_QUYET_DINH,x.SO_QD_TCTN,x.NGAY_QD_TCTN,trades[x.NGHE_ID]||x.NGHE_ID,supportMonthsVN_(x.SO_THANG_HO_TRO),supportAmountVN_(x.MUC_HO_TRO_THANG),x.NGAY_BAT_DAU,x.NGAY_KET_THUC_DU_KIEN,schools[x.TRUONG_ID]||x.TRUONG_ID,x.NGAY_KET_THUC_TCTN,x.NGAY_KET_THUC_HO_TRO,x.DIA_CHI_TAM_TRU,x.DIA_CHI_THUONG_TRU,x.SO_CMND,x.NGAY_CAP_CMND,x.NOI_CAP_CMND,x.DIA_CHI_CO_SO,x.CHI_NHANH_BHTN,x.DIEN_THOAI];})};
 }
